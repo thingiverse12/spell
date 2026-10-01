@@ -115,5 +115,61 @@ for (const file of MODULES) {
   }
 }
 
+const hudSource = sources.find((s) => s.name === 'hud.js')?.code ?? '';
+const mainSource = sources.find((s) => s.name === 'main.js')?.code ?? '';
+
+/* 7. member-access check: reading a property that is never declared is the
+   classic "undefined is not a function" bug. Covers hud.el.* and state.*, which
+   is where the client keeps all of its wired-up UI and per-session data.
+
+   A property counts as known when it is declared in the literal OR assigned
+   somewhere in the file (some fields are only created at runtime). A typo that
+   only ever appears on the reading side is therefore caught. */
+function declaredKeys(source, marker) {
+  const start = source.indexOf(marker);
+  if (start === -1) return null;
+  const open = source.indexOf('{', start);
+  let depth = 0;
+  let end = -1;
+  for (let i = open; i < source.length; i++) {
+    if (source[i] === '{') depth++;
+    else if (source[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+  }
+  if (end === -1) return null;
+  const body = source.slice(open, end);
+  return new Set([...body.matchAll(/(?:^|[{,\s])([A-Za-z_$][\w$]*)\s*:/g)].map((m) => m[1]));
+}
+
+// hud.js uses `this.el.X` for its own lookups; a local variable called `el`
+// (the hotbar slots) must not be mistaken for it, hence the this-qualified form.
+{
+  const declared = declaredKeys(hudSource, 'this.el = {');
+  const writes = new Set([...hudSource.matchAll(/this\.el\.([A-Za-z_$][\w$]*)\s*=/g)].map((m) => m[1]));
+  const reads = new Set([...hudSource.matchAll(/this\.el\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
+  const unknown = [...reads].filter((k) => !declared?.has(k) && !writes.has(k));
+  check('hud.el: alla fält som hud.js läser finns', unknown.length === 0, unknown.join(', '));
+}
+
+{
+  const declared = declaredKeys(mainSource, 'const state = {');
+  const writes = new Set([...mainSource.matchAll(/state\.([A-Za-z_$][\w$]*)\s*=(?!=)/g)].map((m) => m[1]));
+  const reads = new Set([...mainSource.matchAll(/state\.([A-Za-z_$][\w$]*)/g)].map((m) => m[1]));
+  const unknown = [...reads].filter((k) => !declared?.has(k) && !writes.has(k));
+  check('state: alla fält som main.js läser finns', unknown.length === 0, unknown.join(', '));
+}
+
+/* cross-file: other modules read hud.el.X, so those must exist in hud.js */
+{
+  const declared = declaredKeys(hudSource, 'this.el = {');
+  const unknown = new Set();
+  for (const { name, code } of sources) {
+    if (name === 'hud.js') continue;
+    for (const m of code.matchAll(/\bhud\.el\.([A-Za-z_$][\w$]*)/g)) {
+      if (declared && !declared.has(m[1])) unknown.add(`${name}: hud.el.${m[1]}`);
+    }
+  }
+  check('hud.el: alla fält som andra moduler läser finns', unknown.size === 0, [...unknown].join(', '));
+}
+
 console.log(`\n\x1b[1mResult:\x1b[0m ${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);

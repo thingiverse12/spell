@@ -230,3 +230,28 @@ Nätverksfel är normalfallet, inte undantaget, och behandlas därför explicit:
   `/socket` (vissa proxys prefixar om sökvägen), och allt annat nekas. Felet
   loggas, så en felkonfigurerad proxy syns i serverloggen i stället för att bara
   bli ett tyst fel i webbläsaren.
+
+## 12. Kamera och kontroller (regler som testas)
+
+Kamerafel är de enda fel som gör spelet ospelbart, så reglerna är uttryckta som
+tester i `test/camera.js` (43 kontroller) snarare än som avsikter:
+
+| Regel | Varför | Test |
+|---|---|---|
+| Pitch klipps till ±89° (`PITCH_LIMIT`) | vid exakt 90° vänds upp-vektorn och vyn blir upp-och-ned utan att gå att rätta | 1000 drag i vardera riktningen når aldrig zenit/nadir |
+| Roll är **alltid** exakt 0 | lutning får vyn att kännas felvänd | 50 slumpade bildrutor, roll === 0 |
+| Rotationen sätts som en helhet `(pitch, yaw, 0, 'YXZ')` | att sätta x och y var för sig behöll roll från en tidigare `lookAt()` | `checkCamera` flaggar roll > 1e-6 |
+| Mus upp = titta upp | skärmkonvention | 4 tester, med och utan inverterad Y |
+| Första musrörelsen i drag-läge ger **noll** delta | jämförelsen skedde mot ett oanvänt (0,0) → kameran small i taket så fort man började dra | regressionstest: delta 0, sedan rimliga deltan |
+| Orimliga hopp klipps vid 180 px och NaN ignoreras | pekaren som lämnar fönstret eller syntetiska events får inte förgifta rotationen | 400 rörelser med hopp och NaN → vinkeln förblir giltig |
+| Kameran går aldrig under marken (golv på markyta + 0,25 m) | annars ser man världen inifrån | 60 bildrutor från y = −50 stannar ovanför ytan |
+| Drag = titta, **klick** = handla | annars hugger man varje gång man tittar | `isTap`: kort tryck utan rörelse = klick |
+| Självkontroll varje bildruta | NaN eller lutning upptäcks och **repareras** i stället för att visa en trasig värld | 6 tester som matar in fel och kräver att de hittas |
+
+Dessutom: `window.onerror` och `unhandledrejection` fångas i klienten, visas som
+en toast och listas i F3-panelen (`fel: n — senast: …`). Arrayen finns som
+`window.__spellErrors` för att kunna läsas direkt i webbläsarkonsolen. Det är
+så "det är lite errors" blir ett åtgärdbart fel i stället för en gissning.
+
+Utan pekarlås (vanligt i inbäddade preview-rutor) byter klienten automatiskt
+läge och skriver ut det i tipsraden: *dra för att titta · klick för att handla*.

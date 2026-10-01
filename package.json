@@ -10,10 +10,11 @@
     "test": "node test/harness.js",
     "verify:browser": "node test/browser.js",
     "test:client": "node test/client-net.js",
-    "test:all": "node test/harness.js && node test/client-net.js && node test/ui-static.js && node test/hud-dom.js && node test/render-logic.js",
+    "test:all": "node test/harness.js && node test/client-net.js && node test/ui-static.js && node test/hud-dom.js && node test/render-logic.js && node test/camera.js",
     "test:ui": "node test/ui-static.js",
     "test:dom": "node test/hud-dom.js",
-    "test:render": "node test/render-logic.js"
+    "test:render": "node test/render-logic.js",
+    "test:camera": "node test/camera.js"
   },
   "keywords": [
     "game",

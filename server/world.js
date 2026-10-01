@@ -20,7 +20,7 @@ import {
   WORLD, NODES, ANIMALS, PIECES, BUILD, ITEMS, clamp, piecePosition, buildingAABB,
 } from '../shared/config.js';
 import {
-  sampleHeight, sampleNormal, slopeAt, biomeAt, fbm,
+  sampleHeight, slopeAt, biomeAt, fbm,
 } from '../shared/noise.js';
 
 export const CHUNK = 64;

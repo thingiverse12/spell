@@ -236,3 +236,28 @@ explicitly:
   `/socket` (some proxies rewrite the path) and rejected everywhere else, with
   the rejection logged, so a misconfigured proxy shows up in the server log
   instead of failing silently in the browser.
+
+## 12. Camera and controls (rules that are tested)
+
+Camera bugs are the only kind that make the game unplayable, so the rules live as
+tests in `test/camera.js` (43 checks) instead of as intentions:
+
+| Rule | Why | Test |
+|---|---|---|
+| Pitch is clamped to ±89° (`PITCH_LIMIT`) | at exactly 90° the up-vector flips and the view is upside down with no way back | 1000 drags in each direction never reach zenith/nadir |
+| Roll is **always** exactly 0 | any tilt makes the view feel inverted | 50 random frames, roll === 0 |
+| Rotation is assigned as a whole `(pitch, yaw, 0, 'YXZ')` | assigning x and y separately kept the roll left over from an earlier `lookAt()` | `checkCamera` flags roll > 1e-6 |
+| Mouse up = look up | screen convention | 4 tests, with and without inverted Y |
+| The first mousemove of a drag reports **zero** | it was compared against an unused (0,0), so the camera snapped to the ceiling as soon as you started dragging | regression test: delta 0, then sane deltas |
+| Absurd jumps are clamped at 180 px and NaN is ignored | a pointer leaving the window or a synthetic event must not poison the rotation | 400 moves with jumps and NaN keep the angles valid |
+| The camera never goes below the ground (floor at surface + 0.25 m) | otherwise you see the world from inside | 60 frames starting at y = −50 stay above the surface |
+| Drag = look, **click** = act | otherwise you swing the axe every time you look around | `isTap`: short press without movement is a click |
+| A per-frame self-check | NaN or roll is detected and **repaired** instead of showing a broken world | 6 tests inject faults and require them to be found |
+
+In addition, `window.onerror` and `unhandledrejection` are captured in the client,
+shown as a toast and listed in the F3 overlay (`fel: n — senast: …`). The array is
+also exposed as `window.__spellErrors` so it can be read from the browser console.
+That turns "there are some errors" into something actionable instead of a guess.
+
+Without pointer lock (common in embedded preview panes) the client switches mode
+automatically and says so in the hint bar: *drag to look · click to act*.

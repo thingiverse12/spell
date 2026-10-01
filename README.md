@@ -46,7 +46,7 @@ PORT=9000 SEED=42 DATA_DIR=./server/data-special node server/index.js
 | `Skift` / `Shift` | Springa (kostar stamina + mer hunger) |
 | `Mellanslag` / `Space` | Hoppa |
 | `Ctrl` | Smyga |
-| Vänsterklick | Samla / slå (mot nod, djur eller spelare) |
+| Vänsterklick | Samla / slå (mot nod, djur eller spelare). Utan pekarlås: **kort klick** = handla, **dra** = titta |
 | Högerklick | Äta eller använda valt föremål · ta bort byggdel i byggläge |
 | `E` | Öppna/stänga dörr · äta nästa mat om ingen dörr finns |
 | `1`–`9`, mushjul | Välja verktyg (hotbar = ryggsäckens 9 första platser) |
@@ -101,7 +101,8 @@ npm run test:client   # klientens egen net.js mot en live-server        (22 kont
 npm run test:ui       # DOM-id:n, i18n, importer, importmap, CSS        (213 kontroller)
 npm run test:dom      # HUD:en i jsdom: barer, hotbar, recept, byggmeny (65 kontroller)
 npm run test:render   # scenlogik: terräng, instanser, byggnader, djur  (71 kontroller)
-npm run test:all      # allt ovan = 406 kontroller
+npm run test:camera   # kameran: pitch/roll-gränser, drag-look, NaN, klick (43 kontroller)
+npm run test:all      # allt ovan = 456 kontroller
 npm run verify:browser  # riktig Chromium via puppeteer (kräver nedladdad Chrome)
 ```
 
@@ -136,7 +137,9 @@ faller den tillbaka på en statisk kontroll av att alla moduler laddas.
 | "Samma spelare är redan inloggad i en annan flik" | En webbläsare delar `localStorage`, så två flikar får samma spelar-id | Klicka **Spela som gäst** (eller vänta — klienten byter automatiskt) |
 | Karaktären står under/innanför marken | Terränggeometrins trianglar var felvända (fixat) eller en sparad position från en äldre världsversion | Ladda om sidan; klienten begär automatiskt "unstick" om du skulle hamna under ytan |
 | Spelet hackar | Svag GPU | `Esc` → sänk siktavstånd, stäng av skuggor eller slå på "Enkel grafik" |
-| Musen fångas inte | Pekarlås blockeras ofta i inbäddade iframes/preview-fönster | **Dra med musen** för att titta — klienten växlar automatiskt till det läget |
+| Musen fångas inte | Pekarlås blockeras ofta i inbäddade iframes/preview-fönster | Klienten växlar automatiskt: **dra** = titta, **klick** = handla. Tipsraden visar det |
+| Kameran känns vänd / tittar rakt upp | Skulle kunna vara pitch utan gräns — men den är klippt till ±89° och roll är låst till 0, och självkontrollen reparerar fel varje bildruta. Öppna F3 och läs `pitch`/`roll` | Rapportera gärna värdet från F3 |
+| "Det är lite errors" | Klienten fångar nu alla fel | Öppna F3: `fel: n — senast: …`, eller läs `window.__spellErrors` i konsolen |
 
 ## Projektstruktur
 
@@ -165,7 +168,8 @@ test/
   client-net.js      klientens net.js mot live-server (15 kontroller)
   ui-static.js       DOM/i18n/import-konsistens (130 kontroller)
   hud-dom.js         HUD/UI-beteende i jsdom (65 kontroller)
-  render-logic.js    scenlogik utan GPU i jsdom (65 kontroller)
+  render-logic.js    scenlogik utan GPU i jsdom (71 kontroller)
+  camera.js          kameramatematik: gränser, drag-look, NaN, klick/drag (43 kontroller)
   dom-env.js         delad jsdom-miljö + canvas-2D-stubbe
   browser.js         puppeteer-smoketest + statisk fallback
 docs/
@@ -220,10 +224,10 @@ prediction and server simulation can never drift apart. Player movement is
 predicted locally, verified by the server, and reconciled on every snapshot;
 remote players and animals are interpolated 120 ms in the past.
 
-Test it: `npm run test:all` runs 406 checks — the server/multiplayer harness
-(26), the real client network module against a live server (15), DOM/i18n
-consistency (130), HUD behaviour in jsdom (65) and scene/render logic without a
-GPU (65). `npm run verify:browser` additionally drives a real Chromium and saves
+Test it: `npm run test:all` runs 456 checks — the server/multiplayer harness
+(31), the real client network module against a live server (22), DOM/i18n/import
+consistency (224), HUD behaviour in jsdom (65), scene/render logic without a GPU
+(71) and the camera rules (43). `npm run verify:browser` additionally drives a real Chromium and saves
 screenshots when Chrome is available.
 
 Read the design in [docs/en/GDD.md](docs/en/GDD.md), the engineering in

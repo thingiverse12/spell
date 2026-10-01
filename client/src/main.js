@@ -12,8 +12,8 @@
 
 import * as THREE from 'three';
 import {
-  WORLD, NET, PHYS, SURVIVAL, COMBAT, ITEMS, PIECES, RECIPES, BUILD, NODES,
-  clamp, buildingAABB, piecePosition, countItem,
+  WORLD, NET, PHYS, COMBAT, ITEMS, PIECES, BUILD, NODES,
+  buildingAABB, piecePosition, countItem,
 } from '../../shared/config.js';
 import { sampleHeight } from '../../shared/noise.js';
 import { Net } from './net.js';
@@ -23,6 +23,9 @@ import { NodeView, BuildingView, AnimalView, PlayerView, ViewModel, BuildGhost }
 import { settings, loadSettings, saveSettings, playerId } from './settings.js';
 import { setLang, t, itemName, pieceName, getLang } from './i18n.js';
 import { initAudio, resumeAudio, setAudioEnabled, setAmbient, playSound } from './audio.js';
+import {
+  clampPitch, applyLook, anchorDrag, dragDelta, isTap, computeCameraPose, checkCamera,
+} from './camera.js';
 
 loadSettings();
 setLang(settings.lang);
@@ -42,6 +45,34 @@ scene.fog = new THREE.Fog(0x9fc6e0, 60, settings.renderDistance);
 const camera = new THREE.PerspectiveCamera(settings.fov, window.innerWidth / window.innerHeight, 0.08, 900);
 
 const hud = new Hud();
+
+/* ------------------------------------------------------------------ *
+ *  Runtime error capture
+ *
+ * "There are some errors" is useless without names. Every uncaught error and
+ * rejected promise is logged, toasted and listed in the F3 overlay, and the
+ * array is exposed as window.__spellErrors so it can be read straight from the
+ * devtools console.
+ * ------------------------------------------------------------------ */
+const runtimeErrors = [];
+
+function recordError(kind, message, extra = '') {
+  const entry = {
+    kind,
+    message: String(message ?? 'okänt fel').slice(0, 300),
+    extra: String(extra ?? '').slice(0, 200),
+    at: new Date().toISOString(),
+  };
+  runtimeErrors.push(entry);
+  if (runtimeErrors.length > 20) runtimeErrors.shift();
+  console.error(`[spell:${kind}] ${entry.message}`, entry.extra);
+  try { hud.toast(`${t('errorToast')}: ${entry.message}`, 'bad'); } catch { /* hud not ready */ }
+}
+
+window.addEventListener('error', (e) => recordError('error', e.message || 'okänt fel', `${e.filename || ''}${e.lineno ? `:${e.lineno}` : ''}`));
+window.addEventListener('unhandledrejection', (e) => recordError('promise', e.reason?.message || String(e.reason ?? '')));
+window.__spellErrors = runtimeErrors;
+
 const viewModel = new ViewModel();
 const ghost = new BuildGhost(scene);
 
@@ -61,7 +92,7 @@ const state = {
   rotation: 0,
   target: null,
   keys: Object.create(null),
-  mouse: { locked: false, drag: false, lastX: 0, lastY: 0, lookMode: 'pointer' },
+  mouse: { locked: false, drag: false, lastX: 0, lastY: 0, lookMode: 'pointer', hasAnchor: false, press: null },
   inputAccum: 0,
   lastFrame: performance.now(),
   fps: 0,
@@ -76,6 +107,11 @@ const state = {
   deathCause: 'unknown',
   hoverBuilding: null,
   selection: -1,
+  // fields that are created at runtime (declared here so typos are caught)
+  selectedPiece: 'foundation',
+  underwater: false,
+  stuckSince: null,
+  cameraRepairAt: 0,
 };
 
 /* ------------------------------------------------------------------ *
@@ -374,35 +410,66 @@ function bindUi() {
     }
   });
   document.addEventListener('pointerlockerror', () => {
-    // preview iframes often block pointer lock: fall back to drag-to-look
+    // Embedded previews/iframes often block pointer lock. The fallback changes
+    // the controls (drag = look, click = act) so say so instead of silently
+    // behaving differently from what the help screen promises.
+    if (state.mouse.lookMode === 'drag') return;
     state.mouse.lookMode = 'drag';
-    hud.toast(getLang() === 'sv' ? 'Dra med musen för att titta' : 'Drag the mouse to look around');
+    state.mouse.hasAnchor = false;
+    hud.toast(t('dragLook'));
   });
 
+  /**
+   * Look. Two modes:
+   *   pointer lock - the browser reports deltas (movementX/Y)
+   *   drag         - we track the pointer ourselves, but only while a button is
+   *                  held, and the first move after anchoring is ignored. That
+   *                  bug (comparing against an unset 0,0) snapped the camera to
+   *                  the ceiling the moment the player started dragging.
+   */
   document.addEventListener('mousemove', (e) => {
     if (!state.running) return;
-    const sens = settings.sensitivity * 0.0022;
-    let dx = 0;
-    let dy = 0;
-    if (state.mouse.locked) { dx = e.movementX; dy = e.movementY; }
-    else if (state.mouse.lookMode === 'drag' && !hud.anyOverlayOpen && e.target === canvas) {
-      dx = e.clientX - state.mouse.lastX; dy = e.clientY - state.mouse.lastY;
-    } else { state.mouse.lastX = e.clientX; state.mouse.lastY = e.clientY; return; }
-    state.mouse.lastX = e.clientX;
-    state.mouse.lastY = e.clientY;
     const you = state.net?.you;
     if (!you) return;
-    you.yaw -= dx * sens;
-    you.pitch = clamp(you.pitch - dy * sens * (settings.invertY ? -1 : 1), -1.55, 1.55);
+
+    if (state.mouse.locked) {
+      applyLook(you, e.movementX, e.movementY, settings);
+      return;
+    }
+    if (state.mouse.lookMode !== 'drag') { anchorDrag(state.mouse, e.clientX, e.clientY); return; }
+    if (hud.anyOverlayOpen || e.target !== canvas) { anchorDrag(state.mouse, e.clientX, e.clientY); return; }
+    if (!state.mouse.drag) { anchorDrag(state.mouse, e.clientX, e.clientY); return; }
+
+    const { dx, dy } = dragDelta(state.mouse, e.clientX, e.clientY);
+    if (dx || dy) applyLook(you, dx, dy, settings);
   });
 
   window.addEventListener('mousedown', (e) => {
     if (!state.running || hud.anyOverlayOpen || e.target !== canvas) return;
     state.mouse.drag = true;
-    if (e.button === 0) primaryAction();
-    if (e.button === 2) secondaryAction();
+    anchorDrag(state.mouse, e.clientX, e.clientY);
+    state.mouse.press = { button: e.button, at: performance.now(), x: e.clientX, y: e.clientY };
+    // With a locked pointer the mouse is for looking only, so a press is an action.
+    if (state.mouse.locked) {
+      if (e.button === 0) primaryAction();
+      if (e.button === 2) secondaryAction();
+    }
   });
-  window.addEventListener('mouseup', () => { state.mouse.drag = false; });
+
+  window.addEventListener('mouseup', (e) => {
+    const press = state.mouse.press;
+    state.mouse.drag = false;
+    state.mouse.press = null;
+    anchorDrag(state.mouse, e.clientX, e.clientY);
+    // Drag mode: a short press that did not move is a click -> act. Otherwise the
+    // player would swing the axe every time they looked around.
+    if (!state.mouse.locked && state.mouse.lookMode === 'drag' && press
+      && e.target === canvas && !hud.anyOverlayOpen
+      && isTap(press, performance.now(), e.clientX, e.clientY)) {
+      if (press.button === 0) primaryAction();
+      else if (press.button === 2) secondaryAction();
+    }
+  });
   document.addEventListener('contextmenu', (e) => { if (state.running) e.preventDefault(); });
   document.addEventListener('wheel', (e) => {
     if (!state.running || hud.anyOverlayOpen) return;
@@ -423,7 +490,14 @@ function bindUi() {
   document.addEventListener('keydown', (e) => onKey(e, true));
   document.addEventListener('keyup', (e) => onKey(e, false));
   window.addEventListener('resize', onResize);
-  window.addEventListener('blur', () => { state.keys = Object.create(null); });
+  window.addEventListener('blur', () => {
+    state.keys = Object.create(null);
+    // drop any half-finished drag: a stale anchor would otherwise turn the next
+    // mousemove into a jump
+    state.mouse.drag = false;
+    state.mouse.press = null;
+    state.mouse.hasAnchor = false;
+  });
 }
 
 function bindSettings() {
@@ -775,18 +849,27 @@ function update(dt, now) {
     });
   }
 
-  // ---- camera follows the predicted player
+  // ---- camera follows the predicted player (math lives in camera.js)
   const eye = you.crouch ? PHYS.crouchEyeHeight : PHYS.eyeHeight;
   const ground = sampleHeight(you.x, you.z, net.welcome?.seed ?? WORLD.seed);
-  const eyeTarget = Math.max(you.y, ground) + eye;
-  const smoothY = camera.position.y + (eyeTarget - camera.position.y) * (1 - Math.exp(-22 * dt));
-  // hard floor: the camera may never dip below the visible surface
-  camera.position.set(you.x, Math.max(smoothY, ground + 0.25), you.z);
-  camera.rotation.order = 'YXZ';
-  camera.rotation.y = you.yaw;
-  camera.rotation.x = you.pitch;
+  const pose = computeCameraPose({ you, ground, eyeHeight: eye, dt, currentY: camera.position.y });
+  camera.position.set(pose.x, pose.y, pose.z);
+  // Rotation is set as a whole with roll pinned to 0: assigning x and y alone
+  // would keep whatever roll was left from an earlier lookAt().
+  camera.rotation.set(pose.pitch, pose.yaw, 0, 'YXZ');
   camera.fov = settings.fov;
   camera.updateProjectionMatrix();
+
+  // ---- camera self-check: repair instead of showing a broken world
+  const camProblems = checkCamera({ position: camera.position, rotation: camera.rotation, fov: camera.fov });
+  if (camProblems.length) {
+    if (!state.cameraRepairAt || now - state.cameraRepairAt > 5000) {
+      state.cameraRepairAt = now;
+      recordError('camera', camProblems.join('; '), `pos ${camera.position.x.toFixed(1)},${camera.position.y.toFixed(1)},${camera.position.z.toFixed(1)}`);
+    }
+    camera.position.set(you.x, Math.max(you.y, Number.isFinite(ground) ? ground : you.y) + eye, you.z);
+    camera.rotation.set(clampPitch(you.pitch), Number.isFinite(you.yaw) ? you.yaw : 0, 0, 'YXZ');
+  }
 
   // ---- footsteps + splash + ambient
   const moved = Math.hypot(you.x - state.lastPos.x, you.z - state.lastPos.z);
@@ -843,15 +926,22 @@ function update(dt, now) {
     hud.drawMap(worldView, net.buildings, net.players, { id: net.playerId, x: you.x, z: you.z, yaw: you.yaw });
   }
 
-  // hovers tooltip / hint bar
+  // Contextual hint bar. One place decides the text: appending from elsewhere
+  // does not work because this runs every frame.
+  let hint = '';
   if (state.target) {
-    hud.setHint(`${getLang() === 'sv' ? NODES[state.target.type].name : NODES[state.target.type].nameEn} · ${t('hintHarvest')}`);
+    const def = NODES[state.target.type];
+    hint = `${getLang() === 'sv' ? def.name : def.nameEn} · ${t('hintHarvest')}`;
   } else if (state.hoverBuilding) {
     const b = state.hoverBuilding.building;
-    hud.setHint(`${pieceName(PIECES[b.piece])} · ${b.ownerName || ''}${PIECES[b.piece].openable ? ' · E' : ''}`);
-  } else if (!state.buildMode) {
-    hud.setHint('');
+    hint = `${pieceName(PIECES[b.piece])}${b.ownerName ? ` · ${b.ownerName}` : ''}${PIECES[b.piece].openable ? ' · E' : ''}`;
   }
+  if (state.buildMode) hint = `${pieceName(PIECES[state.selectedPiece])} · ${t('hintPlace')} · ${t('hintRotate')}`;
+  // Without pointer lock the controls differ, so say so every frame
+  if (state.mouse.lookMode === 'drag' && !state.mouse.locked) {
+    hint = hint ? `${hint} · ${t('dragHintShort')}` : t('dragHintShort');
+  }
+  hud.setHint(hint);
 
   // stuck rescue: if we have been below the surface for a while, ask the server
   // to place us somewhere safe (keeps inventory; only fires when something is
@@ -880,7 +970,10 @@ function update(dt, now) {
     + `tick ${net.welcome?.tickRate ?? NET.tickRate}Hz  tid ${(net.time01 * 24).toFixed(1)}h  dag ${net.day}\n`
     + `noder ${net.nodes.size}  byggen ${net.buildings.size}  spelare ${net.players.size}  djur ${interp.animals.size}\n`
     + `pred-korrigeringar ${net.predictor.corrections} (senaste ${net.predictor.lastCorrection.toFixed(3)} m)\n`
-    + `nätverk ↓${stats.kbpsIn} kbit/s  upp ${(stats.bytesOut * 8 / 1000 / Math.max(1, state.playtime)).toFixed(1)} kbit/s`,
+    + `nätverk ↓${stats.kbpsIn} kbit/s  upp ${(stats.bytesOut * 8 / 1000 / Math.max(1, state.playtime)).toFixed(1)} kbit/s\n`
+    + `titt: ${state.mouse.locked ? 'pekarlås' : state.mouse.lookMode === 'drag' ? 'drag' : 'pekarlås (ej aktivt)'}`
+    + `  pitch ${(you.pitch * 57.3).toFixed(0)}°  roll ${(camera.rotation.z).toFixed(3)}\n`
+    + `fel: ${runtimeErrors.length}${runtimeErrors.length ? `  senast: ${runtimeErrors[runtimeErrors.length - 1].message}` : ''}`,
   );
 }
 
