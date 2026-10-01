@@ -261,3 +261,42 @@ That turns "there are some errors" into something actionable instead of a guess.
 
 Without pointer lock (common in embedded preview panes) the client switches mode
 automatically and says so in the hint bar: *drag to look · click to act*.
+
+
+## 13. Controls (rule: every control must work)
+
+Every key, mouse button, wheel tick and HUD button is a **decision** in
+`client/src/controls.js`, so the same rule can run in a test. `main.js` owns the
+side effects; the module owns the decisions.
+
+| Control | Does | Test |
+|---|---|---|
+| `W A S D` | walk (held) | keyIntent → `hold`, read only through `HOLD_CODES` |
+| `Shift` / `Ctrl` | sprint / crouch (held) | keyIntent → `hold` |
+| `Space` | jump (held) | keyIntent → `hold` |
+| Left click | gather / hit / place (in build mode) | pointer lock: straight away; drag mode: short click without movement |
+| Right click | eat/use, door, demolish (build mode) | same split as left click |
+| `1`–`9`, wheel | select tool | the wheel steps in **both** directions and wraps both ways |
+| Hotbar click | selects the tool | jsdom: clicking slot 3 → `equip(2)` |
+| `E` | open door, otherwise eat | keyIntent → `use` |
+| `R` | repair, or rotate in build mode | keyIntent → `repair` / `rotate` |
+| `Tab` / `C` / `B` / `M` | backpack / craft / build mode / map | keyIntent → its own panel toggle |
+| `T` | chat | keyIntent → `chat` (and the input state is cleared) |
+| `Esc` | closes the topmost panel, otherwise settings | `escapeIntent`: settings → help → chat → inventory → build → map |
+| `F1` / `F3` | help / debug info | also work in the menu and while dead |
+| Every "Close" button | closes its panel | jsdom: 5 buttons, each closes the **right** panel |
+| Respawn / reconnect / guest | screen buttons | bound in main.js, focus is released after a click |
+
+Rules that were real bugs and are now tested:
+
+| Bug | What happened | Fix |
+|---|---|---|
+| Dead close buttons | all five "Close" buttons had no binding — clicking did nothing | `bindHudControls` binds them and the test requires the right panel to close |
+| Key auto-repeat | holding `B`/`C`/`M`/`Tab` toggled the panel ~30 times per second | `keyIntent` ignores `repeat` for everything except hold keys |
+| Stuck movement keys | opening the chat while walking kept you walking | `clearInputs` on panel/chat + `typing` zeroes the input |
+| Space ghost-click | a clicked button kept focus; Space (jump) activated it again | focus is released after every button click |
+| Acting while dead | you could open the backpack and switch tools while dead | only `Esc`, `F1`, `F3` answer when dead/disconnected |
+| Wheel back from "empty" | jumped from slot 9 to 8 instead of wrapping | the wheel intent counts from the right end |
+
+The F3 overlay shows `kontroller n` — the number of bound HUD controls — so a
+control that loses its binding is visible in the game itself.

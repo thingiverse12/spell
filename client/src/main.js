@@ -24,8 +24,12 @@ import { settings, loadSettings, saveSettings, playerId } from './settings.js';
 import { setLang, t, itemName, pieceName, getLang } from './i18n.js';
 import { initAudio, resumeAudio, setAudioEnabled, setAmbient, playSound } from './audio.js';
 import {
-  clampPitch, applyLook, anchorDrag, dragDelta, isTap, computeCameraPose, checkCamera,
+  clampPitch, applyLook, anchorDrag, dragDelta, computeCameraPose, checkCamera,
 } from './camera.js';
+import {
+  keyIntent, escapeIntent, lookDecision, pressDecision, releaseDecision,
+  wheelIntent, clearInputs, bindHudControls, inputBlocked,
+} from './controls.js';
 
 loadSettings();
 setLang(settings.lang);
@@ -107,6 +111,8 @@ const state = {
   deathCause: 'unknown',
   hoverBuilding: null,
   selection: -1,
+  typing: false,      // the chat field owns the keyboard; movement stands still
+  hudControls: 0,     // HUD controls bound by controls.js (F3 shows the count)
   // fields that are created at runtime (declared here so typos are caught)
   selectedPiece: 'foundation',
   underwater: false,
@@ -373,8 +379,8 @@ function bindUi() {
     if (e.key === 'Enter') {
       const text = hud.el.chatInput.value;
       if (text.trim()) state.net?.chat(text);
-      hud.showChatInput(false);
-    } else if (e.key === 'Escape') hud.showChatInput(false);
+      closeOverlay('chat');
+    } else if (e.key === 'Escape') closeOverlay('chat');
   });
 
   // inventory interaction
@@ -432,20 +438,26 @@ function bindUi() {
     const you = state.net?.you;
     if (!you) return;
 
-    if (state.mouse.locked) {
-      applyLook(you, e.movementX, e.movementY, settings);
-      return;
-    }
-    if (state.mouse.lookMode !== 'drag') { anchorDrag(state.mouse, e.clientX, e.clientY); return; }
-    if (hud.anyOverlayOpen || e.target !== canvas) { anchorDrag(state.mouse, e.clientX, e.clientY); return; }
-    if (!state.mouse.drag) { anchorDrag(state.mouse, e.clientX, e.clientY); return; }
-
+    const decision = lookDecision({
+      running: state.running,
+      hasPlayer: !!you,
+      locked: state.mouse.locked,
+      lookMode: state.mouse.lookMode,
+      overlayOpen: hud.anyOverlayOpen,
+      overCanvas: e.target === canvas,
+      dragging: state.mouse.drag,
+    });
+    if (decision === 'ignore') return;
+    if (decision === 'anchor') { anchorDrag(state.mouse, e.clientX, e.clientY); return; }
+    if (state.mouse.locked) { applyLook(you, e.movementX, e.movementY, settings); return; }
     const { dx, dy } = dragDelta(state.mouse, e.clientX, e.clientY);
     if (dx || dy) applyLook(you, dx, dy, settings);
   });
 
   window.addEventListener('mousedown', (e) => {
-    if (!state.running || hud.anyOverlayOpen || e.target !== canvas) return;
+    if (pressDecision({
+      running: state.running, overlayOpen: hud.anyOverlayOpen, overCanvas: e.target === canvas,
+    }) === 'ignore') return;
     state.mouse.drag = true;
     anchorDrag(state.mouse, e.clientX, e.clientY);
     state.mouse.press = { button: e.button, at: performance.now(), x: e.clientX, y: e.clientY };
@@ -463,9 +475,15 @@ function bindUi() {
     anchorDrag(state.mouse, e.clientX, e.clientY);
     // Drag mode: a short press that did not move is a click -> act. Otherwise the
     // player would swing the axe every time they looked around.
-    if (!state.mouse.locked && state.mouse.lookMode === 'drag' && press
-      && e.target === canvas && !hud.anyOverlayOpen
-      && isTap(press, performance.now(), e.clientX, e.clientY)) {
+    const act = releaseDecision({
+      running: state.running,
+      overlayOpen: hud.anyOverlayOpen,
+      overCanvas: e.target === canvas,
+      locked: state.mouse.locked,
+      lookMode: state.mouse.lookMode,
+      press, now: performance.now(), x: e.clientX, y: e.clientY,
+    }) === 'act';
+    if (act && press) {
       if (press.button === 0) primaryAction();
       else if (press.button === 2) secondaryAction();
     }
@@ -474,12 +492,9 @@ function bindUi() {
   document.addEventListener('wheel', (e) => {
     if (!state.running || hud.anyOverlayOpen) return;
     const you = state.net.you;
-    if (state.buildMode) {
-      state.rotation = (state.rotation + (e.deltaY > 0 ? 1 : 3)) % 4;
-    } else {
-      const next = (you.toolSlot + (e.deltaY > 0 ? 1 : -1) + 9) % 9;
-      state.net.action('equip', { slot: next });
-    }
+    const intent = wheelIntent({ buildMode: state.buildMode, toolSlot: you.toolSlot, delta: e.deltaY });
+    if (intent.kind === 'rotate') state.rotation = (state.rotation + intent.step + 4) % 4;
+    else if (intent.kind === 'equip') state.net.action('equip', { slot: intent.slot });
   }, { passive: true });
 
   bindSettings();
@@ -487,17 +502,25 @@ function bindUi() {
     btn.addEventListener('click', () => hud.setTab(btn.dataset.tab));
   });
 
+  // Close buttons, hotbar clicks and the focus trap: a control that is drawn but
+  // never wired is a bug, so the number of bindings is asserted by the tests and
+  // shown in the debug overlay.
+  state.hudControls = bindHudControls({
+    hud,
+    doc: document,
+    actions: {
+      closeOverlay,
+      equipSlot: (slot) => state.net?.action('equip', { slot }),
+    },
+  });
+
   document.addEventListener('keydown', (e) => onKey(e, true));
   document.addEventListener('keyup', (e) => onKey(e, false));
   window.addEventListener('resize', onResize);
-  window.addEventListener('blur', () => {
-    state.keys = Object.create(null);
-    // drop any half-finished drag: a stale anchor would otherwise turn the next
-    // mousemove into a jump
-    state.mouse.drag = false;
-    state.mouse.press = null;
-    state.mouse.hasAnchor = false;
-  });
+  // Blur: drop every held key and any half-finished drag - a stale anchor would
+  // otherwise turn the next mousemove into a jump, and a stale key into a player
+  // who walks away on their own.
+  window.addEventListener('blur', () => clearInputs(state));
 }
 
 function bindSettings() {
@@ -561,74 +584,105 @@ function onResize() {
   viewModel.setAspect(camera.aspect);
 }
 
+function closeOverlay(name) {
+  switch (name) {
+    case 'settings': hud.showSettings(false); saveSettings(); break;
+    case 'help': hud.showHelp(false); break;
+    case 'inventory': hud.showInventory(false); break;
+    case 'build': hud.showBuild(false); state.buildMode = false; ghost.hide(); hud.setBuildHint(''); break;
+    case 'map': hud.showMap(false); break;
+    case 'chat': hud.showChatInput(false); state.typing = false; break;
+    default: break;
+  }
+}
+
+/** Which panels are up - the input system needs this for several decisions. */
+function overlayState() {
+  return {
+    settings: !hud.el.settings.classList.contains('hidden'),
+    help: !hud.el.help.classList.contains('hidden'),
+    chat: !hud.el.chatInputWrap.classList.contains('hidden'),
+    inventory: !hud.el.inventoryScreen.classList.contains('hidden'),
+    build: !hud.el.buildMenu.classList.contains('hidden'),
+    map: !hud.el.mapScreen.classList.contains('hidden'),
+    death: !hud.el.death.classList.contains('hidden'),
+    disconnect: !hud.el.disconnect.classList.contains('hidden'),
+  };
+}
+
 function onKey(e, down) {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
   const k = e.code;
-  state.keys[k] = down;
-  if (!down) return;
+  if (down && k === 'Space') e.preventDefault();
 
-  if (k === 'Space') e.preventDefault();
-  if (k === 'F1') { e.preventDefault(); hud.showHelp(hud.el.help.classList.contains('hidden')); return; }
-  if (k === 'F3') { e.preventDefault(); hud.toggleDebug(); return; }
-  if (!state.running) return;
+  // Every decision is made by the control contract (client/src/controls.js) so
+  // it can be tested: auto-repeat never toggles, the dead cannot act, and so on.
+  const intent = down
+    ? keyIntent({
+      code: k, repeat: !!e.repeat, running: state.running,
+      dead: !hud.el.death.classList.contains('hidden'),
+      disconnected: !hud.el.disconnect.classList.contains('hidden'),
+      buildMode: state.buildMode,
+      selection: state.selection,
+    })
+    : { kind: 'hold' };
 
-  switch (k) {
-    case 'Tab':
+  if (intent.kind === 'hold') { state.keys[k] = true; if (!down) delete state.keys[k]; return; }
+
+  switch (intent.kind) {
+    case 'help': e.preventDefault(); hud.showHelp(hud.el.help.classList.contains('hidden')); break;
+    case 'debug': e.preventDefault(); hud.toggleDebug(); break;
+    case 'inventory':
       e.preventDefault();
-      if (hud.el.inventoryScreen.classList.contains('hidden')) {
-        hud.showInventory(true);
-        hud.setTab('inv');
-        document.exitPointerLock?.();
-      } else hud.showInventory(false);
+      if (hud.anyOverlayOpen) closeOverlay('inventory');
+      else { hud.showInventory(true); hud.setTab('inv'); clearInputs(state); document.exitPointerLock?.(); }
       break;
-    case 'KeyB':
+    case 'craft':
+      hud.showInventory(true); hud.setTab('craft'); clearInputs(state); document.exitPointerLock?.();
+      break;
+    case 'build':
       state.buildMode = !state.buildMode;
       ghost.hide();
       hud.showBuild(state.buildMode);
-      if (state.buildMode) document.exitPointerLock?.();
+      if (state.buildMode) { clearInputs(state); document.exitPointerLock?.(); }
       hud.setBuildHint(state.buildMode ? `${t('hintPlace')} · ${t('hintRotate')} · ${t('hintCancel')}` : '');
       break;
-    case 'KeyC':
-      hud.showInventory(true);
-      hud.setTab('craft');
-      document.exitPointerLock?.();
-      break;
-    case 'KeyM':
+    case 'map':
       hud.showMap(hud.el.mapScreen.classList.contains('hidden'));
-      if (!hud.el.mapScreen.classList.contains('hidden')) document.exitPointerLock?.();
+      if (!hud.el.mapScreen.classList.contains('hidden')) { clearInputs(state); document.exitPointerLock?.(); }
       break;
-    case 'KeyT':
-      if (hud.el.chatInputWrap.classList.contains('hidden')) { hud.showChatInput(true); }
+    case 'chat':
+      if (hud.el.chatInputWrap.classList.contains('hidden')) {
+        clearInputs(state);           // stop walking the moment the field opens
+        state.typing = true;
+        hud.showChatInput(true);
+      }
       break;
-    case 'KeyR':
+    case 'rotate':
       if (state.buildMode) state.rotation = (state.rotation + 1) % 4;
-      else if (!hud.el.inventoryScreen.classList.contains('hidden') && state.selection >= 0) {
+      break;
+    case 'repair':
+      if (!hud.el.inventoryScreen.classList.contains('hidden') && state.selection >= 0) {
         state.net.action('repair', { slot: state.selection });
       }
       break;
-    case 'KeyE': {
+    case 'use': {
       const hit = pickBuilding(3.5);
       if (hit && PIECES[hit.building.piece]?.openable) state.net.action('door', { id: hit.building.id });
       else {
-        const food = state.net.you.inv.findIndex((s) => s && ITEMS[s.item]?.kind === 'food');
+        const food = state.net.you.inv.findIndex((slot) => slot && ITEMS[slot.item]?.kind === 'food');
         if (food >= 0) state.net.action('use', { slot: food });
       }
       break;
     }
-    case 'Escape':
-      if (!hud.el.settings.classList.contains('hidden')) { hud.showSettings(false); saveSettings(); }
-      else if (!hud.el.help.classList.contains('hidden')) hud.showHelp(false);
-      else if (!hud.el.inventoryScreen.classList.contains('hidden')) hud.showInventory(false);
-      else if (!hud.el.buildMenu.classList.contains('hidden')) { hud.showBuild(false); state.buildMode = false; ghost.hide(); }
-      else if (!hud.el.mapScreen.classList.contains('hidden')) hud.showMap(false);
-      else { hud.showSettings(true); document.exitPointerLock?.(); }
+    case 'equip': state.net.action('equip', { slot: intent.slot }); break;
+    case 'pause': {
+      const what = escapeIntent(overlayState());
+      if (what === 'open-settings') { hud.showSettings(true); clearInputs(state); document.exitPointerLock?.(); }
+      else closeOverlay(what.replace('close-', ''));
       break;
-    default:
-      if (k.startsWith('Digit')) {
-        const n = Number(k.slice(5));
-        if (n >= 1 && n <= 9) state.net.action('equip', { slot: n - 1 });
-      }
-      break;
+    }
+    default: break;
   }
 }
 
@@ -837,14 +891,15 @@ function update(dt, now) {
   const step = 1 / NET.inputRate;
   while (state.inputAccum >= step) {
     state.inputAccum -= step;
-    const forward = (state.keys.KeyW ? 1 : 0) - (state.keys.KeyS ? 1 : 0);
-    const strafe = (state.keys.KeyD ? 1 : 0) - (state.keys.KeyA ? 1 : 0);
+    const typing = inputBlocked(state);
+    const forward = typing ? 0 : (state.keys.KeyW ? 1 : 0) - (state.keys.KeyS ? 1 : 0);
+    const strafe = typing ? 0 : (state.keys.KeyD ? 1 : 0) - (state.keys.KeyA ? 1 : 0);
     net.sendInput({
       yaw: you.yaw, pitch: you.pitch,
       wish: forward, strafe,
-      jump: !!state.keys.Space,
-      sprint: !!(state.keys.ShiftLeft || state.keys.ShiftRight),
-      crouch: !!(state.keys.ControlLeft || state.keys.ControlRight),
+      jump: !typing && !!state.keys.Space,
+      sprint: !typing && !!(state.keys.ShiftLeft || state.keys.ShiftRight),
+      crouch: !typing && !!(state.keys.ControlLeft || state.keys.ControlRight),
       dt: step,
     });
   }
@@ -973,7 +1028,8 @@ function update(dt, now) {
     + `nätverk ↓${stats.kbpsIn} kbit/s  upp ${(stats.bytesOut * 8 / 1000 / Math.max(1, state.playtime)).toFixed(1)} kbit/s\n`
     + `titt: ${state.mouse.locked ? 'pekarlås' : state.mouse.lookMode === 'drag' ? 'drag' : 'pekarlås (ej aktivt)'}`
     + `  pitch ${(you.pitch * 57.3).toFixed(0)}°  roll ${(camera.rotation.z).toFixed(3)}\n`
-    + `fel: ${runtimeErrors.length}${runtimeErrors.length ? `  senast: ${runtimeErrors[runtimeErrors.length - 1].message}` : ''}`,
+    + `kontroller ${state.hudControls}  fel: ${runtimeErrors.length}`
+    + `${runtimeErrors.length ? `  senast: ${runtimeErrors[runtimeErrors.length - 1].message}` : ''}`,
   );
 }
 

@@ -175,12 +175,14 @@ export class Hud {
       for (let i = 0; i < 9; i++) {
         const div = document.createElement('div');
         div.className = 'slot empty';
+        div.dataset.slot = String(i);   // makes the slot clickable (controls.js)
         div.innerHTML = `<span class="k">${i + 1}</span>`;
         this.el.hotbar.appendChild(div);
       }
     }
     slots.forEach((slot, i) => {
       const el = this.el.hotbar.children[i];
+      el.dataset.slot = String(i);
       const def = slot ? ITEMS[slot.item] : null;
       el.className = `slot${i === toolSlot ? ' sel' : ''}${slot ? '' : ' empty'}`;
       const dur = slot && def?.durability && slot.dur !== undefined

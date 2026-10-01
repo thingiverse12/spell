@@ -156,12 +156,12 @@ header .close { padding: 6px 10px; font-size: 12px; }
 
 #hotbar {
   position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
-  display: flex; gap: 5px; pointer-events: none;
+  display: flex; gap: 5px; pointer-events: auto; /* slots are clickable */
 }
 .slot {
   width: 54px; height: 54px; background: var(--panel); border: 2px solid var(--line);
   position: relative; display: flex; align-items: center; justify-content: center;
-  font-size: 24px;
+  font-size: 24px; cursor: pointer; user-select: none;
 }
 .slot.sel { border-color: var(--accent); background: rgba(240, 166, 60, .18); }
 .slot .n { position: absolute; right: 3px; bottom: 1px; font-size: 11px; color: #fff; text-shadow: 0 1px 2px #000; }

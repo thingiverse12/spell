@@ -255,3 +255,42 @@ så "det är lite errors" blir ett åtgärdbart fel i stället för en gissning.
 
 Utan pekarlås (vanligt i inbäddade preview-rutor) byter klienten automatiskt
 läge och skriver ut det i tipsraden: *dra för att titta · klick för att handla*.
+
+
+## 13. Kontroller (regel: alla kontroller ska fungera)
+
+Varje tangent, musknapp, hjulsteg och HUD-knapp är ett **beslut** i
+`client/src/controls.js`, så att samma regel kan köras i test. `main.js` äger
+biverkningarna; modulen äger besluten.
+
+| Kontroll | Gör | Test |
+|---|---|---|
+| `W A S D` | gå (hålls) | keyIntent → `hold`, läses bara via `HOLD_CODES` |
+| `Skift` / `Ctrl` | spring / smyg (hålls) | keyIntent → `hold` |
+| `Mellanslag` | hoppa (hålls) | keyIntent → `hold` |
+| Vänsterklick | samla / slå / bygg (i byggläge) | pekarlås: direkt; dragläge: kort klick utan rörelse |
+| Högerklick | ät/använd, dörr, riv (byggläge) | samma uppdelning som vänsterklick |
+| `1`–`9`, mushjul | välja verktyg | hjul stegar **båda** hållen och slår runt åt båda hållen |
+| Klick i snabbraden | väljer verktyg | jsdom: klick på plats 3 → `equip(2)` |
+| `E` | öppna dörr, annars ät | keyIntent → `use` |
+| `R` | reparera, eller rotera i byggläge | keyIntent → `repair` / `rotate` |
+| `Tab` / `C` / `B` / `M` | ryggsäck / tillverka / byggläge / karta | keyIntent → egen sorts panelväxling |
+| `T` | chatt | keyIntent → `chat` (och inmatningen nollställs) |
+| `Esc` | stänger det översta, annars inställningar | `escapeIntent`: settings → help → chat → inventory → build → map |
+| `F1` / `F3` | hjälp / felsökningsinfo | fungerar även i menyn och när man är död |
+| Alla "Stäng"-knappar | stänger sin panel | jsdom: 5 knappar, var och en stänger **rätt** panel |
+| Respawn / anslut igen / gäst | knappar i skärmarna | bundna i main.js, fokus släpps efter klick |
+
+Regler som var riktiga buggar och nu är testade:
+
+| Fel | Vad som hände | Fix |
+|---|---|---|
+| Döda stäng-knappar | alla fem "Stäng"-knappar saknade bindning — klicket gjorde ingenting | `bindHudControls` binder dem och testet kräver att rätt panel stängs |
+| Tangentupprepning | att hålla `B`/`C`/`M`/`Tab` växlade panelen ~30 gånger i sekunden | `keyIntent` ignorerar `repeat` för allt utom håll-tangenter |
+| Fastnade rörelsetangenter | öppnade man chatten medan man gick fortsatte man gå | `clearInputs` vid panel/chat + `typing` nollar inmatningen |
+| Spökklick med mellanslag | en klickad knapp behöll fokus; mellanslag (hoppa) aktiverade den igen | fokus släpps efter varje knappklick |
+| Handlingar efter döden | man kunde öppna ryggsäcken och byta verktyg liggande död | bara `Esc`, `F1`, `F3` svarar när död/frånkopplad |
+| Hjul tillbaka från "tomt" läge | hoppade från plats 9 till 8 i stället för att slå runt | hjulintentet räknar från rätt ände |
+
+F3-panelen visar `kontroller n` — antalet bundna HUD-kontroller — så att en
+kontroll som tappar sin bindning syns direkt i spelet.
