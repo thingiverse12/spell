@@ -12,6 +12,10 @@ import {
   clamp, giveItem, consume, canAfford, countItem,
 } from '../shared/config.js';
 import { sampleHeight, slopeAt } from '../shared/noise.js';
+import { footprintSurface, liftToSurface } from '../shared/ground.js';
+
+/** Largest silent lift for a wall on bare ground before it needs a foundation. */
+export const GROUND_LIFT_LIMIT = 0.2;
 import { solidAt, moveHorizontal, moveVertical, stepMovement } from '../shared/physics.js';
 
 const FIST_DAMAGE = 8;
@@ -317,10 +321,15 @@ export function placeBuilding(world, p, pieceId, cx, cz, rot) {
 
   const terrainY = sampleHeight(wx, wz, world.seed);
   const slope = slopeAt(wx, wz, world.seed);
+  const rotated = r % 2 === 1;
+  const halfX = (rotated ? def.size[2] : def.size[0]) / 2;
+  const halfZ = (rotated ? def.size[0] : def.size[2]) / 2;
   let y;
   if (def.flat) {
     if (terrainY < WORLD.seaLevel + 0.25) return { ok: false, error: 'in-water' };
     if (slope > BUILD.maxSlope) return { ok: false, error: 'uneven-ground' };
+    // A platform is *meant* to cut into a hillside: the centre height is the
+    // right base for it.
     y = terrainY;
   } else {
     const support = world.supportHeight(cx, cz, r);
@@ -328,7 +337,13 @@ export function placeBuilding(world, p, pieceId, cx, cz, rot) {
       y = support;
     } else {
       if (slope > 0.45) return { ok: false, error: 'needs-foundation' };
-      y = terrainY;
+      // On bare ground the wall is 4 m wide: base it on the HIGHEST point under
+      // its footprint, otherwise the uphill half is swallowed by the terrain.
+      const top = footprintSurface((px, pz) => sampleHeight(px, pz, world.seed), wx, wz, halfX, halfZ);
+      if (Number.isFinite(top) && top - terrainY > GROUND_LIFT_LIMIT) {
+        return { ok: false, error: 'needs-foundation' };
+      }
+      y = liftToSurface(terrainY, top, 0);
     }
   }
 

@@ -7,6 +7,8 @@
  */
 
 import * as THREE from 'three';
+import { sampleHeight } from '../../shared/noise.js';
+import { liftToSurface } from '../../shared/ground.js';
 import { NODES, PIECES, ANIMALS, ITEMS, WORLD, piecePosition, buildingAABB } from '../../shared/config.js';
 
 const SHARED = {
@@ -276,6 +278,9 @@ export class BuildingView {
  * ------------------------------------------------------------------ */
 
 export class AnimalView {
+  /** Terrain seed used to lift interpolated positions back onto the surface. */
+  setSeed(seed) { this.seed = seed; }
+
   constructor(scene) {
     this.scene = scene;
     this.map = new Map();
@@ -337,6 +342,9 @@ export class AnimalView {
       entry.x += (t.x - entry.x) * lerp;
       entry.y += (t.y - entry.y) * lerp;
       entry.z += (t.z - entry.z) * lerp;
+      // A straight line between two points on a slope passes *under* the hill,
+      // so the interpolated value is lifted to the surface before it is drawn.
+      if (this.seed) entry.y = liftToSurface(entry.y, sampleHeight(entry.x, entry.z, this.seed), 0);
       entry.obj.position.set(entry.x, entry.y, entry.z);
       let dyaw = t.yaw - entry.obj.rotation.y;
       while (dyaw > Math.PI) dyaw -= Math.PI * 2;
@@ -376,6 +384,9 @@ function nameTexture(name) {
 }
 
 export class PlayerView {
+  /** Terrain seed used to lift interpolated positions back onto the surface. */
+  setSeed(seed) { this.seed = seed; }
+
   constructor(scene, selfId) {
     this.scene = scene;
     this.selfId = selfId;
@@ -432,6 +443,8 @@ export class PlayerView {
       entry.x += (t.x - entry.x) * k;
       entry.y += (t.y - entry.y) * k;
       entry.z += (t.z - entry.z) * k;
+      // Same rule for other players: never draw a body inside a hillside.
+      if (this.seed) entry.y = liftToSurface(entry.y, sampleHeight(entry.x, entry.z, this.seed), 0);
       const speed = Math.hypot(entry.x - px, entry.z - pz) / Math.max(dt, 0.001);
       entry.group.position.set(entry.x, entry.y, entry.z);
       let dyaw = t.yaw - entry.group.rotation.y;

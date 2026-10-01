@@ -16,6 +16,7 @@ import {
   buildingAABB, piecePosition, countItem,
 } from '../../shared/config.js';
 import { sampleHeight } from '../../shared/noise.js';
+import { auditGround, describeViolations } from '../../shared/ground.js';
 import { Net } from './net.js';
 import { Hud } from './hud.js';
 import { WorldView } from './terrain.js';
@@ -113,6 +114,8 @@ const state = {
   selection: -1,
   typing: false,      // the chat field owns the keyboard; movement stands still
   hudControls: 0,     // HUD controls bound by controls.js (F3 shows the count)
+  groundAudit: { at: 0, buried: 0, lifted: 0, worst: 0 }, // rule: nothing under the ground
+  groundErrorAt: 0,
   // fields that are created at runtime (declared here so typos are caught)
   selectedPiece: 'foundation',
   underwater: false,
@@ -220,6 +223,10 @@ async function play({ asGuest = false, silent = false } = {}) {
         clearReconnect();
         hud.showHud(true);
         hud.showDisconnect(false, '', '');
+        // The views need the terrain seed to lift interpolated bodies onto the
+        // surface (a straight line between two ticks passes under a slope).
+        animalView?.setSeed(msg.seed ?? WORLD.seed);
+        playerView?.setSeed(msg.seed ?? WORLD.seed);
         // locally predicted player starts at the replicated spawn
         camera.position.set(msg.you.x, msg.you.y + PHYS.eyeHeight, msg.you.z);
         state.lastPos.set(msg.you.x, msg.you.y, msg.you.z);
@@ -880,6 +887,47 @@ function loop(now) {
   render(dt, now);
 }
 
+/**
+ * Rule: nothing may end up under the ground - and if it does, that is an error
+ * that must be visible, not something the player has to guess at. Uses the same
+ * shared audit as the server, once per second, on the replicated truth.
+ */
+function auditClientGround(now) {
+  const net = state.net;
+  if (!net?.welcome || now - state.groundAudit.at < 1000) return;
+  const seed = net.welcome.seed ?? WORLD.seed;
+  const buildings = [];
+  for (const b of net.buildings.values()) {
+    const def = PIECES[b.piece];
+    const pos = piecePosition(b.cx, b.cz, b.rot, b.piece);
+    const rotated = b.rot % 2 === 1;
+    buildings.push({
+      id: b.id, piece: b.piece, x: pos.x, z: pos.z, y: b.y,
+      footprint: def ? {
+        halfX: (rotated ? def.size[2] : def.size[0]) / 2,
+        halfZ: (rotated ? def.size[0] : def.size[2]) / 2,
+      } : undefined,
+    });
+  }
+  const list = auditGround((x, z) => sampleHeight(x, z, seed), {
+    players: [...net.players.values()],
+    animals: [...interp.animals.values()].map((a) => a.target ?? a),
+    nodes: [...net.nodes.values()],
+    buildings,
+  }, { pieces: PIECES });
+
+  state.groundAudit = {
+    at: now,
+    buried: list.length,
+    lifted: list.filter((v) => v.kind === 'animal' || v.kind === 'player').length,
+    worst: list[0] ? Number(list[0].depth.toFixed(2)) : 0,
+  };
+  if (list.length && now - state.groundErrorAt > 5000) {
+    state.groundErrorAt = now;
+    recordError('ground', describeViolations(list, 3, getLang()), `${list.length} objekt under markytan`);
+  }
+}
+
 function update(dt, now) {
   const net = state.net;
   const you = net.you;
@@ -903,6 +951,9 @@ function update(dt, now) {
       dt: step,
     });
   }
+
+  // ---- ground audit: is anything below the surface?
+  auditClientGround(now);
 
   // ---- camera follows the predicted player (math lives in camera.js)
   const eye = you.crouch ? PHYS.crouchEyeHeight : PHYS.eyeHeight;
@@ -1028,7 +1079,9 @@ function update(dt, now) {
     + `nätverk ↓${stats.kbpsIn} kbit/s  upp ${(stats.bytesOut * 8 / 1000 / Math.max(1, state.playtime)).toFixed(1)} kbit/s\n`
     + `titt: ${state.mouse.locked ? 'pekarlås' : state.mouse.lookMode === 'drag' ? 'drag' : 'pekarlås (ej aktivt)'}`
     + `  pitch ${(you.pitch * 57.3).toFixed(0)}°  roll ${(camera.rotation.z).toFixed(3)}\n`
-    + `kontroller ${state.hudControls}  fel: ${runtimeErrors.length}`
+    + `kontroller ${state.hudControls}  under mark: ${state.groundAudit.buried}`
+    + `${state.groundAudit.buried ? ` (värst ${state.groundAudit.worst} m)` : ''}`
+    + `  fel: ${runtimeErrors.length}`
     + `${runtimeErrors.length ? `  senast: ${runtimeErrors[runtimeErrors.length - 1].message}` : ''}`,
   );
 }

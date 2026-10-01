@@ -300,3 +300,27 @@ Rules that were real bugs and are now tested:
 
 The F3 overlay shows `kontroller n` — the number of bound HUD controls — so a
 control that loses its binding is visible in the game itself.
+
+
+## 14. Nothing may end up below the surface
+
+The same code (`shared/ground.js`) runs on the server and in the client, so both
+agree on where the ground is. The ground *under an area* is not the ground in *a
+point*: a wall is 4 m wide, so a wall based on the height of its centre can be
+buried up to ~1 m on the uphill side.
+
+| Rule | Why | Test |
+|---|---|---|
+| Surface under a **footprint** = the highest point | a 4 m wide wall must not be swallowed by a slope | synthetic slope: footprint 2 m above the centre |
+| Flat pieces (foundation, campfire) use the **centre** | a platform is *meant* to cut into a hillside | same slope, foundation = no violation |
+| A wall on bare ground uses the footprint top; a lift > 0.2 m needs a foundation | otherwise the wall is dug into the hill | `needs-foundation` on a steep cell, accepted on flat |
+| Animals and players are **lifted** by the audit | the simulation is the truth | planted fault: animal 1.95 m below the surface → lifted and reported |
+| Buildings are **reported** but never moved | silently moving a structure would break it | planted fault: wall 1.52 m below the surface, `y` unchanged |
+| The client lifts interpolated bodies | a straight line between two ticks on a slope passes *under* the hill | 40 frames across a steep spot: never below the surface |
+| The server audits every other second | catches older saves after a geometry change | `checked` > 100, `buried === 0` after a playing session |
+
+The errors are visible in three places: the server log (`[spell:ground] …
+objects below the surface`), `/api/status` (`world.ground` with
+`checked/lifted/buried/worst`) and the F3 overlay in the game (`under mark: n`).
+The client also adds the event to the error list (`window.__spellErrors`, at
+most one report every 5 seconds).

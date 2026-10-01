@@ -22,6 +22,9 @@ import {
 import {
   sampleHeight, slopeAt, biomeAt, fbm,
 } from '../shared/noise.js';
+import {
+  auditGround, liftToSurface, describeViolations,
+} from '../shared/ground.js';
 
 export const CHUNK = 64;
 
@@ -377,8 +380,65 @@ export class World {
    *  Simulation
    * ------------------------------------------------------------ */
 
+  /**
+   * Rule: nothing may end up under the ground.
+   *
+   * Every entity is checked against the surface it stands on. Animals (and, as
+   * a last resort, players) are lifted back up; nodes and buildings are only
+   * *reported*, because silently moving a structure would break it. The result
+   * is kept in `this.ground` and shows up in /api/status.
+   */
+  auditGround(now = Date.now()) {
+    const sample = (x, z) => sampleHeight(x, z, this.seed);
+    const buildings = [];
+    for (const b of this.buildings.values()) {
+      const pos = piecePosition(b.cx, b.cz, b.rot, b.piece);
+      const def = PIECES[b.piece];
+      const rotated = b.rot % 2 === 1;
+      buildings.push({
+        id: b.id, piece: b.piece, x: pos.x, z: pos.z, y: b.y,
+        footprint: def ? {
+          halfX: (rotated ? def.size[2] : def.size[0]) / 2,
+          halfZ: (rotated ? def.size[0] : def.size[2]) / 2,
+        } : undefined,
+      });
+    }
+    const violations = auditGround(sample, {
+      players: [...this.players.values()],
+      animals: [...this.animals.values()],
+      nodes: [...this.nodes.values()].filter((n) => !n.dead),
+      buildings,
+    }, { pieces: PIECES });
+
+    let lifted = 0;
+    for (const v of violations) {
+      if (v.kind !== 'animal' && v.kind !== 'player') continue;
+      const target = v.kind === 'animal' ? this.animals.get(v.id) : this.players.get(v.id);
+      if (!target) continue;
+      target.y = liftToSurface(target.y, v.surface, 0);
+      if (target.vy !== undefined && target.vy < 0) target.vy = 0;
+      lifted++;
+    }
+    this.ground = {
+      at: now,
+      checked: this.players.size + this.animals.size + this.nodes.size + buildings.length,
+      lifted,
+      buried: violations.length,
+      worst: violations[0] ? Number(violations[0].depth.toFixed(2)) : 0,
+    };
+    // Report loudly, but not once per tick.
+    if (violations.length && now - (this.lastGroundReport || 0) > 10000) {
+      this.lastGroundReport = now;
+      console.warn(`[spell:ground] ${violations.length} objects below the surface (${lifted} lifted): ${describeViolations(violations)}`);
+    }
+    return this.ground;
+  }
+
   /** dt in seconds. `now` is Date.now(). */
   step(dt, now, hooks = {}) {
+    // ground invariant, a few times per second
+    if (now - (this.ground?.at ?? 0) > 2000) this.auditGround(now);
+
     // day/night
     this.time01 += dt / 600;
     while (this.time01 >= 1) { this.time01 -= 1; this.day++; this.dirty = true; }
@@ -588,6 +648,7 @@ export class World {
       players: this.players.size,
       online: [...this.players.values()].filter((p) => !p.offline).length,
       chunks: this.chunks.size,
+      ground: this.ground ?? null,
     };
   }
 }

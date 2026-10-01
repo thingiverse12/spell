@@ -294,3 +294,26 @@ Regler som var riktiga buggar och nu är testade:
 
 F3-panelen visar `kontroller n` — antalet bundna HUD-kontroller — så att en
 kontroll som tappar sin bindning syns direkt i spelet.
+
+
+## 14. Inget får hamna under marken
+
+Samma kod (`shared/ground.js`) används av server och klient, så de är eniga om
+var marken är. Marken *under en yta* är inte samma sak som marken i *en punkt*:
+en vägg är 4 m bred, så en vägg placerad på höjden i sin mittpunkt kan bli
+begravd upp till ~1 m på den uppåtlutande sidan.
+
+| Regel | Varför | Test |
+|---|---|---|
+| Ytan under ett **fotavtryck** = högsta punkten | en 4 m bred vägg får inte slukas av en sluttning | syntetisk sluttning: fotavtryck 2 m högre än mitten |
+| Platta delar (grund, lägereld) mäts i **mitten** | en plattform *ska* skära in i en backe | samma sluttning, grund = inget fel |
+| Vägg på bar mark baseras på fotavtryckets topp; lyft > 0,2 m kräver grund | annars grävs väggen ner | `needs-foundation` på brant cell, accepteras på plan |
+| Djur och spelare **lyfts** av revisionen | serverns simulering är sanningen | planterat fel: djur 1,95 m under ytan → lyfts, rapporteras |
+| Byggnader **rapporteras** men flyttas aldrig | att tyst flytta en struktur skulle förstöra den | planterat fel: vägg 1,52 m under ytan, `y` oförändrad |
+| Klienten lyfter interpolerade kroppar | en rät linje mellan två ticks på en sluttning går *under* backen | 40 bildrutor över en brant: aldrig under ytan |
+| Revision varannan sekund på servern | fångar äldre sparade världar efter en geometriändring | `checked` > 100, `buried === 0` efter en spelomgång |
+
+Felen syns på tre ställen: serverloggen (`[spell:ground] … objects below the
+surface`), `/api/status` (`world.ground` med `checked/lifted/buried/worst`) och
+F3-panelen i spelet (`under mark: n`). Klienten lägger också händelsen i
+fel-listan (`window.__spellErrors`, högst en rapport var 5:e sekund).
