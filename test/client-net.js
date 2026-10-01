@@ -133,10 +133,38 @@ async function main() {
   // ---- chat event round trip
   net2.chat('hej från klientmodulen');
   await sleep(300);
+
+  // ---- error handling: the same player in a second tab must be reported as 4001
+  const dup = new Net({ playerId: 'client-net-test', name: 'NetTest', handlers: {} });
+  let dupErr = null;
+  try { await dup.connect(); } catch (err) { dupErr = err; }
+  check('a duplicate player id is rejected', !!dupErr, 'connection was accepted');
+  if (dupErr) {
+    check('the rejection carries code 4001 (already connected)', dupErr.code === 4001, `code=${dupErr.code} reason=${dupErr.reason}`);
+    check('the rejection names the WebSocket URL', typeof dupErr.url === 'string' && dupErr.url.endsWith('/ws'), String(dupErr.url));
+  }
   net2.disconnect();
-  await sleep(200);
-  server.kill('SIGTERM');
   await sleep(300);
+
+  // ---- a guest identity can join while the first player is still online
+  const guest = new Net({ playerId: 'guest-1', name: 'Guest', handlers: {} });
+  await guest.connect();
+  check('a guest identity joins successfully', guest.ready === true);
+  guest.disconnect();
+  await sleep(200);
+
+  // ---- connecting to a dead server fails fast and reports a code
+  server.kill('SIGTERM');
+  await sleep(600);
+  const dead = new Net({ playerId: 'nobody', name: 'Nobody', handlers: {} });
+  const t0 = Date.now();
+  let deadErr = null;
+  try { await dead.connect(); } catch (err) { deadErr = err; }
+  check('connecting with no server rejects', !!deadErr);
+  check('it fails quickly instead of hanging', Date.now() - t0 < 9000, `${Date.now() - t0} ms`);
+  check('the HTTP side also reports the server as gone', await (async () => {
+    try { const r = await fetch(`http://127.0.0.1:${PORT}/api/status`); return !r.ok; } catch { return true; }
+  })());
 
   console.log(`\n\x1b[1mResult:\x1b[0m ${passed} passed, ${failed} failed\n`);
   process.exit(failed ? 1 : 0);

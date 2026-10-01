@@ -206,3 +206,27 @@ som standard).
 
 Totalt **384 kontroller**. CI-förslag: `npm run test:all` på varje push, `npm run verify:browser` på natten
 eller före release (kräver nedladdad Chromium).
+
+## 11. Robusthet (live-preview och drift)
+
+Nätverksfel är normalfallet, inte undantaget, och behandlas därför explicit:
+
+* **Klienten återansluter själv** med backoff (1 s → 15 s) när anslutningen
+  tappas, och visar "Återansluter … (försök n)" med stängningskoden i stället för
+  ett obegripligt fel. När servern är tillbaka fortsätter spelaren där den var
+  (progressionen ligger på servern).
+* **Felsökning i klienten:** vid misslyckad anslutning görs först en
+  `/api/status`-förfrågan. Svarar HTTP men inte WebSocket sägs det rakt ut
+  ("servern vägrar spelanslutningen — kontrollera proxyn/porten"); svarar inget
+  alls står det att servern är offline. Adressen (`wss://…/ws`) och koden visas.
+* **Dubblettspelare:** samma webbläsare delar `localStorage`, så en andra flik
+  får samma spelar-id. Servern stänger då med kod `4001`, och klienten byter
+  automatiskt till en flikbunden gästidentitet (`sessionStorage`) och berättar
+  det. Det gör "öppna två flikar för att se multiplayern" friktionsfritt.
+* **Servern överlever fel:** tick-loopen, meddelandehanteraren och processen har
+  skyddsnät (`uncaughtException`, `unhandledRejection`) som loggar och fortsätter
+  i stället för att döda en pågående värld.
+* **Proxy-vänlig WebSocket:** uppgraderingar accepteras på `/ws`, `/` och
+  `/socket` (vissa proxys prefixar om sökvägen), och allt annat nekas. Felet
+  loggas, så en felkonfigurerad proxy syns i serverloggen i stället för att bara
+  bli ett tyst fel i webbläsaren.

@@ -33,7 +33,8 @@ export class Hud {
       mapScreen: $('mapScreen'), mapCanvas: $('mapCanvas'), mapLegend: $('mapLegend'),
       settings: $('settings'), help: $('help'), helpBody: $('helpBody'),
       death: $('death'), deathCause: $('deathCause'), respawnBtn: $('respawnBtn'),
-      disconnect: $('disconnect'), dcText: $('dcText'), reconnectBtn: $('reconnectBtn'),
+      disconnect: $('disconnect'), dcText: $('dcText'), dcDetail: $('dcDetail'),
+      reconnectBtn: $('reconnectBtn'), guestBtn: $('guestBtn'),
       disclaimer: $('disclaimer'),
     };
     this.selectedSlot = -1;
@@ -56,9 +57,12 @@ export class Hud {
     this.el.death.classList.toggle('hidden', !show);
     if (show) this.el.deathCause.textContent = t(`dead_cause_${cause || 'unknown'}`);
   }
-  showDisconnect(show, text) {
+  showDisconnect(show, text, detail = '') {
     this.el.disconnect.classList.toggle('hidden', !show);
-    if (text) this.el.dcText.textContent = text;
+    if (text !== undefined) this.el.dcText.textContent = text;
+    if (this.el.dcDetail) this.el.dcDetail.textContent = detail || '';
+    // "play as guest" only makes sense when the player id is the problem
+    if (this.el.guestBtn) this.el.guestBtn.classList.toggle('hidden', !/gäst|guest|upptagen|taken/i.test(`${text} ${detail}`));
   }
   showSettings(show) { this.el.settings.classList.toggle('hidden', !show); }
   showHelp(show) { this.el.help.classList.toggle('hidden', !show); }

@@ -210,3 +210,29 @@ anomalies, and avoid game modes where cheating ruins the experience for others
 
 **384 checks** in total. CI suggestion: `npm run test:all` on every push, `npm run verify:browser`
 nightly or before a release (needs Chromium downloaded).
+
+## 11. Resilience (live previews and operations)
+
+Network failures are the normal case, not the exception, so they are handled
+explicitly:
+
+* **The client reconnects by itself** with backoff (1 s → 15 s) when the link
+  drops, showing "Reconnecting … (attempt n)" plus the close code instead of an
+  opaque error. When the server is back the player continues where they were
+  (progression lives on the server).
+* **Client-side diagnosis:** on a failed connection the client first calls
+  `/api/status`. If HTTP answers but the WebSocket does not, it says so plainly
+  ("the server refuses the game connection — check the proxy/port"); if nothing
+  answers, it reports the server as offline. The URL (`wss://…/ws`) and the code
+  are shown.
+* **Duplicate players:** one browser shares `localStorage`, so a second tab
+  presents the same player id. The server closes with code `4001`, and the client
+  automatically switches to a tab-scoped guest identity (`sessionStorage`) and
+  says so. Opening two tabs to see the multiplayer therefore just works.
+* **The server survives faults:** the tick loop, the message handler and the
+  process itself have guards (`uncaughtException`, `unhandledRejection`) that log
+  and continue instead of killing a live world.
+* **Proxy-friendly WebSocket:** upgrades are accepted on `/ws`, `/` and
+  `/socket` (some proxies rewrite the path) and rejected everywhere else, with
+  the rejection logged, so a misconfigured proxy shows up in the server log
+  instead of failing silently in the browser.

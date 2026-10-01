@@ -119,25 +119,65 @@ const frame = () => new Promise((r) => requestAnimationFrame(r));
 /* ------------------------------------------------------------------ *
  *  Connect / disconnect
  * ------------------------------------------------------------------ */
-async function play() {
-  const name = (hud.el.nameInput.value || '').trim() || 'Överlevare';
+let reconnectTimer = null;
+let reconnectAttempt = 0;
+
+/** A tab-scoped identity, used when the persistent player is already online. */
+function guestId() {
+  let id = sessionStorage.getItem('spell.guestId');
+  if (!id) {
+    id = `g${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36).slice(-4)}`;
+    sessionStorage.setItem('spell.guestId', id);
+  }
+  return id;
+}
+
+function clearReconnect() {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+  reconnectAttempt = 0;
+}
+
+/** Is the HTTP side of the server alive? Tells "offline" apart from "WS blocked". */
+async function serverReachable() {
+  try {
+    const res = await fetch('/api/status', { cache: 'no-store' });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function scheduleReconnect(asGuest = false) {
+  reconnectAttempt++;
+  clearTimeout(reconnectTimer);
+  reconnectTimer = setTimeout(() => play({ asGuest, silent: true }), Math.min(15000, 1000 * reconnectAttempt));
+  return reconnectAttempt;
+}
+
+async function play({ asGuest = false, silent = false } = {}) {
+  const name = (hud.el.nameInput.value || '').trim() || settings.playerName || 'Överlevare';
   settings.playerName = name;
   saveSettings();
-  hud.showMenu(false);
-  hud.showDisconnect(false, '');
+  if (!silent) {
+    hud.showMenu(false);
+    hud.showDisconnect(false, '', '');
+  }
   initAudio();
   resumeAudio();
 
   const net = new Net({
-    playerId: playerId(),
+    playerId: asGuest ? guestId() : playerId(),
     name,
     handlers: {
       onWelcome: (msg) => {
+        clearReconnect();
         hud.showHud(true);
+        hud.showDisconnect(false, '', '');
         // locally predicted player starts at the replicated spawn
         camera.position.set(msg.you.x, msg.you.y + PHYS.eyeHeight, msg.you.z);
         state.lastPos.set(msg.you.x, msg.you.y, msg.you.z);
-        hud.toast(`${t('joined')}: ${name}`, 'ok');
+        if (!silent) hud.toast(`${t('joined')}: ${name}`, 'ok');
       },
       onSnapshot: () => { state.net.reconnectAttempts = 0; },
       onNode: (n) => nodeView.upsert(n),
@@ -152,17 +192,34 @@ async function play() {
         if (!state.running) return;
         state.running = false;
         document.exitPointerLock?.();
-        hud.showDisconnect(true, `kod ${code}${reason ? ` — ${reason}` : ''}`);
+        // The server restarted or the link dropped: retry by itself.
+        const attempt = scheduleReconnect(asGuest);
+        hud.showDisconnect(true, t('reconnecting', { n: attempt }), `kod ${code}${reason ? ` — ${reason}` : ''}`);
       },
     },
   });
   state.net = net;
+
+  if (hud.el.hud.classList.contains('hidden') && !silent) hud.showHud(true);
   try {
     await net.connect();
     state.running = true;
-    hud.addChat('Spell', `${t('joined')} ${name}`, true);
+    if (asGuest) hud.toast(t('guestToast'), 'ok');
   } catch (err) {
-    hud.showDisconnect(true, err.message);
+    const code = err.code || 1006;
+    // Same player already in another tab -> offer (and auto-try) a guest identity.
+    if (code === 4001 && !asGuest) {
+      scheduleReconnect(true);
+      hud.showDisconnect(true, t('alreadyConnected'), `${err.url} · kod ${code}`);
+      return;
+    }
+    const reachable = await serverReachable();
+    const attempt = scheduleReconnect(asGuest);
+    hud.showDisconnect(
+      true,
+      reachable ? t('wsBlocked') : t('serverOffline'),
+      `${err.url} · kod ${code}${err.reason ? ` · ${err.reason}` : ''} · försök ${attempt}`,
+    );
   }
 }
 
@@ -268,7 +325,8 @@ function bindUi() {
     hud.showDeath(false);
     canvas.requestPointerLock?.();
   });
-  hud.el.reconnectBtn.addEventListener('click', () => { hud.showDisconnect(false); play(); });
+  hud.el.reconnectBtn.addEventListener('click', () => { clearReconnect(); hud.showDisconnect(false, '', ''); play(); });
+  hud.el.guestBtn.addEventListener('click', () => { clearReconnect(); hud.showDisconnect(false, '', ''); play({ asGuest: true }); });
   hud.el.chatInput.addEventListener('keydown', (e) => {
     e.stopPropagation();
     if (e.key === 'Enter') {
@@ -692,6 +750,7 @@ function loop(now) {
 function update(dt, now) {
   const net = state.net;
   const you = net.you;
+  if (!net.connected || !you) return; // waiting for a reconnect: keep rendering only
   state.playtime += dt;
 
   // ---- input sampling (sent at NET.inputRate)

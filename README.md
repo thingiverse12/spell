@@ -127,6 +127,16 @@ konsolfel, att duken faktiskt renderar (pixelvarians), att HUD:en får data och
 att spelaren kan gå — och sparar skärmdumpar i `screenshots/`. Saknas Chromium
 faller den tillbaka på en statisk kontroll av att alla moduler laddas.
 
+## Om något går fel i webbläsaren / Troubleshooting
+
+| Symptom | Vad det betyder | Vad du gör |
+|---|---|---|
+| "Servern svarar inte" | Servern är inte igång (t.ex. efter att sandlådan/containern startats om) | `npm install && npm start`, sidan återansluter själv inom ~15 s |
+| "Kunde inte öppna WebSocket-anslutningen" | HTTP fungerar men proxyn/porten släpper inte igenom uppgraderingen till WebSocket | Kontrollera att proxyn tillåter `Upgrade`; adressen som försöktes visas i rutan |
+| "Samma spelare är redan inloggad i en annan flik" | En webbläsare delar `localStorage`, så två flikar får samma spelar-id | Klicka **Spela som gäst** (eller vänta — klienten byter automatiskt) |
+| Spelet hackar | Svag GPU | `Esc` → sänk siktavstånd, stäng av skuggor eller slå på "Enkel grafik" |
+| Musen fångas inte | Pekarlås blockeras ofta i inbäddade iframes/preview-fönster | **Dra med musen** för att titta — klienten växlar automatiskt till det läget |
+
 ## Projektstruktur
 
 ```

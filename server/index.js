@@ -376,7 +376,11 @@ function attachConnection(ws) {
       return;
     }
 
-    handleMessage(conn, msg);
+    try {
+      handleMessage(conn, msg);
+    } catch (err) {
+      log(`message handler error (${msg.t}): ${err.stack || err}`);
+    }
   });
 
   ws.on('close', () => {
@@ -465,8 +469,35 @@ const server = http.createServer((req, res) => {
   }
 });
 
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 });
+/**
+ * WebSocket endpoint.
+ *
+ * We deliberately do NOT bind the server to a fixed path: preview proxies and
+ * reverse proxies sometimes rewrite or prefix the path, and a mis-matched path
+ * shows up in the browser as a generic "WebSocket error". Any upgrade request
+ * on this port is treated as a game connection; the client always asks for /ws.
+ */
+const wss = new WebSocketServer({
+  noServer: true,
+  maxPayload: 16 * 1024,
+  perMessageDeflate: false,
+});
+
+server.on('upgrade', (req, socket, head) => {
+  const url = (req.url || '').split('?')[0];
+  // health/metrics endpoints should never be upgraded
+  if (url !== '/ws' && url !== '/' && url !== '/socket') {
+    log(`ws upgrade rejected for path ${url}`);
+    socket.destroy();
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit('connection', ws, req);
+  });
+});
+
 wss.on('connection', attachConnection);
+wss.on('error', (err) => log(`ws server error: ${err.message}`));
 
 server.listen(PORT, HOST, () => {
   log(`Spell server listening on http://${HOST}:${PORT}  (ws://<host>:${PORT}/ws)`);
@@ -477,7 +508,15 @@ server.listen(PORT, HOST, () => {
  *  Lifecycle
  * ------------------------------------------------------------------ */
 
-setInterval(gameTick, TICK_MS);
+setInterval(() => {
+  try {
+    gameTick();
+  } catch (err) {
+    // A single bad tick must never take the whole world down: log and continue.
+    log(`TICK ERROR: ${err.stack || err}`);
+    lastTickAt = Date.now();
+  }
+}, TICK_MS);
 const autosave = setInterval(() => {
   if (world.save(true)) log(`autosave ok (${clients.size} online)`);
 }, NET.autosaveMs);
@@ -493,6 +532,14 @@ function shutdown(signal) {
 
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// Last line of defence: keep the live preview alive, but make the problem loud.
+process.on('uncaughtException', (err) => {
+  log(`UNCAUGHT EXCEPTION: ${err.stack || err}`);
+});
+process.on('unhandledRejection', (err) => {
+  log(`UNHANDLED REJECTION: ${err?.stack || err}`);
+});
 
 export { world, server, clients };
 void ITEMS;

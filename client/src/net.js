@@ -47,32 +47,61 @@ export class Net {
     return `${proto}//${location.host}/ws`;
   }
 
+  /**
+   * Opens the socket and performs the handshake.
+   *
+   * Rejections carry `{ code, reason, url }` so the caller can tell the cases
+   * apart: server unreachable, upgrade blocked by a proxy, or "this player is
+   * already connected" (which happens when the same browser opens a second tab).
+   */
   connect() {
     return new Promise((resolve, reject) => {
       let settled = false;
+      this.lastClose = null;
+      const fail = (code, reason) => {
+        if (settled) return;
+        settled = true;
+        const err = new Error(reason || `WebSocket ${code}`);
+        err.code = code;
+        err.reason = reason;
+        err.url = this.url;
+        reject(err);
+      };
       try {
         this.ws = new WebSocket(this.url);
-      } catch (err) { reject(err); return; }
+      } catch (err) {
+        err.url = this.url;
+        reject(err);
+        return;
+      }
       this.ws.onopen = () => {
         this.connected = true;
         this.ws.send(JSON.stringify({ t: 'hello', playerId: this.playerId, name: this.name }));
-        setTimeout(() => { if (!settled && !this.ready) { settled = true; reject(new Error('handshake timeout')); } }, 6000);
+        this._handshakeTimer = setTimeout(() => fail(408, 'handshake timeout'), 8000);
       };
       this.ws.onmessage = (ev) => this._onMessage(ev.data);
       this.ws.onclose = (ev) => {
         this.connected = false;
         this.ready = false;
-        this.handlers.onClose?.(ev.code, ev.reason);
+        clearTimeout(this._handshakeTimer);
+        this.lastClose = { code: ev.code, reason: ev.reason };
+        if (!settled) fail(ev.code || 1006, ev.reason || 'closed before welcome');
+        else this.handlers.onClose?.(ev.code, ev.reason);
       };
-      this.ws.onerror = () => { /* onclose follows */ };
-      this._resolveHandshake = () => { if (!settled) { settled = true; resolve(this); } };
-      this._rejectHandshake = (err) => { if (!settled) { settled = true; reject(err); } };
-      this.ws.addEventListener('error', () => this._rejectHandshake(new Error('WebSocket error')));
+      this.ws.onerror = () => fail(this.ws?.readyState === 3 ? 1006 : 1006, 'WebSocket error');
+      this._resolveHandshake = () => {
+        clearTimeout(this._handshakeTimer);
+        if (!settled) { settled = true; resolve(this); }
+      };
     });
   }
 
   disconnect() {
     try { this.ws?.close(1000, 'client'); } catch { /* ignore */ }
+  }
+
+  get closed() {
+    return !this.ws || this.ws.readyState === 3;
   }
 
   /* ------------------------------------------------------------ *
@@ -136,6 +165,7 @@ export class Net {
         this.day = msg.day;
         this.timeOffset = performance.now();
         this.ready = true;
+        clearTimeout(this._handshakeTimer);
         this.handlers.onWelcome?.(msg);
         this._resolveHandshake?.();
         break;
