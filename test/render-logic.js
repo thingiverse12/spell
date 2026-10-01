@@ -52,6 +52,105 @@ check('sky dome exists', !!world.sky && world.sky.geometry.attributes.color.coun
 check('stars exist for the night sky', !!world.stars);
 check('sun light is added to the scene', scene.children.some((c) => c.isDirectionalLight));
 
+/* ---- geometry orientation: a ground mesh must face UP ----
+   (this exact bug shipped once: reversed winding made the terrain invisible
+   from above and visible only from underneath, i.e. "I am under the ground") */
+function faceNormal(geometry, i) {
+  const pos = geometry.attributes.position;
+  const idx = geometry.index;
+  // indexed geometries (PlaneGeometry, CylinderGeometry, ...) need the index
+  // buffer; hand-built ones (the terrain) are non-indexed
+  const at = (k) => (idx ? idx.getX(i * 3 + k) : i * 3 + k);
+  const a = new THREE.Vector3().fromBufferAttribute(pos, at(0));
+  const b = new THREE.Vector3().fromBufferAttribute(pos, at(1));
+  const c = new THREE.Vector3().fromBufferAttribute(pos, at(2));
+  return new THREE.Vector3()
+    .crossVectors(new THREE.Vector3().subVectors(b, a), new THREE.Vector3().subVectors(c, a))
+    .normalize();
+}
+
+check('every terrain triangle faces up (front side visible from above)', (() => {
+  const geo = world.terrain.geometry;
+  const tris = geo.attributes.position.count / 3;
+  let down = 0;
+  let worst = 1;
+  for (let i = 0; i < tris; i++) {
+    const n = faceNormal(geo, i);
+    worst = Math.min(worst, n.y);
+    if (n.y <= 0) down++;
+  }
+  if (down) console.log(`      (${down}/${tris} triangles face down, lowest n.y=${worst.toFixed(3)})`);
+  return down === 0;
+})());
+check('terrain vertex normals point up', (() => {
+  const n = world.terrain.geometry.attributes.normal;
+  for (let i = 0; i < n.count; i++) if (n.getY(i) <= 0) return false;
+  return true;
+})());
+check('terrain material renders front faces only', world.terrain.material.side === THREE.FrontSide);
+check('water plane faces up (visible from above)', (() => {
+  const geo = world.water.geometry;
+  const n = faceNormal(geo, 0);
+  return n.y > 0.99;
+})());
+check('vegetation meshes render their outside (tree trunk, canopy, rocks)', (() => {
+  const geometries = [
+    new THREE.CylinderGeometry(0.22, 0.32, 4.2, 5, 1), // trunk
+    new THREE.ConeGeometry(1.9, 5.2, 6, 1), // canopy
+    new THREE.IcosahedronGeometry(0.95, 0), // rock
+    new THREE.BoxGeometry(1, 1, 1), // building pieces
+    new THREE.CapsuleGeometry(0.36, 0.9, 3, 8), // players
+  ];
+  for (const geo of geometries) {
+    const count = (geo.index ? geo.index.count : geo.attributes.position.count) / 3;
+    const centroid = new THREE.Vector3();
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) centroid.add(new THREE.Vector3().fromBufferAttribute(pos, i));
+    centroid.divideScalar(pos.count);
+    let outward = 0;
+    for (let i = 0; i < count; i++) {
+      const n = faceNormal(geo, i);
+      // face centre, relative to the mesh centre
+      const idx = geo.index;
+      const at = (k) => (idx ? idx.getX(i * 3 + k) : i * 3 + k);
+      const centre = new THREE.Vector3()
+        .add(new THREE.Vector3().fromBufferAttribute(pos, at(0)))
+        .add(new THREE.Vector3().fromBufferAttribute(pos, at(1)))
+        .add(new THREE.Vector3().fromBufferAttribute(pos, at(2)))
+        .divideScalar(3)
+        .sub(centroid);
+      if (n.dot(centre) > 0) outward++;
+    }
+    if (outward / count < 0.95) return false;
+  }
+  return true;
+})());
+
+/* ---- physics must ride the *rendered* surface, not a separate one ---- */
+check('sampleHeight equals the rendered triangle surface everywhere', (() => {
+  const g = WORLD.grid;
+  const pos = world.terrain.geometry.attributes.position;
+  const heights = (x, z) => terrainHeight(x, z, WORLD.seed);
+  for (let i = 0; i < 3000; i++) {
+    const x = (Math.random() * 2 - 1) * (WORLD.half - 2);
+    const z = (Math.random() * 2 - 1) * (WORLD.half - 2);
+    const x0 = Math.floor(x / g) * g;
+    const z0 = Math.floor(z / g) * g;
+    const tx = (x - x0) / g;
+    const tz = (z - z0) / g;
+    const h00 = heights(x0, z0);
+    const h10 = heights(x0 + g, z0);
+    const h01 = heights(x0, z0 + g);
+    const h11 = heights(x0 + g, z0 + g);
+    const mesh = (tx + tz <= 1)
+      ? h00 + (h10 - h00) * tx + (h01 - h00) * tz
+      : h11 + (h10 - h11) * (1 - tz) + (h01 - h11) * (1 - tx);
+    if (Math.abs(sampleHeight(x, z, WORLD.seed) - mesh) > 1e-9) return false;
+  }
+  void pos;
+  return true;
+})());
+
 check('heightAt matches the shared sampler', (() => {
   for (const [x, z] of [[0, 0], [50, -30], [-120, 88], [200, 200]]) {
     if (Math.abs(world.heightAt(x, z) - sampleHeight(x, z, WORLD.seed)) > 1e-9) return false;

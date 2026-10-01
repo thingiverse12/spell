@@ -90,6 +90,10 @@ async function boot() {
 
   await frame();
   worldView = new WorldView(scene, Number(new URLSearchParams(location.search).get('seed')) || WORLD.seed);
+  // Menu backdrop: an overview of the island. (The default camera position is
+  // the world origin, which is inside the ground.)
+  camera.position.set(0, WORLD.maxHeight + 26, -WORLD.half * 0.62);
+  camera.lookAt(0, 0, 0);
   hud.setLoading(0.6, t('loading'));
   await frame();
 
@@ -263,6 +267,7 @@ function handleEvent(ev) {
       break;
     }
     case 'respawned': hud.showDeath(false); break;
+    case 'unstuck': hud.toast(getLang() === 'sv' ? 'Flyttad till säker mark' : 'Moved to safe ground', 'ok'); break;
     case 'placed': playSound('build'); break;
     case 'door': playSound('door'); break;
     case 'buildingGone': hud.toast(`${t('left')} ${ev.cause === 'decay' ? '(decay)' : ''}`); break;
@@ -774,7 +779,9 @@ function update(dt, now) {
   const eye = you.crouch ? PHYS.crouchEyeHeight : PHYS.eyeHeight;
   const ground = sampleHeight(you.x, you.z, net.welcome?.seed ?? WORLD.seed);
   const eyeTarget = Math.max(you.y, ground) + eye;
-  camera.position.set(you.x, camera.position.y + (eyeTarget - camera.position.y) * (1 - Math.exp(-22 * dt)), you.z);
+  const smoothY = camera.position.y + (eyeTarget - camera.position.y) * (1 - Math.exp(-22 * dt));
+  // hard floor: the camera may never dip below the visible surface
+  camera.position.set(you.x, Math.max(smoothY, ground + 0.25), you.z);
   camera.rotation.order = 'YXZ';
   camera.rotation.y = you.yaw;
   camera.rotation.x = you.pitch;
@@ -844,6 +851,21 @@ function update(dt, now) {
     hud.setHint(`${pieceName(PIECES[b.piece])} · ${b.ownerName || ''}${PIECES[b.piece].openable ? ' · E' : ''}`);
   } else if (!state.buildMode) {
     hud.setHint('');
+  }
+
+  // stuck rescue: if we have been below the surface for a while, ask the server
+  // to place us somewhere safe (keeps inventory; only fires when something is
+  // genuinely wrong, e.g. a save from an older world build)
+  const surface = sampleHeight(you.x, you.z, net.welcome?.seed ?? WORLD.seed);
+  if (you.y < surface - 0.6 && !you.dead) {
+    state.stuckSince = state.stuckSince ?? now;
+    if (now - state.stuckSince > 2500) {
+      state.stuckSince = null;
+      net.action('unstick');
+      hud.toast(getLang() === 'sv' ? 'Fastnade — flyttad till säker mark' : 'Stuck — moved to safe ground');
+    }
+  } else {
+    state.stuckSince = null;
   }
 
   // death

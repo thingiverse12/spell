@@ -24,6 +24,8 @@ import WebSocket from 'ws';
 
 import { NET, WORLD, ITEMS, RECIPES } from '../shared/config.js';
 import { sampleHeight } from '../shared/noise.js';
+import { World } from '../server/world.js';
+import * as rules2 from '../server/rules.js';
 import { LocalWorld, Predictor, createPlayerState } from '../shared/prediction.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -291,6 +293,48 @@ async function main() {
     return Math.abs(p.y - sampleHeight(p.x, p.z, alice.welcome.seed)) < 2.5;
   })());
   check('seed is shared with the client', alice.welcome.seed === SEED);
+
+  /* ---------------- 1b. terrain / physics consistency ---------------- */
+  section('1b. Terrain & physics consistency');
+  const probeWorld = new World({ seed: SEED, dataDir: null });
+  const probe = probeWorld.addPlayer('probe', 'Probe');
+
+  check('spawn is on dry, walkable ground', (() => {
+    const h = sampleHeight(probe.x, probe.z, SEED);
+    return probe.y >= h - 0.05 && h > WORLD.seaLevel;
+  })(), `y=${probe.y.toFixed(2)} ground=${sampleHeight(probe.x, probe.z, SEED).toFixed(2)}`);
+
+  check('resource nodes sit exactly on the rendered surface', (() => {
+    probeWorld.ensureChunksAround(probe.x, probe.z);
+    const nodes = [...probeWorld.nodes.values()].slice(0, 50);
+    return nodes.length > 0 && nodes.every((n) => Math.abs(n.y - sampleHeight(n.x, n.z, SEED)) < 1e-9);
+  })());
+
+  check('a buried player is lifted back to the surface', (() => {
+    probe.y = -40; // e.g. a save from an older terrain build
+    probe.vy = 0;
+    rules2.stepPlayer(probeWorld, probe, { wish: 0, strafe: 0, yaw: 0 }, 1 / NET.tickRate);
+    return probe.y >= sampleHeight(probe.x, probe.z, SEED) - 1e-6;
+  })(), `y=${probe.y.toFixed(2)}`);
+
+  check('unstick moves the player to safe ground and keeps the inventory', (() => {
+    probe.y = -40;
+    probe.inv[0] = { item: 'wood', n: 7 };
+    const res = rules2.unstick(probeWorld, probe);
+    const h = sampleHeight(probe.x, probe.z, SEED);
+    return res.ok && probe.y >= h - 0.05 && h > WORLD.seaLevel && probe.inv[0]?.n === 7;
+  })());
+
+  check('walking never leaves the player under the surface', (() => {
+    // walk 300 steps in a fixed direction across the terrain and check the
+    // invariant the renderer relies on: player height >= surface height
+    probe.x = 0; probe.z = 0; probe.y = sampleHeight(0, 0, SEED);
+    for (let i = 0; i < 300; i++) {
+      rules2.stepPlayer(probeWorld, probe, { wish: 1, strafe: 0, yaw: 0.7, jump: i % 40 === 0 }, 1 / NET.tickRate);
+      if (probe.y < sampleHeight(probe.x, probe.z, SEED) - 0.02) return false;
+    }
+    return true;
+  })());
 
   /* ---------------- 2. movement + prediction fidelity ---------------- */
   section('2. Authoritative movement & client prediction');

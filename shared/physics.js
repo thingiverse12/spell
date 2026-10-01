@@ -88,6 +88,16 @@ export function moveVertical(p, dy, world) {
  */
 export function stepMovement(world, p, input, dt) {
   const ground = sampleHeight(p.x, p.z, world.seed);
+
+  // Safety net: a saved position from an older build (or a geometry change) can
+  // sit below the surface. Pop back up instead of leaving the player buried.
+  if (p.y < ground - 0.05) {
+    p.y = ground;
+    if (p.vy < 0) p.vy = 0;
+    p.buried = true;
+  } else if (p.buried) {
+    p.buried = false;
+  }
   const waterDepth = WORLD.seaLevel - Math.max(ground, p.y);
   p.inWater = waterDepth > 0.4;
   p.swimming = waterDepth > PHYS.swimWaterDepth;

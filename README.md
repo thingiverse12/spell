@@ -96,12 +96,12 @@ Detta är en prototyp, inte ett färdigt spel:
 ## Testa / Testing
 
 ```bash
-npm test              # server + multiplayer-harness med bot-klienter   (26 kontroller)
-npm run test:client   # klientens egen net.js mot en live-server        (15 kontroller)
+npm test              # server + multiplayer-harness med bot-klienter   (31 kontroller)
+npm run test:client   # klientens egen net.js mot en live-server        (22 kontroller)
 npm run test:ui       # DOM-id:n, i18n, importer, importmap, CSS        (213 kontroller)
 npm run test:dom      # HUD:en i jsdom: barer, hotbar, recept, byggmeny (65 kontroller)
-npm run test:render   # scenlogik: terräng, instanser, byggnader, djur  (65 kontroller)
-npm run test:all      # allt ovan = 384 kontroller
+npm run test:render   # scenlogik: terräng, instanser, byggnader, djur  (71 kontroller)
+npm run test:all      # allt ovan = 406 kontroller
 npm run verify:browser  # riktig Chromium via puppeteer (kräver nedladdad Chrome)
 ```
 
@@ -134,6 +134,7 @@ faller den tillbaka på en statisk kontroll av att alla moduler laddas.
 | "Servern svarar inte" | Servern är inte igång (t.ex. efter att sandlådan/containern startats om) | `npm install && npm start`, sidan återansluter själv inom ~15 s |
 | "Kunde inte öppna WebSocket-anslutningen" | HTTP fungerar men proxyn/porten släpper inte igenom uppgraderingen till WebSocket | Kontrollera att proxyn tillåter `Upgrade`; adressen som försöktes visas i rutan |
 | "Samma spelare är redan inloggad i en annan flik" | En webbläsare delar `localStorage`, så två flikar får samma spelar-id | Klicka **Spela som gäst** (eller vänta — klienten byter automatiskt) |
+| Karaktären står under/innanför marken | Terränggeometrins trianglar var felvända (fixat) eller en sparad position från en äldre världsversion | Ladda om sidan; klienten begär automatiskt "unstick" om du skulle hamna under ytan |
 | Spelet hackar | Svag GPU | `Esc` → sänk siktavstånd, stäng av skuggor eller slå på "Enkel grafik" |
 | Musen fångas inte | Pekarlås blockeras ofta i inbäddade iframes/preview-fönster | **Dra med musen** för att titta — klienten växlar automatiskt till det läget |
 
@@ -219,7 +220,7 @@ prediction and server simulation can never drift apart. Player movement is
 predicted locally, verified by the server, and reconciled on every snapshot;
 remote players and animals are interpolated 120 ms in the past.
 
-Test it: `npm run test:all` runs 384 checks — the server/multiplayer harness
+Test it: `npm run test:all` runs 406 checks — the server/multiplayer harness
 (26), the real client network module against a live server (15), DOM/i18n
 consistency (130), HUD behaviour in jsdom (65) and scene/render logic without a
 GPU (65). `npm run verify:browser` additionally drives a real Chromium and saves

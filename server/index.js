@@ -282,6 +282,11 @@ function handleMessage(conn, msg) {
         case 'equip': res = rules.setToolSlot(world, p, msg.slot | 0); break;
         case 'moveitem': res = rules.moveItem(world, p, msg.from | 0, msg.to | 0); break;
         case 'repair': res = rules.repair(world, p, msg.slot | 0); break;
+        case 'unstick': {
+          res = rules.unstick(world, p);
+          conn.events.push({ e: 'unstuck' });
+          break;
+        }
         case 'respawn': {
           if (p.health > 0) { res = { ok: false, error: 'alive' }; break; }
           rules.respawn(world, p);

@@ -201,14 +201,14 @@ anomalies, and avoid game modes where cheating ruins the experience for others
 
 | Command | What it verifies |
 |---|---|
-| `npm test` | Boots a real server and two bot clients: handshake, deterministic terrain, authoritative movement + prediction drift, harvesting, out-of-range rejection, crafting, building, replication, PvP, persistence across a restart (26 checks). |
+| `npm test` | Boots a real server and two bot clients: handshake, deterministic terrain, **terrain/physics consistency** (spawn, props on the surface, buried player lifted out, unstick), authoritative movement + prediction drift, harvesting, out-of-range rejection, crafting, building, replication, PvP, persistence across a restart (31 checks). |
 | `npm run test:client` | Runs **the client's own** `client/src/net.js` against a live server with `ws` standing in for the browser WebSocket: handshake, prediction, harvesting, inventory, building, events (15 checks). |
 | `npm run test:ui` | Static verification of DOM ids, i18n keys, the import map, CSS selectors **and that every imported name is really exported** by its target module (213 checks). |
 | `npm run test:dom` | Runs the **actual HUD** in jsdom against `client/index.html`: bars, clock, hotbar, backpack, recipe list, build menu, map, chat, language switching (65 checks). It caught missing building items in `ITEMS` and stale recipe callbacks. |
-| `npm run test:render` | Scene logic without a GPU: terrain geometry and determinism, instancing pools, opening doors, per-building damage tinting, animal interpolation, the build ghost (65 checks). |
+| `npm run test:render` | Scene logic without a GPU: terrain geometry, **triangle winding (front faces up — the bug that made the ground visible only from below)**, that physics samples exactly the rendered surface, instancing pools, doors, damage tinting, interpolation, the build ghost (71 checks). |
 | `npm run verify:browser` | Real Chromium (puppeteer): console errors, that the canvas actually renders, screenshots. Falls back to a static module check when no browser is available. |
 
-**384 checks** in total. CI suggestion: `npm run test:all` on every push, `npm run verify:browser`
+**406 checks** in total. CI suggestion: `npm run test:all` on every push, `npm run verify:browser`
 nightly or before a release (needs Chromium downloaded).
 
 ## 11. Resilience (live previews and operations)

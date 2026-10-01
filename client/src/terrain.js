@@ -116,9 +116,13 @@ export class WorldView {
         const base = COLORS[biome] || COLORS.grass;
         const tint = jitter(cx, cz, this.seed);
 
+        // Winding matters: three.js culls back faces, so a ground quad has to be
+        // counter-clockwise when seen from above or the terrain only shows up
+        // from underneath. The diagonal runs (x0,z0) -> (x1,z1), and both
+        // triangles below produce an upward (+Y) face normal.
         const quads = [
-          [[x0, h00, z0], [x1, h10, z0], [x1, h11, z1]],
-          [[x0, h00, z0], [x1, h11, z1], [x0, h01, z1]],
+          [[x0, h00, z0], [x0, h01, z1], [x1, h10, z0]],
+          [[x1, h11, z1], [x1, h10, z0], [x0, h01, z1]],
         ];
         for (const tri of quads) {
           a.set(tri[0][0], tri[0][1], tri[0][2]);

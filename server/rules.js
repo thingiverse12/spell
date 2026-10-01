@@ -82,6 +82,25 @@ export function damage(world, p, amount, cause = 'unknown', attacker = null) {
   return false;
 }
 
+/**
+ * Place the player on safe ground without touching inventory or stats.
+ * Used by the client when it detects that it is buried (older save, geometry
+ * change, or a bug): never punish the player for our own bookkeeping.
+ */
+export function unstick(world, p) {
+  const spot = world.findSpawn({ x: p.x, z: p.z }) || world.findSpawn();
+  const ground = sampleHeight(spot.x, spot.z, world.seed);
+  p.x = spot.x;
+  p.y = ground + 0.2;
+  p.z = spot.z;
+  p.vx = 0;
+  p.vy = 0;
+  p.vz = 0;
+  p.buried = false;
+  world.dirty = true;
+  return { ok: true, x: p.x, y: p.y, z: p.z };
+}
+
 export function respawn(world, p) {
   const spot = world.findSpawn(p.spawn ? { x: p.spawn.x, z: p.spawn.z } : null);
   p.x = spot.x; p.y = spot.y + 0.3; p.z = spot.z;

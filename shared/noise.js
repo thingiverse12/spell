@@ -74,7 +74,13 @@ export function terrainHeight(x, z, seed = WORLD.seed) {
   return h;
 }
 
-/** Bilinear height sample on the terrain grid (what physics actually uses). */
+/**
+ * Height of the terrain surface at (x, z) - *exactly* the surface the renderer
+ * draws. The mesh is two triangles per grid cell split along the (0,0)-(1,1)
+ * diagonal (see client/src/terrain.js), so sampling must use the same split;
+ * bilinear interpolation would disagree with the visible ground by up to ~0.25 m
+ * and make players, props and collisions sink slightly into it.
+ */
 export function sampleHeight(x, z, seed = WORLD.seed) {
   const g = WORLD.grid;
   const x0 = Math.floor(x / g) * g;
@@ -85,9 +91,9 @@ export function sampleHeight(x, z, seed = WORLD.seed) {
   const h10 = terrainHeight(x0 + g, z0, seed);
   const h01 = terrainHeight(x0, z0 + g, seed);
   const h11 = terrainHeight(x0 + g, z0 + g, seed);
-  const a = h00 + (h10 - h00) * tx;
-  const b = h01 + (h11 - h01) * tx;
-  return a + (b - a) * tz;
+  return (tx + tz <= 1)
+    ? h00 + (h10 - h00) * tx + (h01 - h00) * tz
+    : h11 + (h10 - h11) * (1 - tz) + (h01 - h11) * (1 - tx);
 }
 
 /** Surface normal, for slope checks and prop placement. */

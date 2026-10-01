@@ -197,14 +197,14 @@ som standard).
 
 | Kommando | Vad som verifieras |
 |---|---|
-| `npm test` | Startar en riktig server och två bot-klienter: handskakning, deterministisk terräng, auktoritativ rörelse + prediktionsavvikelse, skörd, avståndsavvisning, crafting, bygge, replikering, PvP, persisten över omstart (26 kontroller). |
+| `npm test` | Startar en riktig server och två bot-klienter: handskakning, deterministisk terräng, **terräng/fysik-konsistens** (spawn, noder på ytan, begravd spelare lyfts upp, unstick), auktoritativ rörelse + prediktionsavvikelse, skörd, avståndsavvisning, crafting, bygge, replikering, PvP, persistens över omstart (31 kontroller). |
 | `npm run test:client` | Kör **klientens egen** `client/src/net.js` mot en live-server med `ws` som WebSocket-stand-in: handskakning, prediktion, skörd, inventory, bygge, events (15 kontroller). |
 | `npm run test:ui` | Statisk kontroll av DOM-id:n, i18n-nycklar, importmap, CSS-selektorer **och att varje importerat namn faktiskt exporteras** av målmodulen (213 kontroller). |
 | `npm run test:dom` | Kör **HUD:en på riktigt** i jsdom mot `client/index.html`: barer, klocka, hotbar, ryggsäck, receptlista, byggmeny, karta, chatt, språkbyte (65 kontroller). Hittade bl.a. att byggdelar saknades i `ITEMS` och att recept-callbacks kunde bli inaktuella. |
-| `npm run test:render` | Scenlogik utan GPU: terränggeometri och determinism, instanspooler, dörrar som öppnas, skadetint per byggnad, djurs interpolation, spökmodellen (65 kontroller). |
+| `npm run test:render` | Scenlogik utan GPU: terränggeometri, **trianglarnas riktning (framsidor uppåt — buggen där marken bara syntes underifrån)**, att fysikens höjdsampling är exakt den renderade ytan, instanspooler, dörrar, skadetint, interpolation, spökmodell (71 kontroller). |
 | `npm run verify:browser` | Riktig Chromium (puppeteer): konsolfel, att duken faktiskt renderar, skärmdumpar. Hoppar till statisk modulkontroll om ingen webbläsare finns. |
 
-Totalt **384 kontroller**. CI-förslag: `npm run test:all` på varje push, `npm run verify:browser` på natten
+Totalt **406 kontroller**. CI-förslag: `npm run test:all` på varje push, `npm run verify:browser` på natten
 eller före release (kräver nedladdad Chromium).
 
 ## 11. Robusthet (live-preview och drift)
