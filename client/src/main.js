@@ -17,6 +17,7 @@ import {
 } from '../../shared/config.js';
 import { sampleHeight } from '../../shared/noise.js';
 import { auditGround, describeViolations } from '../../shared/ground.js';
+import { auditScene, describeModelProblems, BUDGET } from './palette.js';
 import { Net } from './net.js';
 import { Hud } from './hud.js';
 import { WorldView } from './terrain.js';
@@ -116,6 +117,8 @@ const state = {
   hudControls: 0,     // HUD controls bound by controls.js (F3 shows the count)
   groundAudit: { at: 0, buried: 0, lifted: 0, worst: 0 }, // rule: nothing under the ground
   groundErrorAt: 0,
+  modelAudit: { at: 0, meshes: 0, triangles: 0, materials: 0, problems: [] }, // rule: the models
+  modelErrorAt: 0,
   // fields that are created at runtime (declared here so typos are caught)
   selectedPiece: 'foundation',
   underwater: false,
@@ -928,6 +931,29 @@ function auditClientGround(now) {
   }
 }
 
+/**
+ * Rule: check the models - design, colours, materials, how good they are, then
+ * the errors in them. The scene is measured a few times per second: mesh count,
+ * triangle count, material count and anything that breaks a rule (NaN geometry,
+ * a mesh without a material, an impossible triangle count for its kind).
+ */
+function auditModels(now) {
+  if (now - state.modelAudit.at < 3000) return;
+  const result = auditScene(scene, { budget: BUDGET });
+  state.modelAudit = {
+    at: now,
+    meshes: result.meshes,
+    triangles: result.triangles,
+    materials: result.materials,
+    problems: result.problems,
+  };
+  const problems = result.problems;
+  if (problems.length && now - state.modelErrorAt > 5000) {
+    state.modelErrorAt = now;
+    recordError('model', describeModelProblems(problems, 3, getLang()), `${result.meshes} meshes, ${result.triangles} trianglar`);
+  }
+}
+
 function update(dt, now) {
   const net = state.net;
   const you = net.you;
@@ -954,6 +980,9 @@ function update(dt, now) {
 
   // ---- ground audit: is anything below the surface?
   auditClientGround(now);
+
+  // ---- model audit: design, colours, materials, cost
+  auditModels(now);
 
   // ---- camera follows the predicted player (math lives in camera.js)
   const eye = you.crouch ? PHYS.crouchEyeHeight : PHYS.eyeHeight;
@@ -1079,6 +1108,8 @@ function update(dt, now) {
     + `nätverk ↓${stats.kbpsIn} kbit/s  upp ${(stats.bytesOut * 8 / 1000 / Math.max(1, state.playtime)).toFixed(1)} kbit/s\n`
     + `titt: ${state.mouse.locked ? 'pekarlås' : state.mouse.lookMode === 'drag' ? 'drag' : 'pekarlås (ej aktivt)'}`
     + `  pitch ${(you.pitch * 57.3).toFixed(0)}°  roll ${(camera.rotation.z).toFixed(3)}\n`
+    + `modeller ${state.modelAudit.meshes} meshes/${state.modelAudit.triangles} tris/${state.modelAudit.materials} mat`
+    + `${state.modelAudit.problems.length ? `  modellfel: ${state.modelAudit.problems.length}` : ''}\n`
     + `kontroller ${state.hudControls}  under mark: ${state.groundAudit.buried}`
     + `${state.groundAudit.buried ? ` (värst ${state.groundAudit.worst} m)` : ''}`
     + `  fel: ${runtimeErrors.length}`

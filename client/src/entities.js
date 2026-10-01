@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { sampleHeight } from '../../shared/noise.js';
 import { liftToSurface } from '../../shared/ground.js';
 import { NODES, PIECES, ANIMALS, ITEMS, WORLD, piecePosition, buildingAABB } from '../../shared/config.js';
+import { PALETTE, MATERIALS, BUDGET, trianglesOf } from './palette.js';
 
 const SHARED = {
   trunk: new THREE.CylinderGeometry(0.22, 0.32, 4.2, 5, 1),
@@ -19,20 +20,19 @@ const SHARED = {
   box: new THREE.BoxGeometry(1, 1, 1),
   capsule: new THREE.CapsuleGeometry(0.36, 0.9, 3, 8),
   head: new THREE.SphereGeometry(0.24, 8, 6),
+  // animals: one set of shapes, shared by every instance of every animal type
+  animalBody: new THREE.BoxGeometry(0.7, 0.65, 1.25),
+  animalHead: new THREE.BoxGeometry(0.42, 0.42, 0.5),
+  animalLeg: new THREE.BoxGeometry(0.14, 0.55, 0.14),
+  antler: new THREE.ConeGeometry(0.1, 0.5, 4),
+  // building extras
+  fireRing: new THREE.CylinderGeometry(0.66, 0.7, 0.22, 6),
+  fireLogs: new THREE.CylinderGeometry(0.12, 0.12, 0.98, 5),
+  flame: new THREE.ConeGeometry(0.32, 0.9, 5),
 };
 
-const MATS = {
-  trunk: new THREE.MeshLambertMaterial({ color: 0x6b4a2a, flatShading: true }),
-  foliage: new THREE.MeshLambertMaterial({ color: 0x2f6b33, flatShading: true }),
-  rock: new THREE.MeshLambertMaterial({ color: 0x8d9099, flatShading: true }),
-  bush: new THREE.MeshLambertMaterial({ color: 0x3d7a34, flatShading: true }),
-  wood: new THREE.MeshLambertMaterial({ color: 0x9a6b3c, flatShading: true }),
-  woodDark: new THREE.MeshLambertMaterial({ color: 0x7a5230, flatShading: true }),
-  stone: new THREE.MeshLambertMaterial({ color: 0x9aa0a6, flatShading: true }),
-  animal: new THREE.MeshLambertMaterial({ color: 0xa9793f, flatShading: true }),
-  animalDark: new THREE.MeshLambertMaterial({ color: 0x5d4a3a, flatShading: true }),
-  metal: new THREE.MeshLambertMaterial({ color: 0xb9c2c9, flatShading: true }),
-};
+/** Shared materials, from client/src/palette.js (one home for every colour). */
+const MATS = MATERIALS;
 
 /* ------------------------------------------------------------------ *
  *  Resource nodes (InstancedMesh pools)
@@ -69,6 +69,41 @@ class InstancePool {
       this.mesh.instanceColor.needsUpdate = true;
     }
   }
+}
+
+/**
+ * Raw silhouette height of each node model as authored (before scaling).
+ * The tree is trunk 4.2 m plus a 5.2 m cone that overlaps it, so the authored
+ * model is 9 m tall while the design says 7 m; the rock and the bush were
+ * positioned so that part of them ended up *below* the surface.
+ */
+export const NODE_RAW_HEIGHT = { tree: 9.0, rock: 1.615, bush: 1.275 };
+
+/**
+ * Where every part of a resource node goes.
+ *
+ * Guarantees (asserted by test/models.js):
+ *   - the base sits exactly on the node's ground point (no buried model)
+ *   - the silhouette is as tall as NODES[type].height says
+ */
+export function nodeLayout(type, scale = 1) {
+  const def = NODES[type];
+  const raw = NODE_RAW_HEIGHT[type] ?? (def?.height ?? 1);
+  const k = ((def?.height ?? raw) / raw) * scale;
+  if (type === 'tree') {
+    return {
+      height: (def?.height ?? raw) * scale,
+      parts: {
+        trunk: { y: 4.2 * k * 0.5, sx: k, sy: k, sz: k },
+        foliage: { y: 6.4 * k, sx: k, sy: k, sz: k },
+      },
+    };
+  }
+  const meshHeight = type === 'rock' ? 1.615 : 1.275;
+  return {
+    height: (def?.height ?? raw) * scale,
+    parts: { [type]: { y: (meshHeight * k) / 2, sx: k, sy: k, sz: k } },
+  };
 }
 
 export class NodeView {
@@ -117,16 +152,13 @@ export class NodeView {
   }
 
   _place(entry) {
-    const s = entry.scale || 1;
+    const layout = nodeLayout(entry.type, entry.scale || 1);
     entry.dead = false;
-    if (entry.type === 'tree') {
-      const h = NODES.tree.height * s * 0.6;
-      this.pools.trunk.set(entry.slots.trunk, entry.x, entry.y + h * 0.5, entry.z, s, s, s, entry.rot, null);
-      this.pools.foliage.set(entry.slots.foliage, entry.x, entry.y + h + 2.2 * s, entry.z, s, s, s, entry.rot, null);
-    } else if (entry.type === 'rock') {
-      this.pools.rock.set(entry.slots.rock, entry.x, entry.y + 0.55 * s, entry.z, s, s * 0.85, s, entry.rot, null);
-    } else {
-      this.pools.bush.set(entry.slots.bush, entry.x, entry.y + 0.5 * s, entry.z, s, s * 0.85, s, entry.rot, null);
+    for (const [kind, slot] of Object.entries(entry.slots)) {
+      const part = layout.parts[kind];
+      const pool = this.pools[kind];
+      if (!part || !pool) continue;
+      pool.set(slot, entry.x, entry.y + part.y, entry.z, part.sx, part.sy, part.sz, entry.rot, null);
     }
   }
 
@@ -168,6 +200,58 @@ export class NodeView {
  *  Buildings
  * ------------------------------------------------------------------ */
 
+/**
+ * Shared geometry/material caches for buildings.
+ *
+ * Before this, every placed piece created its own BoxGeometry *and* its own
+ * material clone, so a 200-piece base meant 200 geometries and 200 materials.
+ * The damage tint also used `color.setScalar(ratio)`, which sets R=G=B - a
+ * damaged wooden wall turned grey instead of darker brown.
+ *
+ * Now: one geometry per (piece,size), one material per (piece, damage bucket),
+ * and the tint multiplies the palette colour so the hue survives.
+ */
+const PIECE_GEO = new Map();
+const PIECE_MAT = new Map();
+const TINT_STEPS = [1, 0.8, 0.62, 0.45];
+
+function pieceGeometry(piece, w, h, d) {
+  const key = `${piece}|${w}|${h}|${d}`;
+  let g = PIECE_GEO.get(key);
+  if (!g) { g = new THREE.BoxGeometry(w, h, d); PIECE_GEO.set(key, g); }
+  return g;
+}
+
+/** Damage bucket 0 (pristine) .. 3 (about to fall apart). */
+export function damageBucket(hp, maxHp) {
+  const r = maxHp > 0 ? hp / maxHp : 1;
+  if (r > 0.75) return 0;
+  if (r > 0.5) return 1;
+  if (r > 0.25) return 2;
+  return 3;
+}
+
+function tintedMaterial(piece, base, bucket) {
+  const safe = Math.max(0, Math.min(TINT_STEPS.length - 1, bucket | 0));
+  if (safe === 0) return base; // pristine pieces use the shared palette material
+  const key = `${piece}|${safe}`;
+  let m = PIECE_MAT.get(key);
+  if (!m) {
+    m = base.clone();
+    m.userData.ownColor = true;
+    m.userData.baseColor = base.color.getHex();
+    m.userData.bucket = safe;
+    m.color.multiplyScalar(TINT_STEPS[safe]); // hue preserved, never grey
+    PIECE_MAT.set(key, m);
+  }
+  return m;
+}
+
+/** Number of cached materials/geometries - asserted by test/models.js and F3. */
+export function buildingCacheStats() {
+  return { geometries: PIECE_GEO.size, materials: PIECE_MAT.size };
+}
+
 export class BuildingView {
   constructor(scene) {
     this.scene = scene;
@@ -187,10 +271,13 @@ export class BuildingView {
         entry.open = !!data.open;
         entry.obj.userData.panel.rotation.y = entry.open ? Math.PI / 2 : 0;
       }
-      // damage tint (per-building materials, never the shared ones)
-      const ratio = Math.max(0.35, Math.min(1, data.hp / (PIECES[data.piece]?.hp || 400)));
+      // Damage tint: a cached material per (piece, bucket) keeps the hue.
+      const bucket = damageBucket(data.hp, PIECES[data.piece]?.hp || 400);
       entry.obj.traverse((o) => {
-        if (o.isMesh && o.material?.userData?.ownColor) o.material.color.setScalar(ratio);
+        const base = o.userData?.baseMat;
+        if (!o.isMesh || !base) return;
+        const wanted = tintedMaterial(data.piece, base, bucket);
+        if (o.material !== wanted) o.material = wanted;
       });
     }
   }
@@ -201,43 +288,43 @@ export class BuildingView {
     const group = new THREE.Group();
     group.position.set(pos.x, data.y, pos.z);
 
-    const own = (mat) => { const m = mat.clone(); m.userData.ownColor = true; return m; };
+    /** Attach a box that remembers which palette material it is tinted from. */
+    const box = (piece, w, h, d, base, opts = {}) => {
+      const mesh = new THREE.Mesh(pieceGeometry(piece, w, h, d), tintedMaterial(piece, base, 0));
+      mesh.userData.baseMat = base;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      if (opts.position) mesh.position.copy(opts.position);
+      if (opts.scale) mesh.scale.copy(opts.scale);
+      return mesh;
+    };
     if (data.piece === 'foundation') {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(def.size[0], def.size[1], def.size[2]), own(MATS.woodDark));
-      m.position.y = def.size[1] / 2;
-      m.castShadow = true; m.receiveShadow = true;
-      group.add(m);
+      group.add(box('foundation', def.size[0], def.size[1], def.size[2], MATS.foundation,
+        { position: new THREE.Vector3(0, def.size[1] / 2, 0) }));
     } else if (data.piece === 'wall') {
-      const g = new THREE.BoxGeometry(def.size[0], def.size[1], def.size[2]);
-      const m = new THREE.Mesh(g, own(MATS.wood));
-      m.position.y = def.size[1] / 2;
-      m.castShadow = true; m.receiveShadow = true;
-      group.add(m);
+      group.add(box('wall', def.size[0], def.size[1], def.size[2], MATS.wood,
+        { position: new THREE.Vector3(0, def.size[1] / 2, 0) }));
     } else if (data.piece === 'door') {
-      const frame = new THREE.Mesh(new THREE.BoxGeometry(def.size[0], def.size[1], def.size[2] * 0.6), own(MATS.woodDark));
-      frame.position.y = def.size[1] / 2;
+      const frame = box('doorFrame', def.size[0], def.size[1], def.size[2] * 0.6, MATS.woodDark,
+        { position: new THREE.Vector3(0, def.size[1] / 2, 0) });
       frame.scale.x = 1.02;
       group.add(frame);
       const panel = new THREE.Group();
       panel.position.set(-0.75, 0, 0);
-      const leaf = new THREE.Mesh(new THREE.BoxGeometry(1.5, def.size[1] * 0.94, def.size[2] * 0.7), own(MATS.wood));
-      leaf.position.set(0.75, def.size[1] / 2, 0);
-      leaf.castShadow = true;
+      const leaf = box('doorLeaf', 1.5, def.size[1] * 0.94, def.size[2] * 0.7, MATS.wood,
+        { position: new THREE.Vector3(0.75, def.size[1] / 2, 0) });
       panel.add(leaf);
       group.add(panel);
       group.userData.panel = panel;
     } else if (data.piece === 'campfire') {
-      const ring = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.8, 0.22, 6), MATS.stone);
+      const ring = new THREE.Mesh(SHARED.fireRing, MATS.stone);
       ring.position.y = 0.11;
       group.add(ring);
-      const logs = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1.1, 5), MATS.woodDark);
+      const logs = new THREE.Mesh(SHARED.fireLogs, MATS.woodDark);
       logs.rotation.z = Math.PI / 2;
       logs.position.y = 0.28;
       group.add(logs);
-      const flame = new THREE.Mesh(
-        new THREE.ConeGeometry(0.32, 0.9, 5),
-        new THREE.MeshBasicMaterial({ color: 0xffa23c, transparent: true, opacity: 0.92 }),
-      );
+      const flame = new THREE.Mesh(SHARED.flame, MATS.flame);
       flame.position.y = 0.8;
       group.add(flame);
       group.userData.flame = flame;
@@ -302,25 +389,31 @@ export class AnimalView {
     const def = ANIMALS[a.type];
     const g = new THREE.Group();
     const mat = a.type === 'boar' ? MATS.animalDark : MATS.animal;
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.65, 1.25), mat);
+    const body = new THREE.Mesh(SHARED.animalBody, mat);
     body.position.y = 0.85;
     body.castShadow = true;
     g.add(body);
-    const head = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 0.5), mat);
+    const head = new THREE.Mesh(SHARED.animalHead, mat);
     head.position.set(0, 1.12, 0.72);
+    head.castShadow = true;
     g.add(head);
     for (const [dx, dz] of [[-0.24, 0.45], [0.24, 0.45], [-0.24, -0.45], [0.24, -0.45]]) {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.55, 0.14), mat);
+      const leg = new THREE.Mesh(SHARED.animalLeg, mat);
       leg.position.set(dx, 0.28, dz);
       leg.userData.legPhase = dz > 0 ? 0 : Math.PI;
       g.add(leg);
     }
     if (a.type === 'deer') {
-      const antler = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.5, 4), MATS.woodDark);
+      const antler = new THREE.Mesh(SHARED.antler, MATS.woodDark);
       antler.position.set(0, 1.45, 0.6);
+      antler.castShadow = true;
       g.add(antler);
     }
-    g.scale.setScalar(Math.max(0.8, def.height));
+    // The model must be exactly as tall as the gameplay says it is, otherwise
+    // you aim at one silhouette and hit another. Measured, not guessed.
+    const raw = new THREE.Box3().setFromObject(g).getSize(new THREE.Vector3()).y || 1;
+    g.scale.setScalar(Math.max(0.2, def.height) / raw);
+    g.userData.kind = 'animal';
     return g;
   }
 
@@ -399,12 +492,16 @@ export class PlayerView {
     if (!entry || entry.name !== p.name) {
       if (entry) this.remove(p.id);
       const group = new THREE.Group();
-      const bodyMat = new THREE.MeshLambertMaterial({ color: new THREE.Color(p.color || '#c88'), flatShading: true });
+      // The body colour is per player (that is the point of it); everything
+      // else is shared.
+      const bodyMat = new THREE.MeshLambertMaterial({
+        color: new THREE.Color(p.color || PALETTE.animal), flatShading: true,
+      });
       const body = new THREE.Mesh(SHARED.capsule, bodyMat);
-      body.position.y = 0.85;
+      body.position.y = 0.81; // feet exactly at the ground the server simulated
       body.castShadow = true;
       group.add(body);
-      const head = new THREE.Mesh(SHARED.head, new THREE.MeshLambertMaterial({ color: 0xe8b48a, flatShading: true }));
+      const head = new THREE.Mesh(SHARED.head, MATS.skin);
       head.position.y = 1.62;
       head.castShadow = true;
       group.add(head);
@@ -493,7 +590,7 @@ export class ViewModel {
 
   _fist() {
     const g = new THREE.Group();
-    const fist = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.22), new THREE.MeshLambertMaterial({ color: 0xe8b48a, flatShading: true }));
+    const fist = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.14, 0.22), MATS.skin);
     fist.position.set(0, 0, 0);
     g.add(fist);
     return g;
@@ -539,7 +636,7 @@ export class ViewModel {
 
   _torch() {
     const g = this._handle();
-    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.28, 6), new THREE.MeshBasicMaterial({ color: 0xffa23c }));
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.09, 0.28, 6), MATS.flame);
     flame.position.set(0, 0.16, -0.52);
     g.add(flame);
     const light = new THREE.PointLight(0xffa050, 2.2, 12, 2);
@@ -609,7 +706,7 @@ export class BuildGhost {
     this.mesh.visible = true;
     this.mesh.scale.set(def.size[0], def.size[1], def.size[2]);
     this.mesh.position.set(pos.x, y + def.size[1] / 2, pos.z);
-    this.mesh.material.color.set(valid ? 0x7ac74f : 0xe2574c);
+    this.mesh.material.color.set(valid ? PALETTE.ghostOk : PALETTE.ghostBad);
     this.mesh.material.opacity = valid ? 0.35 : 0.3;
   }
 

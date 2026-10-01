@@ -317,3 +317,51 @@ Felen syns på tre ställen: serverloggen (`[spell:ground] … objects below the
 surface`), `/api/status` (`world.ground` med `checked/lifted/buried/worst`) och
 F3-panelen i spelet (`under mark: n`). Klienten lägger också händelsen i
 fel-listan (`window.__spellErrors`, högst en rapport var 5:e sekund).
+
+
+## 15. Modellerna (regel: design → färger → material → kvalitet → fel)
+
+Alla färger bor i `client/src/palette.js` (`PALETTE` för saker i världen, `SKY`
+för ljus, himmel och vatten). Innan låg hex-literaler utspridda i `entities.js`
+och `terrain.js`, vilket gjorde att ingen kunde svara på "är rådjuret samma
+bruna som vildsvinet?" eller "hur många material skapar 200 väggar?".
+
+**Design — modellen ska vara den storlek speldatan säger.** Om silhuetten och
+kollisionsboxen säger olika saker siktar man på en sak och träffar en annan.
+
+| Modell | Före | Efter |
+|---|---|---|
+| Rådjur | 2,54 m (speldatan säger 1,50) | **1,50 m** |
+| Vildsvin | 1,32 m (speldatan säger 1,00) | **1,00 m** |
+| Träd | 9,0 m (designen säger 7) | **7,0 m** |
+| Sten | 0,26 m **under marken** | vilar på marken |
+| Buske | 0,14 m **under marken** | vilar på marken |
+| Lägereld | 1,60 m bred (boxen är 1,40) | ryms i boxen |
+| Spelare | fötterna 0,04 m över marken | fötterna i **y = 0** |
+
+**Färger.** Paletten har 17 namngivna världsfärger + 14 himmelsfärger, inga
+dubbletter, alla giltiga. Djurens färger i `shared/config.js` måste finnas i
+paletten (testat), så speldatan och renderaren inte glider ifrån varandra.
+Skadetinten använde `color.setScalar(ratio)` — det sätter R=G=B, så en skadad
+trävägg blev **grå**. Nu multipliceras palettfärgen, så nyansen finns kvar.
+
+**Material.**
+
+| Före | Efter |
+|---|---|
+| Varje byggdel klonade ett material | ett material per (del, skadenivå), delade |
+| Varje byggdel skapade sin egen geometri | en geometri per (del, storlek) |
+| Varje djur skapade 6-7 geometrier | fyra delade djurgeometrier |
+| Huvudet skapade ett nytt skinnmaterial per spelare | ett delat skinnmaterial |
+
+**Kvalitet (mätt, inte gissat).** Varje mesh prövas mot en budget: 5 000
+trianglar per mesh, 300-400 per modell, 400 meshes per scen. En scen med
+120 noder, 40 djur, 60 byggdelar och 8 spelare landar på ~13 000 trianglar och
+ett tiotal material — low-poly som designen lovar.
+
+**Fel.** `auditScene()` mäter scenen var tredje sekund och rapporterar NaN i
+vertexdata, geometri utan trianglar, mesh utan material, färg utanför paletten
+och budgetöverskridanden. F3 visar `modeller n meshes/tris/mat` och
+`modellfel: n`; felen hamnar också i `window.__spellErrors`. `npm run test:models`
+kör 114 kontroller, inklusive planterade fel (NaN, tom geometri, för tung mesh,
+fel färg) och beviset att en frisk scen ger noll fel.

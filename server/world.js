@@ -68,6 +68,12 @@ function sanitizePlayer(p) {
     out.inv = [...base.inv];
   }
   if (!out.spawn || !Number.isFinite(out.spawn.x)) out.spawn = { x: out.x, y: out.y, z: out.z };
+  // Older saves have no colour: derive a stable one so remote players differ.
+  if (typeof out.color !== 'string' || !out.color) {
+    let h = 0;
+    for (const c of String(out.id ?? out.name ?? 'x')) h = (h * 31 + c.charCodeAt(0)) % 360;
+    out.color = `hsl(${h} 62% 55%)`;
+  }
   return out;
 }
 

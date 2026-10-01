@@ -8,6 +8,7 @@
  */
 
 import * as THREE from 'three';
+import { SKY, colorNumber } from './palette.js';
 import { WORLD } from '../../shared/config.js';
 import { sampleHeight, terrainHeight, slopeAt, biomeAt, sunDirection, dayLight, isNight } from '../../shared/noise.js';
 
@@ -40,7 +41,7 @@ export class WorldView {
     this.buildWater();
     this.buildSky();
 
-    this.sun = new THREE.DirectionalLight(0xfff2dc, 1.15);
+    this.sun = new THREE.DirectionalLight(colorNumber(SKY.sun), 1.15);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(1024, 1024);
     this.sun.shadow.camera.near = 1;
@@ -54,19 +55,19 @@ export class WorldView {
     scene.add(this.sun);
     scene.add(this.sun.target);
 
-    this.hemi = new THREE.HemisphereLight(0xbfd8ff, 0x4a4433, 0.65);
+    this.hemi = new THREE.HemisphereLight(colorNumber(SKY.hemiSky), colorNumber(SKY.hemiGround), 0.65);
     scene.add(this.hemi);
 
-    this.ambient = new THREE.AmbientLight(0xffffff, 0.15);
+    this.ambient = new THREE.AmbientLight(colorNumber(SKY.ambient), 0.15);
     scene.add(this.ambient);
 
     this._skyColors = { top: new THREE.Color(), bottom: new THREE.Color() };
     this._tmpVec = new THREE.Vector3();
-    this._dayTop = new THREE.Color(0x5aa9e6);
-    this._nightTop = new THREE.Color(0x0a1226);
-    this._dayBottom = new THREE.Color(0xcfe6f2);
-    this._duskBottom = new THREE.Color(0xe08a4a);
-    this._nightBottom = new THREE.Color(0x131c2e);
+    this._dayTop = new THREE.Color(colorNumber(SKY.dayTop));
+    this._nightTop = new THREE.Color(colorNumber(SKY.nightTop));
+    this._dayBottom = new THREE.Color(colorNumber(SKY.dayBottom));
+    this._duskBottom = new THREE.Color(colorNumber(SKY.duskBottom));
+    this._nightBottom = new THREE.Color(colorNumber(SKY.nightBottom));
     this._lastSkyUpdate = -1;
   }
 
@@ -161,7 +162,7 @@ export class WorldView {
     const geo = new THREE.PlaneGeometry(WORLD.size * 2.4, WORLD.size * 2.4, 1, 1);
     geo.rotateX(-Math.PI / 2);
     const mat = new THREE.MeshLambertMaterial({
-      color: 0x2f6f8f, transparent: true, opacity: 0.78, depthWrite: true,
+      color: colorNumber(SKY.water), transparent: true, opacity: 0.78, depthWrite: true,
     });
     this.water = new THREE.Mesh(geo, mat);
     this.water.position.y = WORLD.seaLevel;
@@ -200,13 +201,13 @@ export class WorldView {
     }
     const starGeo = new THREE.BufferGeometry();
     starGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-    this.starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 2.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false });
+    this.starMat = new THREE.PointsMaterial({ color: colorNumber(SKY.star), size: 2.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false });
     this.stars = new THREE.Points(starGeo, this.starMat);
     this.stars.frustumCulled = false;
     this.group.add(this.stars);
 
     // sun / moon disc
-    this.celestialMat = new THREE.MeshBasicMaterial({ color: 0xffe9b0, fog: false, depthWrite: false });
+    this.celestialMat = new THREE.MeshBasicMaterial({ color: colorNumber(SKY.celestial), fog: false, depthWrite: false });
     this.celestial = new THREE.Mesh(new THREE.SphereGeometry(14, 12, 8), this.celestialMat);
     this.celestial.frustumCulled = false;
     this.group.add(this.celestial);
@@ -257,7 +258,7 @@ export class WorldView {
 
     if (this.scene.fog) {
       if (underwater) {
-        this.scene.fog.color.setHex(0x1d4258);
+        this.scene.fog.color.setHex(colorNumber(SKY.fogNight));
         this.scene.fog.near = 0.5;
         this.scene.fog.far = 24;
       } else {
@@ -273,7 +274,7 @@ export class WorldView {
       .sub(this._tmpVec.set(playerPos.x, playerPos.y, playerPos.z))
       .normalize().multiplyScalar(700)
       .add(this._tmpVec.set(playerPos.x, playerPos.y, playerPos.z));
-    this.celestialMat.color.set(night ? 0xdfe8ff : 0xffe9b0);
+    this.celestialMat.color.set(night ? colorNumber(SKY.celestialNight) : colorNumber(SKY.celestial));
 
     this.water.position.y = WORLD.seaLevel + Math.sin(time01 * Math.PI * 40) * 0.05;
   }

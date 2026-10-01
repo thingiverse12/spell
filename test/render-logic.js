@@ -279,14 +279,34 @@ buildingView.upsert({ ...pieces[2], open: true });
 check('an opened door swings its panel', Math.abs(buildingView.map.get('b3').obj.userData.panel.rotation.y - Math.PI / 2) < 1e-6,
   String(buildingView.map.get('b3').obj.userData.panel.rotation.y));
 
-check('damaged buildings are tinted per building (shared material untouched)', (() => {
+check('damaged buildings swap to a darker, hue-preserving material', (() => {
   const wall = buildingView.map.get('b2');
-  let tinted = null;
-  wall.obj.traverse((o) => { if (o.isMesh && o.material.userData.ownColor) tinted = o.material; });
-  if (!tinted) return false;
-  const before = tinted.color.getHex();
+  const mesh = [...buildingView.map.values()].find((e) => e.obj === wall.obj)?.obj.children[0];
+  const before = mesh.material;
+  const beforeColor = before.color.clone();
   buildingView.upsert({ ...pieces[1], hp: 100 });
-  return tinted.color.getHex() !== before;
+  const after = mesh.material;
+  if (after === before) return false;                        // must be a cached level
+  if (!after.userData.ownColor) return false;
+  if (after.color.getHex() === beforeColor.getHex()) return false; // must actually darken
+  // hue survives: wood stays r > g > b instead of turning grey (r === g === b)
+  return after.color.r > after.color.g && after.color.g > after.color.b;
+})());
+check('the shared wall material stays pristine', (() => {
+  const meshes = [];
+  for (const entry of buildingView.map.values()) entry.obj.traverse((o) => { if (o.isMesh) meshes.push(o); });
+  const shared = meshes.map((m) => m.material).filter((m) => m && !m.userData.ownColor);
+  const damagedWall = buildingView.map.get('b2').obj;
+  let damaged = null;
+  damagedWall.traverse((o) => { if (o.isMesh) damaged = o.material; });
+  return shared.length > 0 && damaged.userData.ownColor === true;
+})());
+check('undamaged walls still share one material', (() => {
+  buildingView.upsert({ id: 'b9', piece: 'wall', cx: 9, cz: 9, rot: 0, y: 5, hp: 400, open: false, ownerName: 'x' });
+  const mesh = buildingView.map.get('b9').obj.children[0];
+  const shared = !mesh.material.userData.ownColor;
+  buildingView.remove('b9'); // keep the map size assertions below valid
+  return shared;
 })());
 check('campfire gets a flame and a light', !!buildingView.map.get('b4').obj.userData.flame
   && !!buildingView.map.get('b4').obj.userData.light);

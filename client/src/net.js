@@ -201,7 +201,7 @@ export class Net {
         for (const p of msg.players) {
           const obj = {
             id: p[0], name: p[1], x: p[2], y: p[3], z: p[4], yaw: p[5], pitch: p[6],
-            crouch: !!p[7], health: p[8], inWater: !!p[9], item: p[10],
+            crouch: !!p[7], health: p[8], inWater: !!p[9], item: p[10], color: p[11] || null,
           };
           if (obj.id !== msg.you.id) players.set(obj.id, obj);
         }

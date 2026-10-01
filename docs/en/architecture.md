@@ -324,3 +324,52 @@ objects below the surface`), `/api/status` (`world.ground` with
 `checked/lifted/buried/worst`) and the F3 overlay in the game (`under mark: n`).
 The client also adds the event to the error list (`window.__spellErrors`, at
 most one report every 5 seconds).
+
+
+## 15. The models (rule: design → colours → materials → quality → errors)
+
+Every colour lives in `client/src/palette.js` (`PALETTE` for things in the world,
+`SKY` for light, sky and water). Before, hex literals were scattered through
+`entities.js` and `terrain.js`, so nobody could answer "is the deer the same
+brown as the boar?" or "how many materials do 200 walls create?".
+
+**Design - the model must be the size the gameplay data says.** If the silhouette
+and the collision box disagree, you aim at one thing and hit another.
+
+| Model | Before | After |
+|---|---|---|
+| Deer | 2.54 m (gameplay says 1.50) | **1.50 m** |
+| Boar | 1.32 m (gameplay says 1.00) | **1.00 m** |
+| Tree | 9.0 m (design says 7) | **7.0 m** |
+| Rock | 0.26 m **below the surface** | rests on the ground |
+| Bush | 0.14 m **below the surface** | rests on the ground |
+| Campfire | 1.60 m wide (box is 1.40) | fits inside the box |
+| Player | feet 0.04 m above the ground | feet at **y = 0** |
+
+**Colours.** The palette has 17 named world colours + 14 sky colours, no
+duplicates, all valid. The animal colours in `shared/config.js` must exist in the
+palette (tested), so gameplay data and renderer cannot drift apart. The damage
+tint used `color.setScalar(ratio)` - that sets R=G=B, so a damaged wooden wall
+turned **grey**. Now the palette colour is multiplied, so the hue survives.
+
+**Materials.**
+
+| Before | After |
+|---|---|
+| Every building piece cloned a material | one material per (piece, damage level), shared |
+| Every building piece created its own geometry | one geometry per (piece, size) |
+| Every animal created 6-7 geometries | four shared animal geometries |
+| The head created a new skin material per player | one shared skin material |
+
+**Quality (measured, not guessed).** Every mesh is checked against a budget:
+5,000 triangles per mesh, 300-400 per model, 400 meshes per scene. A scene with
+120 nodes, 40 animals, 60 building pieces and 8 players lands at ~13,000
+triangles and about ten materials - low-poly as the design promises.
+
+**Errors.** `auditScene()` measures the scene every three seconds and reports NaN
+in vertex data, geometry without triangles, a mesh without a material, a colour
+outside the palette and budget overruns. F3 shows `modeller n meshes/tris/mat`
+and `modellfel: n`; the errors also land in `window.__spellErrors`.
+`npm run test:models` runs 114 checks, including planted faults (NaN, empty
+geometry, an over-heavy mesh, a wrong colour) and proof that a healthy scene
+reports zero problems.
