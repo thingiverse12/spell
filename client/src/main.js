@@ -32,6 +32,8 @@ import {
   keyIntent, escapeIntent, lookDecision, pressDecision, releaseDecision,
   wheelIntent, clearInputs, bindHudControls, inputBlocked,
 } from './controls.js';
+import { checkCharacter, repairCharacter, describeCharacter } from './character.js';
+import { catalogSummary } from './modelCatalog.js';
 
 loadSettings();
 setLang(settings.lang);
@@ -51,6 +53,7 @@ scene.fog = new THREE.Fog(0x9fc6e0, 60, settings.renderDistance);
 const camera = new THREE.PerspectiveCamera(settings.fov, window.innerWidth / window.innerHeight, 0.08, 900);
 
 const hud = new Hud();
+const modelCatalog = catalogSummary();
 
 /* ------------------------------------------------------------------ *
  *  Runtime error capture
@@ -119,6 +122,10 @@ const state = {
   groundErrorAt: 0,
   modelAudit: { at: 0, meshes: 0, triangles: 0, materials: 0, problems: [] }, // rule: the models
   modelErrorAt: 0,
+  characterAudit: { at: 0, problems: [], repairs: 0 }, // rule: errors in the character
+  characterErrorAt: 0,
+  serverAudit: { at: -5000, online: true, errors: 0, last: null, ground: null }, // live /api/status check
+  serverErrorAt: 0,
   // fields that are created at runtime (declared here so typos are caught)
   selectedPiece: 'foundation',
   underwater: false,
@@ -954,6 +961,54 @@ function auditModels(now) {
   }
 }
 
+/**
+ * Rule: check for errors in the character. Runs once a second on the state the
+ * client actually predicts and renders with, reports through recordError (F3 +
+ * window.__spellErrors) and repairs what can be repaired without guessing.
+ */
+function auditCharacter(now, you, ground) {
+  if (!you || now - state.characterAudit.at < 1000) return;
+  const context = { ground, seed: state.net?.welcome?.seed };
+  const problems = checkCharacter(you, context);
+  let repairs = 0;
+  if (problems.length) repairs = repairCharacter(you, state.lastPos, context);
+  state.characterAudit = { at: now, problems, repairs };
+  if (problems.length && now - state.characterErrorAt > 5000) {
+    state.characterErrorAt = now;
+    recordError('character', describeCharacter(problems), `${problems.length} fel${repairs ? `, ${repairs} lagade` : ''}`);
+  }
+}
+
+/**
+ * Read the server's error counter and ground audit through a same-origin URL.
+ * It works in the live preview too: the browser never calls localhost or a
+ * separate backend.
+ */
+async function auditServer(now) {
+  if (now - state.serverAudit.at < 5000) return;
+  state.serverAudit.at = now;
+  try {
+    const response = await fetch('/api/status', { cache: 'no-store' });
+    if (!response.ok) throw new Error(`/api/status svarade ${response.status}`);
+    const status = await response.json();
+    const count = Number.isFinite(status.errors?.count) ? status.errors.count : 0;
+    state.serverAudit = {
+      at: now, online: true, errors: count,
+      last: status.errors?.last ?? null, ground: status.world?.ground ?? null,
+    };
+    if (count > 0 && now - state.serverErrorAt > 5000) {
+      state.serverErrorAt = now;
+      recordError('server', `servern rapporterar ${count} fel`, state.serverAudit.last || 'inget felmeddelande');
+    }
+  } catch (err) {
+    state.serverAudit = { ...state.serverAudit, at: now, online: false, last: err?.message || String(err) };
+    if (now - state.serverErrorAt > 5000) {
+      state.serverErrorAt = now;
+      recordError('server', 'serverns status kunde inte läsas', state.serverAudit.last);
+    }
+  }
+}
+
 function update(dt, now) {
   const net = state.net;
   const you = net.you;
@@ -987,6 +1042,13 @@ function update(dt, now) {
   // ---- camera follows the predicted player (math lives in camera.js)
   const eye = you.crouch ? PHYS.crouchEyeHeight : PHYS.eyeHeight;
   const ground = sampleHeight(you.x, you.z, net.welcome?.seed ?? WORLD.seed);
+
+  // ---- character audit: NaN, impossible values, broken inventory
+  auditCharacter(now, you, ground);
+
+  // ---- server audit: its real error counter and shared ground check
+  auditServer(now);
+
   const pose = computeCameraPose({ you, ground, eyeHeight: eye, dt, currentY: camera.position.y });
   camera.position.set(pose.x, pose.y, pose.z);
   // Rotation is set as a whole with roll pinned to 0: assigning x and y alone
@@ -1110,6 +1172,15 @@ function update(dt, now) {
     + `  pitch ${(you.pitch * 57.3).toFixed(0)}°  roll ${(camera.rotation.z).toFixed(3)}\n`
     + `modeller ${state.modelAudit.meshes} meshes/${state.modelAudit.triangles} tris/${state.modelAudit.materials} mat`
     + `${state.modelAudit.problems.length ? `  modellfel: ${state.modelAudit.problems.length}` : ''}\n`
+    + `modellkatalog ${modelCatalog.total}/8: `
+    + `djur ${modelCatalog.counts.djur} mark ${modelCatalog.counts.mark} vapen ${modelCatalog.counts.vapen} `
+    + `material ${modelCatalog.counts.material} karaktär ${modelCatalog.counts.karaktar} bygge ${modelCatalog.counts.bygge} `
+    + `utrustning ${modelCatalog.counts.utrustning} textur ${modelCatalog.counts.textur}\n`
+    + `karaktär: ${describeCharacter(state.characterAudit.problems)}`
+    + `${state.characterAudit.repairs ? ` (lagade ${state.characterAudit.repairs})` : ''}\n`
+    + `server ${state.serverAudit.online ? 'online' : 'fel'}  serverfel: ${state.serverAudit.errors}`
+    + `  servermark: ${state.serverAudit.ground?.buried ?? '–'}`
+    + `${state.serverAudit.last ? ` — ${state.serverAudit.last.slice(0, 60)}` : ''}\n`
     + `kontroller ${state.hudControls}  under mark: ${state.groundAudit.buried}`
     + `${state.groundAudit.buried ? ` (värst ${state.groundAudit.worst} m)` : ''}`
     + `  fel: ${runtimeErrors.length}`

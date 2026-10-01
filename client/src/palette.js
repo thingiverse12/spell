@@ -113,6 +113,9 @@ const lambert = (color, extra = {}) => new THREE.MeshLambertMaterial({
   color: colorNumber(color), flatShading: true, ...extra,
 });
 const basic = (color, extra = {}) => new THREE.MeshBasicMaterial({ color: colorNumber(color), ...extra });
+const lmWater = () => new THREE.MeshLambertMaterial({
+  color: colorNumber(SKY.water), transparent: true, opacity: 0.78, depthWrite: true, flatShading: true,
+});
 
 /** Shared materials. Building one per instance is what the audit looks for. */
 export const MATERIALS = {
@@ -129,6 +132,20 @@ export const MATERIALS = {
   animalDark: lambert(PALETTE.animalDark),
   skin: lambert(PALETTE.skin),
   flame: basic(PALETTE.flame, { transparent: true, opacity: 0.92 }),
+  // world layers (terrain.js) - the sky, water and lights are one of a kind, but
+  // they still get their colours and materials from here, like everything else
+  terrain: new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
+  water: lmWater(),
+  sky: new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }),
+  stars: new THREE.PointsMaterial({
+    color: colorNumber(SKY.star), size: 2.6, sizeAttenuation: false,
+    transparent: true, opacity: 0, fog: false, depthWrite: false,
+  }),
+  celestial: new THREE.MeshBasicMaterial({ color: colorNumber(SKY.celestial), fog: false, depthWrite: false }),
+  // markers: transparent, never solid, never casting shadows
+  highlight: new THREE.MeshBasicMaterial({
+    color: colorNumber(PALETTE.wire), wireframe: true, transparent: true, opacity: 0.5, depthWrite: false,
+  }),
   ghostOk: basic(PALETTE.ghostOk, { transparent: true, opacity: 0.35, depthWrite: false }),
   ghostBad: basic(PALETTE.ghostBad, { transparent: true, opacity: 0.35, depthWrite: false }),
   wire: new THREE.LineBasicMaterial({ color: colorNumber(PALETTE.wire), transparent: true, opacity: 0.6 }),

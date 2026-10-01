@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { sampleHeight } from '../../shared/noise.js';
 import { liftToSurface } from '../../shared/ground.js';
-import { NODES, PIECES, ANIMALS, ITEMS, WORLD, piecePosition, buildingAABB } from '../../shared/config.js';
+import { NODES, PIECES, ANIMALS, ITEMS, WORLD, PHYS, piecePosition, buildingAABB } from '../../shared/config.js';
 import { PALETTE, MATERIALS, BUDGET, trianglesOf } from './palette.js';
 
 const SHARED = {
@@ -120,10 +120,7 @@ export class NodeView {
       pool.mesh.castShadow = true;
       pool.mesh.receiveShadow = true;
     }
-    this.highlight = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 1.4, 1.4),
-      new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.5 }),
-    );
+    this.highlight = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.4, 1.4), MATS.highlight);
     this.highlight.visible = false;
     scene.add(this.highlight);
   }
@@ -497,12 +494,14 @@ export class PlayerView {
       const bodyMat = new THREE.MeshLambertMaterial({
         color: new THREE.Color(p.color || PALETTE.animal), flatShading: true,
       });
+      bodyMat.userData.perPlayerColor = true; // per player by design, not a palette leak
       const body = new THREE.Mesh(SHARED.capsule, bodyMat);
       body.position.y = 0.81; // feet exactly at the ground the server simulated
       body.castShadow = true;
       group.add(body);
       const head = new THREE.Mesh(SHARED.head, MATS.skin);
-      head.position.y = 1.62;
+      // The top of the head IS the collision height - aim and hit agree.
+      head.position.y = PHYS.height - 0.24;
       head.castShadow = true;
       group.add(head);
       const held = new THREE.Mesh(SHARED.box, MATS.wood);
@@ -683,15 +682,9 @@ export class ViewModel {
 export class BuildGhost {
   constructor(scene) {
     this.scene = scene;
-    this.mesh = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshBasicMaterial({ color: 0x7ac74f, transparent: true, opacity: 0.35, depthWrite: false }),
-    );
+    this.mesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), MATS.ghostOk);
     this.mesh.visible = false;
-    this.edges = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
-      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 }),
-    );
+    this.edges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), MATS.wire);
     this.mesh.add(this.edges);
     scene.add(this.mesh);
     this.piece = null;
@@ -706,8 +699,9 @@ export class BuildGhost {
     this.mesh.visible = true;
     this.mesh.scale.set(def.size[0], def.size[1], def.size[2]);
     this.mesh.position.set(pos.x, y + def.size[1] / 2, pos.z);
-    this.mesh.material.color.set(valid ? PALETTE.ghostOk : PALETTE.ghostBad);
-    this.mesh.material.opacity = valid ? 0.35 : 0.3;
+    // Switch between two shared materials instead of mutating one: a mutated
+    // palette material would leak the colour into every other user of it.
+    this.mesh.material = valid ? MATS.ghostOk : MATS.ghostBad;
   }
 
   hide() { this.mesh.visible = false; this.piece = null; }

@@ -46,7 +46,7 @@ const chunkKey = (cx, cz) => `${cx}_${cz}`;
  * A player record loaded from disk may be missing fields added since it was
  * written - fill in defaults so the simulation never sees `undefined` maths.
  */
-function sanitizePlayer(p) {
+export function sanitizePlayer(p) {
   const base = {
     x: 0, y: 0, z: 0, yaw: 0, pitch: 0,
     vx: 0, vy: 0, vz: 0,
@@ -68,10 +68,11 @@ function sanitizePlayer(p) {
     out.inv = [...base.inv];
   }
   if (!out.spawn || !Number.isFinite(out.spawn.x)) out.spawn = { x: out.x, y: out.y, z: out.z };
-  // Older saves have no colour: derive a stable one so remote players differ.
-  if (typeof out.color !== 'string' || !out.color || /NaN/.test(out.color)) {
-    out.color = playerColor(out.id ?? out.name);
-  }
+  // Colours are derived from player ids, never user-selected. Re-derive them
+  // on every load so old space-HSL (rendered white by Three.js) and colours from
+  // a previous hash version both migrate deterministically.
+  const derivedColor = playerColor(out.id ?? out.name);
+  if (out.color !== derivedColor) out.color = derivedColor;
   return out;
 }
 
@@ -407,12 +408,22 @@ export class World {
         } : undefined,
       });
     }
-    const violations = auditGround(sample, {
+    // Freeze the exact population once for this audit. Chunk streaming can add
+    // nodes between the last audit and a later /api/status read; reporting only
+    // a total made that live count look like an audit omission.
+    const checkedBy = {
       players: [...this.players.values()],
       animals: [...this.animals.values()],
       nodes: [...this.nodes.values()].filter((n) => !n.dead),
       buildings,
-    }, { pieces: PIECES });
+    };
+    const violations = auditGround(sample, checkedBy, { pieces: PIECES });
+    const checkedCounts = {
+      players: checkedBy.players.length,
+      animals: checkedBy.animals.length,
+      nodes: checkedBy.nodes.length,
+      buildings: checkedBy.buildings.length,
+    };
 
     let lifted = 0;
     for (const v of violations) {
@@ -425,7 +436,8 @@ export class World {
     }
     this.ground = {
       at: now,
-      checked: this.players.size + this.animals.size + this.nodes.size + buildings.length,
+      checked: Object.values(checkedCounts).reduce((sum, count) => sum + count, 0),
+      checkedBy: checkedCounts,
       lifted,
       buried: violations.length,
       worst: violations[0] ? Number(violations[0].depth.toFixed(2)) : 0,

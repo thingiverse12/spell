@@ -98,14 +98,16 @@ Detta är en prototyp, inte ett färdigt spel:
 ```bash
 npm test              # server + multiplayer-harness med bot-klienter   (32 kontroller)
 npm run test:client   # klientens egen net.js mot en live-server        (22 kontroller)
-npm run test:ui       # DOM-id:n, i18n, importer, importmap, CSS        (246 kontroller)
+npm run test:ui       # DOM-id:n, i18n, importer, importmap, CSS        (271 kontroller)
 npm run test:dom      # HUD:en i jsdom: barer, hotbar, recept, byggmeny (65 kontroller)
 npm run test:render   # scenlogik: terräng, instanser, byggnader, djur  (73 kontroller)
 npm run test:camera   # kameran: pitch/roll-gränser, drag-look, NaN, klick (43 kontroller)
 npm run test:controls # alla kontroller: tangenter, mus, hjul, knappar  (119 kontroller)
-npm run test:ground   # inget under marken: yta, fotavtryck, revision     (58 kontroller)
-npm run test:models   # modellerna: mått, färger, material, budget, fel  (114 kontroller)
-npm run test:all      # allt ovan = 771 kontroller
+npm run test:ground   # inget under marken: yta, fotavtryck, revision     (59 kontroller)
+npm run test:models   # modeller: mått, färger, material, budget, fel       (117 kontroller)
+npm run test:catalog  # 8 kategorier: varje modell byggs och placeras en i taget (178 kontroller)
+npm run test:errors   # feljakt: karaktär, server, Infinity/NaN, protokoll   (72 kontroller)
+npm run test:all      # 11 sviter = 1 051 kontroller
 npm run verify:browser  # riktig Chromium via puppeteer (kräver nedladdad Chrome)
 ```
 
@@ -227,13 +229,14 @@ prediction and server simulation can never drift apart. Player movement is
 predicted locally, verified by the server, and reconciled on every snapshot;
 remote players and animals are interpolated 120 ms in the past.
 
-Test it: `npm run test:all` runs 774 checks: the server/multiplayer harness (32),
+Test it: `npm run test:all` runs **1,051 checks in 11 suites**: the server/multiplayer harness (32),
 the real client network module against a live server (22), DOM/i18n/import
-consistency (246), HUD behaviour in jsdom (65), scene/render logic without a GPU
-(73), the camera rules (43), every control in the game (119), the "nothing below
-the ground" invariant (58) and the models: size, colours, materials, budget and
-audit (116). `npm run verify:browser` additionally drives a real Chromium and saves
-screenshots when Chrome is available.
+consistency (271), HUD behaviour in jsdom (65), scene/render logic without a GPU
+(73), camera rules (43), every control (119), the "nothing below the ground"
+invariant (59), model dimensions/colours/materials/budgets (117), the 8-category
+model catalogue and placement of each model (178), and the server/character
+error hunt (72). `npm run verify:browser` additionally drives real Chromium and
+saves screenshots when Chrome is available.
 
 Read the design in [docs/en/GDD.md](docs/en/GDD.md), the engineering in
 [docs/en/architecture.md](docs/en/architecture.md), the plan in

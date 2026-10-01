@@ -343,9 +343,13 @@ try {
   // Server-side audit endpoint
   const status = await fetch(`http://127.0.0.1:${port}/api/status`).then((r) => r.json());
   check('servern rapporterar markläget', !!status.world.ground, JSON.stringify(status.world.ground));
-  check('servern har kontrollerat precis alla objekt', status.world.ground.checked
-    === status.world.players + status.world.animals + status.world.aliveNodes + status.world.buildings,
-  `kontrollerat ${status.world.ground.checked} vs ${status.world.players}+${status.world.animals}+${status.world.aliveNodes}+${status.world.buildings}`);
+  const checkedBy = status.world.ground.checkedBy;
+  check('servern har kontrollerat precis alla objekt i auditbilden', !!checkedBy
+    && status.world.ground.checked === Object.values(checkedBy).reduce((sum, count) => sum + count, 0),
+  `kontrollerat ${status.world.ground.checked} vs ${JSON.stringify(checkedBy)}`);
+  check('serverrevisionen redovisar alla fyra objektgrupperna', !!checkedBy
+    && ['players', 'animals', 'nodes', 'buildings'].every((key) => Number.isInteger(checkedBy[key]) && checkedBy[key] >= 0),
+  JSON.stringify(checkedBy));
   check('servern hittar inget begravt', status.world.ground.buried === 0, JSON.stringify(status.world.ground));
   check('servern har inte behövt lyfta något', status.world.ground.lifted === 0, JSON.stringify(status.world.ground));
 

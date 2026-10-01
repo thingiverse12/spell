@@ -197,15 +197,21 @@ som standard).
 
 | Kommando | Vad som verifieras |
 |---|---|
-| `npm test` | Startar en riktig server och två bot-klienter: handskakning, deterministisk terräng, **terräng/fysik-konsistens** (spawn, noder på ytan, begravd spelare lyfts upp, unstick), auktoritativ rörelse + prediktionsavvikelse, skörd, avståndsavvisning, crafting, bygge, replikering, PvP, persistens över omstart (31 kontroller). |
-| `npm run test:client` | Kör **klientens egen** `client/src/net.js` mot en live-server med `ws` som WebSocket-stand-in: handskakning, prediktion, skörd, inventory, bygge, events (15 kontroller). |
-| `npm run test:ui` | Statisk kontroll av DOM-id:n, i18n-nycklar, importmap, CSS-selektorer **och att varje importerat namn faktiskt exporteras** av målmodulen (213 kontroller). |
-| `npm run test:dom` | Kör **HUD:en på riktigt** i jsdom mot `client/index.html`: barer, klocka, hotbar, ryggsäck, receptlista, byggmeny, karta, chatt, språkbyte (65 kontroller). Hittade bl.a. att byggdelar saknades i `ITEMS` och att recept-callbacks kunde bli inaktuella. |
-| `npm run test:render` | Scenlogik utan GPU: terränggeometri, **trianglarnas riktning (framsidor uppåt — buggen där marken bara syntes underifrån)**, att fysikens höjdsampling är exakt den renderade ytan, instanspooler, dörrar, skadetint, interpolation, spökmodell (71 kontroller). |
-| `npm run verify:browser` | Riktig Chromium (puppeteer): konsolfel, att duken faktiskt renderar, skärmdumpar. Hoppar till statisk modulkontroll om ingen webbläsare finns. |
+| `npm test` | Riktig server + bot-klienter: multiplayer, fysik/prediktion, skörd, crafting, bygge, strid och persistens (32 kontroller). |
+| `npm run test:client` | Webbläsarens egen `client/src/net.js` mot live-servern (22). |
+| `npm run test:ui` | DOM-id:n, i18n, importmap, CSS och importer (271). |
+| `npm run test:dom` | HUD:en i jsdom: staplar, snabbrad, recept, bygge, karta och chatt (65). |
+| `npm run test:render` | Scenlogik utan GPU: terräng, triangelriktning, instanser, byggnader och djur (73). |
+| `npm run test:camera` | Pitch/roll, drag-look, NaN och klick kontra drag (43). |
+| `npm run test:controls` | Tangenter, mus, hjul, paneler, död/frånkoppling och HUD-knappar (119). |
+| `npm run test:ground` | Yta, fotavtryck, begravda objekt, serverrevision och klientinterpolation (59). |
+| `npm run test:models` | Palett, geometri, material, storlekar, budgetar och planterade modellfel (117). |
+| `npm run test:catalog` | De åtta modellkategorierna; varje verklig modell byggs och placeringskontrolleras en i taget (178). |
+| `npm run test:errors` | Protokollfuzz, namn/input-skydd, karaktärens tillstånd, reparationer och serverns felräknare (72). |
+| `npm run verify:browser` | Riktig Chromium när den finns; annars statisk modulkontroll. |
 
-Totalt **406 kontroller**. CI-förslag: `npm run test:all` på varje push, `npm run verify:browser` på natten
-eller före release (kräver nedladdad Chromium).
+`npm run test:all` kör de 11 Node-sviterna: **1 051 kontroller**. CI kör samma
+kommando vid varje push och PR; `verify:browser` försöker dessutom Chromium.
 
 ## 11. Robusthet (live-preview och drift)
 
@@ -315,8 +321,11 @@ begravd upp till ~1 m på den uppåtlutande sidan.
 
 Felen syns på tre ställen: serverloggen (`[spell:ground] … objects below the
 surface`), `/api/status` (`world.ground` med `checked/lifted/buried/worst`) och
-F3-panelen i spelet (`under mark: n`). Klienten lägger också händelsen i
-fel-listan (`window.__spellErrors`, högst en rapport var 5:e sekund).
+F3-panelen i spelet (`under mark: n`). `world.ground.checkedBy` visar exakt
+hur många spelare, djur, levande noder och byggnader som ingick i samma
+revisionsbild; det jämförs inte med en senare, förändrad chunkstatus. Klienten
+lägger också händelsen i fel-listan (`window.__spellErrors`, högst en rapport
+var 5:e sekund).
 
 
 ## 15. Modellerna (regel: design → färger → material → kvalitet → fel)
@@ -344,6 +353,9 @@ dubbletter, alla giltiga. Djurens färger i `shared/config.js` måste finnas i
 paletten (testat), så speldatan och renderaren inte glider ifrån varandra.
 Skadetinten använde `color.setScalar(ratio)` — det sätter R=G=B, så en skadad
 trävägg blev **grå**. Nu multipliceras palettfärgen, så nyansen finns kvar.
+Spelarfärgen skickas som HSL med kommatecken eftersom Three.js 0.169 tolkade
+modern HSL med mellanslag som **vit**. Äldre sparfiler migreras vid laddning och
+testet provar `THREE.Color`, inte bara att strängen ser giltig ut.
 
 **Material.**
 
@@ -363,5 +375,57 @@ ett tiotal material — low-poly som designen lovar.
 vertexdata, geometri utan trianglar, mesh utan material, färg utanför paletten
 och budgetöverskridanden. F3 visar `modeller n meshes/tris/mat` och
 `modellfel: n`; felen hamnar också i `window.__spellErrors`. `npm run test:models`
-kör 114 kontroller, inklusive planterade fel (NaN, tom geometri, för tung mesh,
+kör 117 kontroller, inklusive planterade fel (NaN, tom geometri, för tung mesh,
 fel färg) och beviset att en frisk scen ger noll fel.
+
+
+## 16. Åtta modellkategorier — bygg och kontrollera en i taget
+
+`client/src/modelCatalog.js` är den enda katalogen för modellerna. Varje rad
+anger kategori, verklig vy-byggare, budget och placeringsregel; testet bygger
+varje vy från `entities.js` eller `terrain.js` en åt gången — det är inte en
+frikopplad skiss som kan glida från spelet.
+
+| # | Kategori | Antal | Innehåll | Placeringskontroll |
+|---|---|---:|---|---|
+| 1 | Djur | 2 | rådjur, vildsvin | fot i markytan; höjd enligt `ANIMALS` |
+| 2 | Mark | 5 | terräng, vatten, himmel, stjärnor, sol/måne | terrängens spann; havsnivå; himmelns insida; stjärnor och sol i skyn |
+| 3 | Vapen | 2 | stenyxa, spjut | i handen, framför kameran |
+| 4 | Material | 3 | träd, sten, bärbuske | modellen vilar på marken; rätt gameplay-mått |
+| 5 | Karaktär | 2 | spelarkropp, förstapersonshand | fötter på markytan; hand framför kameran |
+| 6 | Bygge | 4 | grund, vägg, dörr, lägereld | 4 m-rutnät, rätt rotation, kollisionsbox |
+| 7 | Utrustning | 2 | stenhacka, fackla | i handen, framför kameran |
+| 8 | Textur | 3 | namnskylt, byggmarkör, resursmarkering | skylt fäst ovanför kroppen; markörer genomskinliga |
+
+MVP:ns geometri är flat-shaded och palettstyrd; ingen extern bildtextur/CDN
+behövs. Namnskylten är en riktig canvas-textur. Material, färg och textur granskas
+tillsammans, i stället för att bildfiler kan avvika från modellens färg.
+
+Resultatet vid senaste körningen: **23 modeller, 34 236 trianglar**, alla inom
+budget och på rätt plats. `npm run test:catalog` har 178 kontroller: 8 kategorier,
+unika ids, full täckning av djur/noder/byggdelar, varje modell byggd och granskad
+för mått/färg/material/kvalitet/placering, plus planterade placeringsfel.
+F3 visar `modellkatalog 23/8` och antal i varje kategori.
+
+## 17. Karaktärs- och serverfel
+
+Karaktären granskas en gång i sekunden **efter att markhöjden har räknats ut**:
+ändliga koordinater och fart, värden inom världen, fot på markytan, pitch,
+hälsa/hunger/törst/stamina/andning, dödflagga, ryggsäckens 12 platser och vald
+verktygsplats. Självlagning är avsiktligt begränsad till värden som går att
+återställa säkert: NaN-position går tillbaka till senast giltig position,
+karaktären lyfts ur marken, orimlig fart begränsas och trasig ryggsäck får en
+säker lokal struktur. Servern förblir auktoritet och nästa snapshot synkar om.
+
+Servern sanerar spelarens namn och varje input vid WebSocket-gränsen. `Infinity`,
+`NaN`, strängar som inte är tal och rörelsevärden utanför [-1, 1] kan inte läcka
+in i fysiken. Trasig URL-kodning får HTTP 400 och `/shared/` kan inte användas
+för att läsa serverfiler. Ett fel i en inkommande handling fångas och räknas i
+`/api/status.errors` i stället för att slå ut spel-loopen. F3 visar
+`karaktär: …`, `serverfel: n` och senaste serverfel; `window.__spellErrors` sparar
+klienthändelserna.
+
+`npm run test:errors` skickar trasig URL/JSON, alla typer av namn, extrema inputs,
+skräp i varje handling, överstora paket och planterade fel i karaktären mot en
+egen server. Senast: **72/72 gröna**, noll serverundantag, inga null/NaN i
+positionerna.

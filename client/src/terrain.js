@@ -8,7 +8,7 @@
  */
 
 import * as THREE from 'three';
-import { SKY, colorNumber } from './palette.js';
+import { SKY, colorNumber, MATERIALS } from './palette.js';
 import { WORLD } from '../../shared/config.js';
 import { sampleHeight, terrainHeight, slopeAt, biomeAt, sunDirection, dayLight, isNight } from '../../shared/noise.js';
 
@@ -150,8 +150,7 @@ export class WorldView {
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geo.computeBoundingSphere();
 
-    const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
-    this.terrain = new THREE.Mesh(geo, mat);
+    this.terrain = new THREE.Mesh(geo, MATERIALS.terrain);
     this.terrain.receiveShadow = true;
     this.terrain.castShadow = false;
     this.terrain.matrixAutoUpdate = false;
@@ -161,10 +160,7 @@ export class WorldView {
   buildWater() {
     const geo = new THREE.PlaneGeometry(WORLD.size * 2.4, WORLD.size * 2.4, 1, 1);
     geo.rotateX(-Math.PI / 2);
-    const mat = new THREE.MeshLambertMaterial({
-      color: colorNumber(SKY.water), transparent: true, opacity: 0.78, depthWrite: true,
-    });
-    this.water = new THREE.Mesh(geo, mat);
+    this.water = new THREE.Mesh(geo, MATERIALS.water);
     this.water.position.y = WORLD.seaLevel;
     this.water.receiveShadow = false;
     this.group.add(this.water);
@@ -182,8 +178,7 @@ export class WorldView {
       colors[i * 3 + 2] = t;
     }
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const mat = new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false });
-    this.sky = new THREE.Mesh(geo, mat);
+    this.sky = new THREE.Mesh(geo, MATERIALS.sky);
     this.sky.frustumCulled = false;
     this.group.add(this.sky);
 
@@ -201,13 +196,13 @@ export class WorldView {
     }
     const starGeo = new THREE.BufferGeometry();
     starGeo.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-    this.starMat = new THREE.PointsMaterial({ color: colorNumber(SKY.star), size: 2.6, sizeAttenuation: false, transparent: true, opacity: 0, fog: false, depthWrite: false });
+    this.starMat = MATERIALS.stars;
     this.stars = new THREE.Points(starGeo, this.starMat);
     this.stars.frustumCulled = false;
     this.group.add(this.stars);
 
     // sun / moon disc
-    this.celestialMat = new THREE.MeshBasicMaterial({ color: colorNumber(SKY.celestial), fog: false, depthWrite: false });
+    this.celestialMat = MATERIALS.celestial;
     this.celestial = new THREE.Mesh(new THREE.SphereGeometry(14, 12, 8), this.celestialMat);
     this.celestial.frustumCulled = false;
     this.group.add(this.celestial);

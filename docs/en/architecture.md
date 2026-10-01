@@ -201,15 +201,21 @@ anomalies, and avoid game modes where cheating ruins the experience for others
 
 | Command | What it verifies |
 |---|---|
-| `npm test` | Boots a real server and two bot clients: handshake, deterministic terrain, **terrain/physics consistency** (spawn, props on the surface, buried player lifted out, unstick), authoritative movement + prediction drift, harvesting, out-of-range rejection, crafting, building, replication, PvP, persistence across a restart (31 checks). |
-| `npm run test:client` | Runs **the client's own** `client/src/net.js` against a live server with `ws` standing in for the browser WebSocket: handshake, prediction, harvesting, inventory, building, events (15 checks). |
-| `npm run test:ui` | Static verification of DOM ids, i18n keys, the import map, CSS selectors **and that every imported name is really exported** by its target module (213 checks). |
-| `npm run test:dom` | Runs the **actual HUD** in jsdom against `client/index.html`: bars, clock, hotbar, backpack, recipe list, build menu, map, chat, language switching (65 checks). It caught missing building items in `ITEMS` and stale recipe callbacks. |
-| `npm run test:render` | Scene logic without a GPU: terrain geometry, **triangle winding (front faces up — the bug that made the ground visible only from below)**, that physics samples exactly the rendered surface, instancing pools, doors, damage tinting, interpolation, the build ghost (71 checks). |
-| `npm run verify:browser` | Real Chromium (puppeteer): console errors, that the canvas actually renders, screenshots. Falls back to a static module check when no browser is available. |
+| `npm test` | Real server + bot clients: multiplayer, physics/prediction, harvesting, crafting, building, combat and persistence (32 checks). |
+| `npm run test:client` | The browser's own `client/src/net.js` against the live server (22). |
+| `npm run test:ui` | DOM ids, i18n, import map, CSS and imports (271). |
+| `npm run test:dom` | The HUD in jsdom: bars, hotbar, recipes, building, map and chat (65). |
+| `npm run test:render` | Scene logic without a GPU: terrain, triangle winding, instances, buildings and animals (73). |
+| `npm run test:camera` | Pitch/roll, drag-look, NaN and click versus drag (43). |
+| `npm run test:controls` | Keys, mouse, wheel, panels, death/disconnect and HUD buttons (119). |
+| `npm run test:ground` | Surface, footprints, buried objects, server audit and client interpolation (59). |
+| `npm run test:models` | Palette, geometry, materials, sizes, budgets and planted model faults (117). |
+| `npm run test:catalog` | The eight model categories; every real model is built and placement-checked one at a time (178). |
+| `npm run test:errors` | Protocol fuzzing, name/input guards, character state/repair and server error counter (72). |
+| `npm run verify:browser` | Real Chromium when available; otherwise static module checks. |
 
-**406 checks** in total. CI suggestion: `npm run test:all` on every push, `npm run verify:browser`
-nightly or before a release (needs Chromium downloaded).
+`npm run test:all` runs the 11 Node suites: **1,051 checks**. CI runs the same
+command on every push and PR; `verify:browser` additionally tries Chromium.
 
 ## 11. Resilience (live previews and operations)
 
@@ -322,8 +328,10 @@ buried up to ~1 m on the uphill side.
 The errors are visible in three places: the server log (`[spell:ground] …
 objects below the surface`), `/api/status` (`world.ground` with
 `checked/lifted/buried/worst`) and the F3 overlay in the game (`under mark: n`).
-The client also adds the event to the error list (`window.__spellErrors`, at
-most one report every 5 seconds).
+`world.ground.checkedBy` reports the exact players, animals, live nodes and
+buildings in that same audit snapshot; it is not compared with a later, changed
+chunk count. The client also adds the event to the error list
+(`window.__spellErrors`, at most one report every 5 seconds).
 
 
 ## 15. The models (rule: design → colours → materials → quality → errors)
@@ -351,6 +359,9 @@ duplicates, all valid. The animal colours in `shared/config.js` must exist in th
 palette (tested), so gameplay data and renderer cannot drift apart. The damage
 tint used `color.setScalar(ratio)` - that sets R=G=B, so a damaged wooden wall
 turned **grey**. Now the palette colour is multiplied, so the hue survives.
+Player colours use comma-separated HSL because Three.js 0.169 interpreted modern
+space-separated HSL as **white**. Old saves are migrated on load, and the test
+uses `THREE.Color`, not just a string-format check.
 
 **Materials.**
 
@@ -370,6 +381,58 @@ triangles and about ten materials - low-poly as the design promises.
 in vertex data, geometry without triangles, a mesh without a material, a colour
 outside the palette and budget overruns. F3 shows `modeller n meshes/tris/mat`
 and `modellfel: n`; the errors also land in `window.__spellErrors`.
-`npm run test:models` runs 114 checks, including planted faults (NaN, empty
+`npm run test:models` runs 117 checks, including planted faults (NaN, empty
 geometry, an over-heavy mesh, a wrong colour) and proof that a healthy scene
 reports zero problems.
+
+
+## 16. Eight model categories - built and checked one at a time
+
+`client/src/modelCatalog.js` is the single catalog of game models. Every entry
+names its category, real view builder, budget and placement rule. Tests build
+each view from `entities.js` or `terrain.js` individually; the catalog cannot
+drift into a drawing detached from the actual game.
+
+| # | Category | Count | Contents | Placement check |
+|---|---|---:|---|---|
+| 1 | Animals | 2 | deer, boar | feet at surface; height matches `ANIMALS` |
+| 2 | Ground | 5 | terrain, water, sky, stars, sun/moon | terrain span; sea level; inside of sky; stars and sun in the sky |
+| 3 | Weapons | 2 | stone axe, spear | in the hand, in front of camera |
+| 4 | Materials | 3 | tree, rock, berry bush | rests on ground; gameplay dimensions |
+| 5 | Character | 2 | player body, first-person hand | feet at surface; hand in front of camera |
+| 6 | Building | 4 | foundation, wall, door, campfire | 4 m grid, rotation, collision box |
+| 7 | Equipment | 2 | stone pickaxe, torch | in the hand, in front of camera |
+| 8 | Texture | 3 | name tag, build marker, resource highlight | tag attached above body; markers are transparent |
+
+The MVP uses flat-shaded, palette-driven geometry; no external image texture/CDN
+is needed. The name tag is a real canvas texture. Materials, colours and texture
+are checked together, so bitmap assets cannot silently drift from model colours.
+
+Latest result: **23 models, 34,236 triangles**, all within budget and correctly
+placed. `npm run test:catalog` has 178 checks: eight categories, unique ids,
+complete coverage of animals/nodes/building pieces, each model built and checked
+for size/material/quality/placement, plus planted placement faults. F3 shows
+`modellkatalog 23/8` and the count in every category.
+
+## 17. Character and server errors
+
+The character is checked once per second **after ground height is calculated**:
+finite position and velocity, world bounds, feet at the surface, pitch,
+health/hunger/thirst/stamina/breath, death flag, 12 inventory slots and selected
+tool. Self-repair is deliberately limited to values that can be safely restored:
+NaN position returns to the last known-good position, the character is lifted
+out of ground, impossible speed is limited and a broken local inventory gets a
+safe shape. The server stays authoritative and the next snapshot resynchronizes.
+
+The server sanitizes player names and each input at the WebSocket boundary.
+`Infinity`, `NaN`, non-numeric strings and movement outside [-1, 1] cannot reach
+physics. Malformed URL escapes return HTTP 400 and `/shared/` cannot read server
+files. Exceptions from incoming actions are caught and counted at
+`/api/status.errors` rather than escaping the game loop. F3 shows
+`karaktär: …`, `serverfel: n` and the latest server error; `window.__spellErrors`
+retains client-side errors.
+
+`npm run test:errors` sends malformed URLs/JSON, every kind of name, extreme
+inputs, garbage for every action, oversized messages and planted character
+faults to an isolated server. Latest: **72/72 green**, zero server exceptions,
+no null/NaN coordinates.

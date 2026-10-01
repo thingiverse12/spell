@@ -22,13 +22,80 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 
-import { NET, TIME, WORLD, PIECES, ITEMS, RECIPES, ITEMS as ITEM_DEFS, playerColor } from '../shared/config.js';
+import { NET, TIME, WORLD, PIECES, ITEMS, RECIPES, ITEMS as ITEM_DEFS, clamp, playerColor } from '../shared/config.js';
 import { World } from './world.js';
 import * as rules from './rules.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'client');
+
+/**
+ * Every error the server survives is counted here and exposed in /api/status,
+ * so "there are errors on the server" can be *read* instead of guessed at.
+ */
+export const serverErrors = {
+  count: 0,
+  last: null,
+  at: 0,
+  note(err) {
+    this.count++;
+    this.last = String(err?.message || err).slice(0, 200);
+    this.at = Date.now();
+    return this;
+  },
+};
+
+/** Pitch stays just inside vertical; matches client/camera.js PITCH_LIMIT. */
+export const SERVER_PITCH_LIMIT = 1.5533;
+
+const finiteNumber = (value, fallback = 0) => {
+  // JSON can still carry strings such as "Infinity"; reject all non-finite values.
+  const n = (typeof value === 'number' || typeof value === 'string') ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : fallback;
+};
+
+/**
+ * A WebSocket input is untrusted, even though the ordinary browser client sends
+ * finite numbers. Before this function, `"Infinity"` could turn the movement
+ * vector into `Infinity / Infinity = NaN`, poison the player transform and then
+ * serialize their coordinates as null for every client.
+ */
+export function sanitizeInputMessage(msg = {}) {
+  const dt = clamp(finiteNumber(msg.dt, 1 / NET.inputRate), 0, 0.1) || 1 / NET.inputRate;
+  const rawYaw = finiteNumber(msg.yaw, 0);
+  // atan2(sin, cos) wraps huge finite angles without `%` precision surprises.
+  const yaw = Math.atan2(Math.sin(rawYaw), Math.cos(rawYaw));
+  const pitch = clamp(finiteNumber(msg.pitch, 0), -SERVER_PITCH_LIMIT, SERVER_PITCH_LIMIT);
+  const wish = clamp(finiteNumber(msg.wish, 0), -1, 1);
+  const strafe = clamp(finiteNumber(msg.strafe, 0), -1, 1);
+  const seq = Math.max(0, finiteNumber(msg.seq, 0) | 0);
+  return {
+    seq, dt, yaw, pitch, wish, strafe,
+    jump: msg.jump === true || msg.jump === 1,
+    sprint: msg.sprint === true || msg.sprint === 1,
+    crouch: msg.crouch === true || msg.crouch === 1,
+  };
+}
+
+/**
+ * Player names come from the client and may be *anything*: a number, an array,
+ * an object. `(name || 'Överlevare').slice(0, 18)` threw
+ * "TypeError: (name || ...).slice is not a function" and the joining player got
+ * no welcome at all. Names are now always strings.
+ */
+export function sanitizeName(value, fallback = 'Överlevare') {
+  if (typeof value !== 'string') {
+    if (typeof value === 'number' || typeof value === 'boolean') value = String(value);
+    else return fallback;
+  }
+  const clean = value
+    .replace(/[\u0000-\u001f\u007f]/g, ' ') // control characters -> separator
+    .replace(/\s+/g, ' ')                       // newlines/tabs -> space
+    .trim()
+    .slice(0, 18);
+  return clean || fallback;
+}
 
 const PORT = Number(process.env.PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -246,13 +313,8 @@ function handleMessage(conn, msg) {
   switch (msg.t) {
     case 'input': {
       if (conn.inputs.length > 24) conn.inputs.splice(0, conn.inputs.length - 24);
-      conn.inputs.push({
-        seq: msg.seq | 0,
-        dt: Math.min(0.1, Math.max(0, msg.dt || 0)) || 1 / NET.inputRate,
-        yaw: Number(msg.yaw) || 0, pitch: Number(msg.pitch) || 0,
-        wish: Number(msg.wish) || 0, strafe: Number(msg.strafe) || 0,
-        jump: !!msg.jump, sprint: !!msg.sprint, crouch: !!msg.crouch,
-      });
+      // Sanitize at the boundary: finite values and bounded analog controls only.
+      conn.inputs.push(sanitizeInputMessage(msg));
       break;
     }
 
@@ -338,23 +400,33 @@ function attachConnection(ws) {
     let msg;
     try { msg = JSON.parse(raw.toString()); } catch { return; }
     if (!msg || typeof msg.t !== 'string') return;
+    try {
+      handleIncoming(conn, msg, ws);
+    } catch (err) {
+      // A malformed message must never take the server (or another player) down.
+      serverErrors.note(err);
+      log(`message error (${msg.t}): ${err.stack || err}`);
+    }
+  });
 
+  function handleIncoming(conn, msg, ws) {
     if (msg.t === 'hello') {
       if (conn.player) return;
       const id = String(msg.playerId || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32) || `anon${Date.now()}`;
       if (clients.has(id)) { ws.close(4001, 'already-connected'); return; }
       if (clients.size >= NET.maxPlayers) { ws.close(4002, 'server-full'); return; }
 
+      const name = sanitizeName(msg.name);
       let p = world.players.get(id);
       if (p && !p.offline) { ws.close(4001, 'already-connected'); return; }
       if (p) {
         // reconnecting player: restore progression, keep the rest of the state
         p.offline = false;
-        p.name = (msg.name || p.name || 'Överlevare').slice(0, 18);
+        p.name = name;
         if (p.health <= 0) rules.respawn(world, p);
         p.lastInputAt = Date.now();
       } else {
-        p = world.addPlayer(id, msg.name);
+        p = world.addPlayer(id, name);
       }
       p.ack = 0; p.lastSeq = 0; p.cooldownUntil = 0;
       delete p.offline;
@@ -385,9 +457,10 @@ function attachConnection(ws) {
     try {
       handleMessage(conn, msg);
     } catch (err) {
+      serverErrors.note(err);
       log(`message handler error (${msg.t}): ${err.stack || err}`);
     }
-  });
+  }
 
   ws.on('close', () => {
     if (!conn.player) return;
@@ -437,8 +510,18 @@ function serveFile(res, file) {
 }
 
 const server = http.createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
-  const pathname = decodeURIComponent(url.pathname);
+  let url;
+  let pathname;
+  try {
+    url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
+    pathname = decodeURIComponent(url.pathname);
+  } catch {
+    // A malformed percent escape used to throw out of the HTTP callback and
+    // become an UNCAUGHT EXCEPTION instead of a normal client-side 400.
+    res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('400 invalid URL path');
+    return;
+  }
 
   if (pathname === '/api/status') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -455,6 +538,7 @@ const server = http.createServer((req, res) => {
         health: Math.round(c.player.health), ping: c.pingMs || null,
         kills: c.player.kills || 0, deaths: c.player.deaths || 0, animals: c.player.killsAnimal || 0,
       })),
+      errors: { count: serverErrors.count, last: serverErrors.last, at: serverErrors.at },
       memoryMb: Math.round(process.memoryUsage().rss / 1048576),
     }, null, 2));
   } else if (pathname === '/api/leaderboard') {
@@ -467,10 +551,19 @@ const server = http.createServer((req, res) => {
   } else {
     // The browser client imports the SAME modules the server uses
     // (/shared/*.js + the vendored engine), so the two can never drift apart.
-    const root = pathname.startsWith('/shared/') ? path.resolve(ROOT) : PUBLIC_DIR;
-    const rel = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-    const file = path.join(root, rel);
-    if (!file.startsWith(root)) { res.writeHead(403); res.end('403'); return; }
+    const isSharedPath = pathname.startsWith('/shared/');
+    // /shared is a real sub-root, not the repository root. Otherwise an
+    // encoded slash and `..` could reach server sources through /shared/.
+    const root = path.resolve(isSharedPath ? path.join(ROOT, 'shared') : PUBLIC_DIR);
+    const rel = pathname === '/' ? 'index.html'
+      : isSharedPath ? pathname.slice('/shared/'.length)
+        : pathname.replace(/^\/+/, '');
+    const file = path.resolve(root, rel);
+    if (file !== root && !file.startsWith(`${root}${path.sep}`)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' });
+      res.end('403');
+      return;
+    }
     serveFile(res, file);
   }
 });
@@ -554,10 +647,12 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 // Startup failures (nothing is listening yet) still exit, so a broken config or
 // a taken port never leaves a silent zombie process behind.
 process.on('uncaughtException', (err) => {
+  serverErrors.note(err);
   log(`UNCAUGHT EXCEPTION: ${err.stack || err}`);
   if (!server.listening) setTimeout(() => process.exit(1), 50);
 });
 process.on('unhandledRejection', (err) => {
+  serverErrors.note(err);
   log(`UNHANDLED REJECTION: ${err?.stack || err}`);
 });
 

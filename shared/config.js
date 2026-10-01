@@ -322,13 +322,23 @@ export function buildingAABB(b) {
 /**
  * Stable per-player colour, derived from the id.
  *
- * It used to be `hsl(${(id * 47) % 360} ...)` - but ids are strings
- * ("color-a" * 47 === NaN), so every player was drawn as `hsl(NaN 62% 55%)`.
+ * FNV-1a plus a 32-bit avalanche spreads ids with a shared prefix apart (the
+ * old polynomial hash made "preview-anna" and "preview-bo" nearly identical).
+ * The comma-HSL is deliberately accepted by Three.js 0.169's Color parser.
  */
 export function playerColor(id) {
-  let h = 0;
-  for (const ch of String(id ?? 'x')) h = (h * 31 + ch.charCodeAt(0)) % 360;
-  return `hsl(${h} 62% 55%)`;
+  let h = 0x811c9dc5;
+  for (const ch of String(id ?? 'x')) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 0x01000193);
+  }
+  h ^= h >>> 16;
+  h = Math.imul(h, 0x7feb352d);
+  h ^= h >>> 15;
+  h = Math.imul(h, 0x846ca68b);
+  h ^= h >>> 16;
+  const hue = (h >>> 0) % 360;
+  return `hsl(${hue}, 62%, 55%)`;
 }
 
 export function itemName(key, lang = 'sv') {

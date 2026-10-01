@@ -66,7 +66,7 @@ check('normalizeColor klarar #abc', normalizeColor('#abc') === '#aabbcc');
 check('normalizeColor klarar #AABBCC', normalizeColor('#AABBCC') === '#aabbcc');
 check('normalizeColor klarar tal', normalizeColor(0x6b4a2a) === '#6b4a2a');
 check('normalizeColor avvisar skräp', normalizeColor('blå') === null && normalizeColor(null) === null && normalizeColor('#12345') === null);
-check('isColor accepterar serverns hsl()', isColor('hsl(210 62% 55%)'));
+check('isColor accepterar serverns hsl()', isColor('hsl(210, 62%, 55%)'));
 check('isColor avvisar tomt', !isColor('') && !isColor(undefined));
 check('colorNumber är trevligt', colorNumber('#000000') === 0 && colorNumber('#ffffff') === 0xffffff);
 
@@ -233,7 +233,7 @@ section('6. Spelare och viewmodel');
   const scene = new THREE.Scene();
   const view = new PlayerView(scene, 'self');
   view.setSeed(1337);
-  view.upsert({ id: 'p2', name: 'Anna', x: 0, y: 0, z: 0, yaw: 0, crouch: false, health: 100, toolItem: null, color: 'hsl(210 62% 55%)' });
+  view.upsert({ id: 'p2', name: 'Anna', x: 0, y: 0, z: 0, yaw: 0, crouch: false, health: 100, toolItem: null, color: 'hsl(210, 62%, 55%)' });
   const body = new THREE.Box3();
   for (const m of meshesOf(scene)) body.union(new THREE.Box3().setFromObject(m));
   const bsize = body.getSize(new THREE.Vector3());
@@ -243,22 +243,31 @@ section('6. Spelare och viewmodel');
   const ids = ['color-a', 'player-17', 'gäst', 7, ''];
   return ids.every((id) => {
     const c = playerColor(id);
-    return /^hsl\(-?\d+(\.\d+)? 62% 55%\)$/.test(c) && !/NaN/.test(c);
+    return /^hsl\(\d+, 62%, 55%\)$/.test(c) && !/NaN/.test(c);
   });
 })(), ['color-a', 'player-17', 'gäst', 7, ''].map(playerColor).join(' | '));
 check('playerColor är stabil och ungefär unik', (() => {
   const a = playerColor('anna');
   const b = playerColor('anna');
-  const hues = new Set(['anna', 'bo', 'carl', 'dora', 'erik'].map((n) => playerColor(n).split(' ')[0]));
-  return a === b && hues.size >= 4;
+  const hues = new Set(['anna', 'bo', 'carl', 'dora', 'erik'].map((n) => playerColor(n).match(/^hsl\((\d+),/)?.[1]));
+  const hueOf = (id) => Number(playerColor(id).match(/^hsl\((\d+),/)?.[1]);
+  const gap = Math.abs(hueOf('preview-anna') - hueOf('preview-bo'));
+  return a === b && hues.size >= 4 && Math.min(gap, 360 - gap) >= 30;
+})());
+check('Three.js ritar spelar-HSL som riktiga färger (inte vit fallback)', (() => {
+  const a = new THREE.Color(playerColor('anna'));
+  const b = new THREE.Color(playerColor('bo'));
+  return a.getHex() !== 0xffffff && b.getHex() !== 0xffffff && a.getHex() !== b.getHex();
 })());
 check('spelarens kroppsmaterial är eget (färg per spelare)', meshesOf(scene).some((m) => !SHARED_MATERIALS.has(m.material)));
   check('huvudet använder det delade skinnmaterialet', meshesOf(scene).some((m) => m.material === MATERIALS.skin));
-  check('spelaren får en färg från servern', (() => {
-    view.upsert({ id: 'p3', name: 'Bo', x: 2, y: 0, z: 0, yaw: 0, crouch: false, health: 100, toolItem: null, color: '#3366ff' });
-    const bodyMat = meshesOf(scene).map((m) => m.material).find((m) => normalizeColor(m.color.getHex()) === '#3366ff');
-    return !!bodyMat;
-  })(), 'färgen från snapshoten används inte');
+  check('spelaren får serverns färg och Three.js faktiskt ritar den', (() => {
+    const color = playerColor('color-test');
+    const expected = new THREE.Color(color);
+    view.upsert({ id: 'p3', name: 'Bo', x: 2, y: 0, z: 0, yaw: 0, crouch: false, health: 100, toolItem: null, color });
+    const bodyMat = meshesOf(scene).map((m) => m.material).find((m) => m.color?.getHex() === expected.getHex());
+    return !!bodyMat && expected.getHex() !== 0xffffff;
+  })(), 'färgen från snapshoten saknas eller blev vit');
   check('namnskylten ritas som sprite', (() => {
     let sprites = 0;
     scene.traverse((o) => { if (o.isSprite) sprites++; });
@@ -351,7 +360,7 @@ const players = new PlayerView(bigScene, 'self');
 for (let i = 0; i < 120; i++) nodes.upsert({ id: `n${i}`, type: ['tree', 'rock', 'bush'][i % 3], x: i, y: 0, z: i % 7, rot: 0, scale: 1 });
 for (let i = 0; i < 40; i++) animals.upsert({ id: `a${i}`, type: i % 2 ? 'deer' : 'boar', x: i, y: 0, z: 0, yaw: 0, hp: 10 });
 for (let i = 0; i < 60; i++) buildings.upsert({ id: `b${i}`, piece: ['foundation', 'wall', 'door', 'campfire'][i % 4], cx: i % 10, cz: Math.floor(i / 10), rot: i % 4, y: 0, hp: 400, open: false, ownerName: 'x' });
-for (let i = 0; i < 8; i++) players.upsert({ id: `p${i}`, name: `P${i}`, x: i, y: 0, z: 0, yaw: 0, crouch: false, health: 100, toolItem: null, color: `hsl(${i * 40} 62% 55%)` });
+for (let i = 0; i < 8; i++) players.upsert({ id: `p${i}`, name: `P${i}`, x: i, y: 0, z: 0, yaw: 0, crouch: false, health: 100, toolItem: null, color: `hsl(${i * 40}, 62%, 55%)` });
 
 const sceneAudit = auditScene(bigScene);
 check('scenen bygger utan fel', sceneAudit.problems.length === 0, sceneAudit.problems.slice(0, 3).join('; '));
