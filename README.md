@@ -227,12 +227,12 @@ prediction and server simulation can never drift apart. Player movement is
 predicted locally, verified by the server, and reconciled on every snapshot;
 remote players and animals are interpolated 120 ms in the past.
 
-Test it: `npm run test:all` runs 774 checks.
-(32), the real client network module against a live server (22), DOM/i18n/import
+Test it: `npm run test:all` runs 774 checks: the server/multiplayer harness (32),
+the real client network module against a live server (22), DOM/i18n/import
 consistency (246), HUD behaviour in jsdom (65), scene/render logic without a GPU
 (73), the camera rules (43), every control in the game (119), the "nothing below
 the ground" invariant (58) and the models: size, colours, materials, budget and
-audit (114). `npm run verify:browser` additionally drives a real Chromium and saves
+audit (116). `npm run verify:browser` additionally drives a real Chromium and saves
 screenshots when Chrome is available.
 
 Read the design in [docs/en/GDD.md](docs/en/GDD.md), the engineering in
