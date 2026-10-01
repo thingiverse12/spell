@@ -1,5 +1,5 @@
 node_modules/
-server/data/
+server/data*/
 *.log
 .DS_Store
 Unselected files/
