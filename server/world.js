@@ -17,7 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  WORLD, NODES, ANIMALS, PIECES, BUILD, ITEMS, clamp, piecePosition, buildingAABB,
+  WORLD, NODES, ANIMALS, PIECES, BUILD, ITEMS, clamp, piecePosition, buildingAABB, playerColor,
 } from '../shared/config.js';
 import {
   sampleHeight, slopeAt, biomeAt, fbm,
@@ -69,10 +69,8 @@ function sanitizePlayer(p) {
   }
   if (!out.spawn || !Number.isFinite(out.spawn.x)) out.spawn = { x: out.x, y: out.y, z: out.z };
   // Older saves have no colour: derive a stable one so remote players differ.
-  if (typeof out.color !== 'string' || !out.color) {
-    let h = 0;
-    for (const c of String(out.id ?? out.name ?? 'x')) h = (h * 31 + c.charCodeAt(0)) % 360;
-    out.color = `hsl(${h} 62% 55%)`;
+  if (typeof out.color !== 'string' || !out.color || /NaN/.test(out.color)) {
+    out.color = playerColor(out.id ?? out.name);
   }
   return out;
 }
@@ -218,7 +216,7 @@ export class World {
     const p = {
       id,
       name: (name || 'Överlevare').slice(0, 18),
-      color: `hsl(${(id * 47) % 360} 62% 55%)`,
+      color: playerColor(id),
       x: spawn.x, y: spawn.y, z: spawn.z,
       vx: 0, vy: 0, vz: 0,
       yaw: 0, pitch: 0,

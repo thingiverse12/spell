@@ -22,20 +22,13 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 
-import { NET, TIME, WORLD, PIECES, ITEMS, RECIPES, ITEMS as ITEM_DEFS } from '../shared/config.js';
+import { NET, TIME, WORLD, PIECES, ITEMS, RECIPES, ITEMS as ITEM_DEFS, playerColor } from '../shared/config.js';
 import { World } from './world.js';
 import * as rules from './rules.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
 const PUBLIC_DIR = path.join(ROOT, 'client');
-
-/** Every player gets a stable colour, even a save from before colours existed. */
-function defaultColor(id) {
-  let h = 0;
-  for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 360;
-  return `hsl(${h} 62% 55%)`;
-}
 
 const PORT = Number(process.env.PORT || 8080);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -135,7 +128,7 @@ function buildSnapshot(conn) {
       q.id, q.name, +q.x.toFixed(2), +q.y.toFixed(2), +q.z.toFixed(2),
       +q.yaw.toFixed(3), +q.pitch.toFixed(3), q.crouch ? 1 : 0, Math.round(q.health),
       q.inWater ? 1 : 0, q.toolSlot >= 0 && q.inv[q.toolSlot] ? q.inv[q.toolSlot].item : null,
-      q.color || defaultColor(q.id), // 11: so players can be told apart
+      q.color || playerColor(q.id), // 11: so players can be told apart
     ]);
   }
 

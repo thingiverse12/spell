@@ -319,6 +319,18 @@ export function buildingAABB(b) {
   };
 }
 
+/**
+ * Stable per-player colour, derived from the id.
+ *
+ * It used to be `hsl(${(id * 47) % 360} ...)` - but ids are strings
+ * ("color-a" * 47 === NaN), so every player was drawn as `hsl(NaN 62% 55%)`.
+ */
+export function playerColor(id) {
+  let h = 0;
+  for (const ch of String(id ?? 'x')) h = (h * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${h} 62% 55%)`;
+}
+
 export function itemName(key, lang = 'sv') {
   const it = ITEMS[key];
   if (!it) return key;

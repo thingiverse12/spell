@@ -19,7 +19,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as THREE from 'three';
 import { createDom } from './dom-env.js';
-import { NODES, ANIMALS, PIECES, PHYS, ITEMS } from '../shared/config.js';
+import { NODES, ANIMALS, PIECES, PHYS, ITEMS, playerColor } from '../shared/config.js';
 import {
   PALETTE, SKY, MATERIALS, SHARED_MATERIALS, BUDGET,
   normalizeColor, isColor, colorNumber, trianglesOf, auditObject3D, auditScene,
@@ -239,7 +239,20 @@ section('6. Spelare och viewmodel');
   const bsize = body.getSize(new THREE.Vector3());
   check('spelarkroppen är PHYS.height hög', Math.abs(bsize.y - PHYS.height) < 0.1, `${bsize.y.toFixed(2)} vs ${PHYS.height}`);
   check('spelarens fötter står på marken (y≈0)', Math.abs(body.min.y) < 0.02, `lägsta y ${body.min.y.toFixed(3)}`);
-  check('spelarens kroppsmaterial är eget (färg per spelare)', meshesOf(scene).some((m) => !SHARED_MATERIALS.has(m.material)));
+  check('playerColor ger en giltig färg (inte NaN)', (() => {
+  const ids = ['color-a', 'player-17', 'gäst', 7, ''];
+  return ids.every((id) => {
+    const c = playerColor(id);
+    return /^hsl\(-?\d+(\.\d+)? 62% 55%\)$/.test(c) && !/NaN/.test(c);
+  });
+})(), ['color-a', 'player-17', 'gäst', 7, ''].map(playerColor).join(' | '));
+check('playerColor är stabil och ungefär unik', (() => {
+  const a = playerColor('anna');
+  const b = playerColor('anna');
+  const hues = new Set(['anna', 'bo', 'carl', 'dora', 'erik'].map((n) => playerColor(n).split(' ')[0]));
+  return a === b && hues.size >= 4;
+})());
+check('spelarens kroppsmaterial är eget (färg per spelare)', meshesOf(scene).some((m) => !SHARED_MATERIALS.has(m.material)));
   check('huvudet använder det delade skinnmaterialet', meshesOf(scene).some((m) => m.material === MATERIALS.skin));
   check('spelaren får en färg från servern', (() => {
     view.upsert({ id: 'p3', name: 'Bo', x: 2, y: 0, z: 0, yaw: 0, crouch: false, health: 100, toolItem: null, color: '#3366ff' });

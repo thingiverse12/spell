@@ -96,7 +96,7 @@ Detta är en prototyp, inte ett färdigt spel:
 ## Testa / Testing
 
 ```bash
-npm test              # server + multiplayer-harness med bot-klienter   (31 kontroller)
+npm test              # server + multiplayer-harness med bot-klienter   (32 kontroller)
 npm run test:client   # klientens egen net.js mot en live-server        (22 kontroller)
 npm run test:ui       # DOM-id:n, i18n, importer, importmap, CSS        (246 kontroller)
 npm run test:dom      # HUD:en i jsdom: barer, hotbar, recept, byggmeny (65 kontroller)
@@ -227,8 +227,8 @@ prediction and server simulation can never drift apart. Player movement is
 predicted locally, verified by the server, and reconciled on every snapshot;
 remote players and animals are interpolated 120 ms in the past.
 
-Test it: `npm run test:all` runs 771 checks — the server/multiplayer harness
-(31), the real client network module against a live server (22), DOM/i18n/import
+Test it: `npm run test:all` runs 774 checks.
+(32), the real client network module against a live server (22), DOM/i18n/import
 consistency (246), HUD behaviour in jsdom (65), scene/render logic without a GPU
 (73), the camera rules (43), every control in the game (119), the "nothing below
 the ground" invariant (58) and the models: size, colours, materials, budget and

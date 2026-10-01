@@ -443,6 +443,10 @@ async function main() {
     await sleep(100);
   }
   check('second player sees the first player', seesAlice, `distance=${Number.isFinite(dist) ? dist.toFixed(1) : 'n/a'}`);
+  check('replicated player colour is valid (not hsl(NaN))', (() => {
+    const seen = [...bob.players.values()].map((p) => p[11]);
+    return seen.length >= 1 && seen.every((c) => typeof c === 'string' && /^hsl\(\d+ 62% 55%\)$/.test(c));
+  })(), [...bob.players.values()].map((p) => String(p[11])).join(', '));
   check('both players are online on the server', (await (await fetch(`${URL_HTTP}/api/status`)).json()).world.online === 2);
 
   /* ---------------- 6. PvP ---------------- */
