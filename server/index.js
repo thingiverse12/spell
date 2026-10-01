@@ -477,6 +477,17 @@ const server = http.createServer((req, res) => {
  * shows up in the browser as a generic "WebSocket error". Any upgrade request
  * on this port is treated as a game connection; the client always asks for /ws.
  */
+// A failed bind must be fatal and loud: without this the process would keep
+// running (the crash guards below swallow it) while serving nothing.
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    log(`FATAL: port ${PORT} is already in use - another Spell server is running. Exiting.`);
+  } else {
+    log(`FATAL server error: ${err.stack || err}`);
+  }
+  process.exit(1);
+});
+
 const wss = new WebSocketServer({
   noServer: true,
   maxPayload: 16 * 1024,
@@ -534,8 +545,11 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 // Last line of defence: keep the live preview alive, but make the problem loud.
+// Startup failures (nothing is listening yet) still exit, so a broken config or
+// a taken port never leaves a silent zombie process behind.
 process.on('uncaughtException', (err) => {
   log(`UNCAUGHT EXCEPTION: ${err.stack || err}`);
+  if (!server.listening) setTimeout(() => process.exit(1), 50);
 });
 process.on('unhandledRejection', (err) => {
   log(`UNHANDLED REJECTION: ${err?.stack || err}`);
