@@ -69,5 +69,51 @@ const cssIds = [...new Set([...css.matchAll(/#([a-zA-Z][\w-]*)/g)].map((m) => m[
 const missing = cssIds.filter((id) => !htmlIds.has(id));
 check('every CSS id selector exists in index.html', missing.length === 0, missing.join(', '));
 
+/* 6. every named import must actually be exported by its target module
+   (a typo here is an instant "module does not provide an export" error in the
+   browser, so it is worth checking statically) */
+const MODULES = [
+  ...fs.readdirSync(path.join(CLIENT, 'src')).filter((f) => f.endsWith('.js'))
+    .map((f) => path.join(CLIENT, 'src', f)),
+  ...fs.readdirSync(path.join(ROOT, 'shared')).filter((f) => f.endsWith('.js'))
+    .map((f) => path.join(ROOT, 'shared', f)),
+];
+
+function exportsOf(file) {
+  const code = fs.readFileSync(file, 'utf8');
+  const names = new Set();
+  let permissive = false;
+  for (const m of code.matchAll(/export\s+(?:async\s+)?(?:function|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g)) names.add(m[1]);
+  for (const m of code.matchAll(/export\s*\{([^}]*)\}/g)) {
+    for (const part of m[1].split(',')) {
+      const piece = part.trim();
+      if (!piece) continue;
+      const alias = piece.split(/\s+as\s+/);
+      names.add((alias[1] || alias[0]).trim());
+    }
+  }
+  if (/export\s+\*/.test(code) || /export\s+default/.test(code)) permissive = true;
+  return { names, permissive };
+}
+
+for (const file of MODULES) {
+  const code = fs.readFileSync(file, 'utf8');
+  const rel = path.relative(ROOT, file);
+  for (const m of code.matchAll(/import\s*\{([^}]+)\}\s*from\s*'([^']+)'/g)) {
+    const spec = m[2];
+    let target = null;
+    if (spec === 'three') target = path.join(ROOT, 'node_modules', 'three', 'build', 'three.module.js');
+    else if (spec.startsWith('.')) target = path.resolve(path.dirname(file), spec);
+    if (!target || !fs.existsSync(target)) continue;
+    const { names, permissive } = exportsOf(target);
+    if (permissive) continue;
+    for (const raw of m[1].split(',')) {
+      const name = raw.trim().split(/\s+as\s+/)[0].trim();
+      if (!name) continue;
+      check(`${rel} imports ${name} from ${spec}`, names.has(name), 'not exported by the target module');
+    }
+  }
+}
+
 console.log(`\n\x1b[1mResult:\x1b[0m ${passed} passed, ${failed} failed\n`);
 process.exit(failed ? 1 : 0);

@@ -98,10 +98,10 @@ Detta är en prototyp, inte ett färdigt spel:
 ```bash
 npm test              # server + multiplayer-harness med bot-klienter   (26 kontroller)
 npm run test:client   # klientens egen net.js mot en live-server        (15 kontroller)
-npm run test:ui       # DOM-id:n, i18n-nycklar, importmap, CSS          (130 kontroller)
+npm run test:ui       # DOM-id:n, i18n, importer, importmap, CSS        (213 kontroller)
 npm run test:dom      # HUD:en i jsdom: barer, hotbar, recept, byggmeny (65 kontroller)
 npm run test:render   # scenlogik: terräng, instanser, byggnader, djur  (65 kontroller)
-npm run test:all      # allt ovan = 301 kontroller
+npm run test:all      # allt ovan = 384 kontroller
 npm run verify:browser  # riktig Chromium via puppeteer (kräver nedladdad Chrome)
 ```
 
@@ -209,7 +209,7 @@ prediction and server simulation can never drift apart. Player movement is
 predicted locally, verified by the server, and reconciled on every snapshot;
 remote players and animals are interpolated 120 ms in the past.
 
-Test it: `npm run test:all` runs 301 checks — the server/multiplayer harness
+Test it: `npm run test:all` runs 384 checks — the server/multiplayer harness
 (26), the real client network module against a live server (15), DOM/i18n
 consistency (130), HUD behaviour in jsdom (65) and scene/render logic without a
 GPU (65). `npm run verify:browser` additionally drives a real Chromium and saves

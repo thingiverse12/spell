@@ -20,7 +20,7 @@
 | Persistens + autosave + återanslutning | ✅ |
 | HUD, inventory, crafting-UI, byggläge, karta, inställningar, sv/en | ✅ |
 | Proceduralt ljud | ✅ |
-| Testsvit (301 kontroller, 5 sviter) | ✅ |
+| Testsvit (384 kontroller, 5 sviter) | ✅ |
 | Autentisering, anti-cheat utöver serverauktoritet | ❌ medvetet |
 | Grafik/animationspolish, XP-system, ekonomi | ❌ nästa steg |
 

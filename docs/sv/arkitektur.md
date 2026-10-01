@@ -199,10 +199,10 @@ som standard).
 |---|---|
 | `npm test` | Startar en riktig server och två bot-klienter: handskakning, deterministisk terräng, auktoritativ rörelse + prediktionsavvikelse, skörd, avståndsavvisning, crafting, bygge, replikering, PvP, persisten över omstart (26 kontroller). |
 | `npm run test:client` | Kör **klientens egen** `client/src/net.js` mot en live-server med `ws` som WebSocket-stand-in: handskakning, prediktion, skörd, inventory, bygge, events (15 kontroller). |
-| `npm run test:ui` | Statisk kontroll av DOM-id:n, i18n-nycklar, importmap och CSS-selektorer (130 kontroller). |
+| `npm run test:ui` | Statisk kontroll av DOM-id:n, i18n-nycklar, importmap, CSS-selektorer **och att varje importerat namn faktiskt exporteras** av målmodulen (213 kontroller). |
 | `npm run test:dom` | Kör **HUD:en på riktigt** i jsdom mot `client/index.html`: barer, klocka, hotbar, ryggsäck, receptlista, byggmeny, karta, chatt, språkbyte (65 kontroller). Hittade bl.a. att byggdelar saknades i `ITEMS` och att recept-callbacks kunde bli inaktuella. |
 | `npm run test:render` | Scenlogik utan GPU: terränggeometri och determinism, instanspooler, dörrar som öppnas, skadetint per byggnad, djurs interpolation, spökmodellen (65 kontroller). |
 | `npm run verify:browser` | Riktig Chromium (puppeteer): konsolfel, att duken faktiskt renderar, skärmdumpar. Hoppar till statisk modulkontroll om ingen webbläsare finns. |
 
-Totalt **301 kontroller**. CI-förslag: `npm run test:all` på varje push, `npm run verify:browser` på natten
+Totalt **384 kontroller**. CI-förslag: `npm run test:all` på varje push, `npm run verify:browser` på natten
 eller före release (kräver nedladdad Chromium).

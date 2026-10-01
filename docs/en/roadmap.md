@@ -21,7 +21,7 @@
 | Persistence + autosave + reconnection | ✅ |
 | HUD, inventory, crafting UI, build mode, map, settings, sv/en | ✅ |
 | Procedural audio | ✅ |
-| Test suite (301 checks, 5 suites) | ✅ |
+| Test suite (384 checks, 5 suites) | ✅ |
 | Authentication, anti-cheat beyond server authority | ❌ deliberate |
 | Art/animation polish, XP system, economy | ❌ next step |
 
