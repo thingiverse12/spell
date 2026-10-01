@@ -149,6 +149,12 @@ export const ITEMS = {
     tool: { tree: 6, rock: 4, bush: 6, animal: 34 }, durability: 180, repair: { wood: 2 } },
   torch: { name: 'Fackla', nameEn: 'Torch', kind: 'tool', stack: 1, icon: '🔥', color: '#e0912f',
     tool: { tree: 4, rock: 2, bush: 4, animal: 9 }, durability: 400, light: true },
+
+  // Building pieces are inventory items too (crafted, carried, then placed).
+  foundation: { name: 'Grund', nameEn: 'Foundation', kind: 'build', stack: 32, icon: '⬛', color: '#7a5230' },
+  wall: { name: 'Vägg', nameEn: 'Wall', kind: 'build', stack: 32, icon: '🧱', color: '#9a6b3c' },
+  door: { name: 'Dörr', nameEn: 'Door', kind: 'build', stack: 16, icon: '🚪', color: '#8a5a2b' },
+  campfire: { name: 'Lägereld', nameEn: 'Campfire', kind: 'build', stack: 16, icon: '🔥', color: '#9aa0a6' },
 };
 
 /** Damage dealt by bare hands against every node type. */

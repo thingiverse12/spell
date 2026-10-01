@@ -212,6 +212,7 @@ export class Hud {
   /* ---------------- crafting ---------------- */
 
   renderRecipes(inv, hasStation, onCraft) {
+    this._craftHandler = onCraft;
     const sig = JSON.stringify([inv, hasStation]);
     if (sig === this._recipeSig) return;
     this._recipeSig = sig;
@@ -245,7 +246,7 @@ export class Hud {
           <span class="ico">${def.icon}</span>
           <span class="name">${itemName(def)}${r.station ? ` <span class="tag">${t('needStation')}</span>` : ''}</span>
           <span class="need">${need}</span>`;
-        div.addEventListener('click', () => { if (ok) onCraft(r.id); });
+        div.addEventListener('click', () => { if (ok) this._craftHandler?.(r.id); });
         this.el.recipeList.appendChild(div);
       }
     }
@@ -254,6 +255,7 @@ export class Hud {
   /* ---------------- building ---------------- */
 
   renderPieces(inv, selected, onSelect) {
+    this._pieceHandler = onSelect;
     const sig = JSON.stringify([inv, selected]);
     if (sig === this._pieceSig) return;
     this._pieceSig = sig;
@@ -266,7 +268,7 @@ export class Hud {
       const icons = { foundation: '⬛', wall: '🧱', door: '🚪', campfire: '🔥' };
       div.className = `piece${selected === id ? ' sel' : ''}`;
       div.innerHTML = `<span class="ico">${icons[id] || '🧱'}</span><span><div>${pieceName(def)}</div><span class="need">${need}</span></span>`;
-      div.addEventListener('click', () => onSelect(id));
+      div.addEventListener('click', () => this._pieceHandler?.(id));
       this.el.pieceList.appendChild(div);
     }
   }

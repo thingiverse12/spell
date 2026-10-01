@@ -10,8 +10,10 @@
     "test": "node test/harness.js",
     "verify:browser": "node test/browser.js",
     "test:client": "node test/client-net.js",
-    "test:all": "node test/harness.js && node test/client-net.js && node test/ui-static.js",
-    "test:ui": "node test/ui-static.js"
+    "test:all": "node test/harness.js && node test/client-net.js && node test/ui-static.js && node test/hud-dom.js && node test/render-logic.js",
+    "test:ui": "node test/ui-static.js",
+    "test:dom": "node test/hud-dom.js",
+    "test:render": "node test/render-logic.js"
   },
   "keywords": [
     "game",
@@ -27,6 +29,6 @@
     "ws": "8.22.0"
   },
   "devDependencies": {
-    "puppeteer": "^23.0.0"
+    "jsdom": "^25.0.1"
   }
 }

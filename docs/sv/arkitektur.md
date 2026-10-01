@@ -1,0 +1,208 @@
+# Spell — arkitektur (teknisk översikt)
+
+> Status: **prototyp implementerad**. Det som står i kursiv stil är planerat men inte byggt.
+> Koden finns i `server/`, `client/` och `shared/`; siffror och regler är hämtade direkt ur
+> `shared/config.js` så att dokument och kod inte glider ifrån varandra.
+
+## 1. Översikt
+
+```
+                    ┌──────────────────────────────┐
+                    │        Webbläsare            │
+                    │  WebGL2 (three.js, ESM)      │
+                    │  ┌────────────────────────┐  │
+                    │  │ shared/physics.js      │  │  ← exakt samma kod som
+                    │  │ shared/prediction.js   │  │    servern kör
+                    │  │ shared/noise.js        │  │
+                    │  └────────────────────────┘  │
+                    └───────┬───────────────┬──────┘
+             HTTPS (statik) │               │ WSS /ws (spelprotokoll)
+                            ▼               ▼
+                    ┌───────────────┐ ┌────────────────────────────┐
+                    │ Statiska      │ │  Spell-server (Node.js)    │
+                    │ filer         │ │  ┌──────────────────────┐  │
+                    │ /client       │ │  │ Tick-loop 20 Hz      │  │
+                    │ /shared       │ │  │ rules.js (auktoritet)│  │
+                    │ /vendor       │ │  │ World (chunks, AI)   │  │
+                    └───────────────┘ │  └──────────┬───────────┘  │
+                           ▲          │             │              │
+                           │          │      JSON-persistens       │
+                     *CDN (prod)*     └─────────────┬──────────────┘
+                                                     ▼
+                                        server/data*/world-<seed>.json
+                                        *(prod: Postgres + Redis, se §7)*
+```
+
+**Grundprincipen**: klienten skickar bara *input*, servern äger all sanning
+(loot, skada, crafting, bygge, tid, AI). Klienten predikterar sin egen rörelse
+med samma modul som servern använder, och stämmer av mot varje snapshot
+(reconciliation). Det gör att spelet känns omedelbart trots att servern är
+auktoritativ — och det gör fusk svårare än i en klientauktoritativ modell.
+
+## 2. Komponenter
+
+| Komponent | Fil(er) | Ansvar |
+|---|---|---|
+| Konfiguration | `shared/config.js` | Alla spelsiffror: fysik, survival, recept, byggdelar, nätverksparametrar. Delas av klient och server. |
+| Världsgenerering | `shared/noise.js` | Deterministisk hashning, value noise, fbm, höjdfält, biomer, solvinkel. Samma seed → identisk terräng överallt. |
+| Fysik | `shared/physics.js` | Kapsel-kollision mot terräng och byggnader, steg upp-funktion, simning, stamina, fallskada (rapporteras tillbaka). |
+| Prediktion | `shared/prediction.js` | `LocalWorld` (kollisionsvärld från replikerade byggnader), `Predictor` (rewind + replay av obekräftad input), `Interpolator` (andra spelare visas ~120 ms i det förflutna), `NetStats`. |
+| Spellogik (auktoritativ) | `server/rules.js` | Skörd, melee/PvP, crafting, bygge, dörrar, rivning, ätande, inventory-flytt, reparation, survival-nedbrytning, död/respawn. |
+| Världen | `server/world.js` | Chunk-streaming (64 m), noder, djur, AI, byggindex, day/night, decay, spara/ladda JSON. |
+| Spelserver | `server/index.js` | HTTP (statik + `/api/*`), WebSocket-protokoll, 20 Hz tick-loop, intressehantering, delta-replikering, autosave, avstängning. |
+| Klient | `client/src/*` | Rendering, HUD, input, UI-paneler, ljud, nätverksklient. Ingen byggkedja: rena ES-moduler + importmap. |
+
+### Varför delade moduler?
+Det här är den viktigaste arkitekturkonstruktionen i prototypen. Klient och
+server importerar **samma** `config.js`, `noise.js`, `physics.js` och
+`prediction.js` (webbläsaren hämtar dem från `/shared/*`, Node läser dem från
+disken). Därmed kan prediktion och auktoritet inte glida isär på grund av
+dubblerad kod — en klassisk källa till rubber-banding i nätkodade spel.
+
+## 3. Simulering och nätverk
+
+* **Tickrate:** 20 Hz (`NET.tickRate`). Rapporten föreslår 20–30 Hz för ett
+  överlevnadsspel — vi ligger i nedre kanten eftersom det räcker för bygge,
+  samlande och närstrid och ger lägre CPU-kostnad per spelare.
+* **Input:** klienten skickar 30 input/s (`NET.inputRate`) med sekvensnummer.
+  Servern simulerar dem i ordning, högst 1,35 × realtid per tick (skydd mot
+  speedhack), och kvittar `seq` i varje snapshot.
+* **Reconciliation:** klienten sparar obekräftad input, och vid varje snapshot
+  spolar den tillbaka till serverns tillstånd och spelar upp det som ännu inte
+  bekräftats. Avvikelse > 2 cm räknas som korrigering (syns i F3-overlayn).
+* **Interpolation:** andra spelare och djur visas `NET.interpDelayMs` (120 ms)
+  bakåt i tiden, vilket ger mjuk rörelse även vid paketförluster.
+* **Intressehantering:** bara entiteter inom `NET.interestRadius` (220 m) skickas.
+  Statiska entiteter (noder, byggnader) skickas som *delta* med versionsnummer
+  (`v`), djur som lätta arrayer varje tick. Typisk bandbredd i prototypen:
+  ensiffriga kbit/s per spelare.
+* **Transport:** WebSocket (JSON) över TLS i produktion. WebRTC-datachannels är
+  den troliga uppgraderingen för rörelsetrafik om latensen blir ett problem —
+  protokollet är medvetet enkelt nog att kunna bytas ut bakom `client/src/net.js`.
+
+## 4. Protokoll
+
+### Klient → server
+
+| Meddelande | Fält | Beskrivning |
+|---|---|---|
+| `hello` | `playerId, name` | Identifierar spelaren (id sparas i localStorage, återanslutning återställer progression). |
+| `input` | `seq, dt, yaw, pitch, wish, strafe, jump, sprint, crouch` | 30 Hz. `wish`/`strafe` ∈ [-1,1]. |
+| `action` | `a, rid, …` | `harvest{id}`, `melee`, `craft{id}`, `place{piece,cx,cz,rot}`, `door{id}`, `demolish{id}`, `use{slot}`, `equip{slot}`, `moveitem{from,to}`, `repair{slot}`, `respawn`. |
+| `chat` | `text` (≤200 tecken, 1,2 s cooldown) | Broadcastas till alla. |
+| `ping` | `id, at` | RTT-mätning. |
+
+### Server → klient
+
+| Meddelande | Innehåll |
+|---|---|
+| `welcome` | `seed`, `world{size,grid,seaLevel,maxHeight}`, `config`, `time01`, `day`, `you{x,y,z,yaw,inv,toolSlot,spawn}`, spelarlista |
+| `snap` | `tick, time01, day, ack`, `you{seq,x,y,z,vx,vy,vz,health,hunger,thirst,stamina,breath,onGround,inWater,inv,toolSlot,kills,deaths,killsAnimal,dead}`, `players[]`, `nodes[]` (upsert), `nrem[]`, `animals[]`, `buildings[]` (upsert), `brem[]`, `ev[]` |
+| `res` | `a, r, ok, …` — svar på varje action (inkl. `place`) |
+| `ev` | `swing`, `hurt`, `died`, `respawned`, `placed`, `door`, `buildingGone`, `join`, `leave`, `chat`, `chatSlow` |
+| `pong` | `id, at, now, serverTime` |
+
+Så länge `data`-fälten hålls desamma kan transporten bytas (t.ex. binärt format
+eller WebRTC) utan att röra spellogiken.
+
+## 5. Datamodell och persistens
+
+Prototypen sparar ett JSON-dokument per värld (`server/data*/world-<seed>.json`)
+med:
+
+* `buildings[]` — byggnader med cell, rotation, höjd, hp, ägare, decay-tid
+* `players{}` — position, stats, inventory, statistik (nycklas på spelar-id)
+* `deadNodes[]` — bara *döda* noder och deras respawn-tid (terrängen genereras om
+  från seed, den lagras aldrig)
+* `time01`, `day`, `nextBuildingId`
+
+Skrivning sker atomiskt (temp-fil + `rename`) var 20:e sekund, vid frånkoppling
+och vid `SIGTERM`/`SIGINT`. Vid uppstart saneras spelarobjekt
+(`sanitizePlayer`) så att äldre sparfiler som saknar nya fält inte kraschar
+simuleringen — ett fel som faktiskt uppstod under utvecklingen och nu täcks av
+test 7 i harnessen.
+
+**Produktionsväg (rapportens rekommendation):** Postgres för transaktionell
+data (inventory, ekonomi, byggnader), Redis för sessioner och hot state,
+objektlagring/S3 för världsbackuper, replikering mellan zoner.
+
+## 6. Skalbarhet
+
+| Nivå | Åtgärd |
+|---|---|
+| Nuvarande (prototyp) | En process, ~30 spelare (`NET.maxPlayers`), chunk-streaming, intressehantering. Uppmätt minne i tom värld: några tiotal MB. |
+| 50–100 spelare | Dedikerad nod per värld; flytta persistens till Postgres/Redis; statiska filer till CDN; vertikal skalning först (simuleringen är single-threaded per värld). |
+| Fler världar | En serverprocess per värld/seed (horisontellt), lastbalanserare som routar `wss://…/ws?world=id`, delad DB. |
+| Stora världar / regioner | Dela kartan i zoner med ägarskap per process och spelaröverlämning (dyrare: kräver gränssnittsprotokoll och "interest handover"). Rekommenderas först när en värld inte längre får plats i en process. |
+
+För att mäta: `/api/status` (tick, minne, uptime, spelarlista) kan pollas av
+Prometheus/Grafana; `server.stats()` ger världsstatistik.
+
+## 7. Drift och kostnader
+
+| Post | Prototyp | Produktion (50–100 samtidiga, en region) |
+|---|---|---|
+| Spelserver | 1 process, valfri VM | 2 × (2 vCPU/8 GB) för redundans, ca $60–160/mån |
+| Databas | JSON-fil | Postgres (db.t3.medium) + Redis, ca $60–120/mån |
+| Statik/CDN | samma process | CloudFront/S3, ca $20–50/mån |
+| Bandbredd | försumbar | ca $50–120/mån vid moderat trafik |
+| Övervakning | loggar + `/api/status` | Prometheus/Grafana eller motsvarande, ca $0–50/mån |
+| **Summa** | **$0 (lokal VM)** | **ca $250–500/mån** |
+
+Detta ligger i linje med rapportens uppskattning ($300–500/mån för liten/medium
+skala). Kostnaden domineras av antalet *världar*, inte av antalet spelare, så
+länge varje värld ryms i en process.
+
+## 8. Säkerhet och anti-cheat
+
+**Implementerat i prototypen**
+
+* Serverauktoritet: rörelse, skada, loot, crafting och bygge valideras server-side.
+* Klienten kan inte sätta sin egen hälsa, position eller sitt inventory —
+  input innehåller bara önskad rörelse och avsikter.
+* Tidsbudget per tick hindrar att man skickar in extra många input för att
+  simulera snabbare än realtid.
+* Intervallkontroller: skörd (`COMBAT.reach`), bygge (`BUILD.reach`), dörrar,
+  rivning, chatt-cooldown, max meddelandestorlek (16 kB), idle-timeout.
+* Deterministisk terräng → klienten kan inte "hitta på" mark.
+
+**Saknas medvetet (MVP-avgränsning, dokumenterat i `docs/*/roadmap.md`)**
+
+* Ingen autentisering (spelar-id kommer från klienten) → byt mot OAuth/Steam-token.
+* Ingen kryptering i dev (TLS/WSS i drift via reverse proxy).
+* Ingen rörelseheuristik utöver tidsbudgeten, ingen loggning av misstänkt
+  beteende, ingen kärnnivå-anti-cheat (ingen sådan finns för webbläsare).
+* Ingen rate limiting på HTTP-nivå eller skydd mot DDoS.
+
+Eftersom webbläsarklienter är lätta att modifiera är strategin densamma som
+rapporten förespråkar: **håll hemlig logik på servern**, validera allt, logga
+avvikelser, och undvik spellägen där fusk förstör för andra (t.ex. ren PvE-co-op
+som standard).
+
+## 9. Prestanda (klient)
+
+* Terrängen är **en** mesh (129×129 höjder → 32 768 trianglar), platt skuggning
+  och vertexfärger: inga texturer, få draw calls.
+* Resursnoder ritas med `InstancedMesh` per del (stam, krona, sten, buske) —
+  hundratals noder i några draw calls.
+* Djur, spelare och byggnader är enkla lågpolymodeller; byggnader delar geometri
+  men har egna material (för att kunna visa skadetint).
+* LOD ersätts av *fog + siktavstånd*; instanserna utanför siktavståndet är kvar
+  men skyms av dimman, vilket är billigare än att bygga om buffertar per frame.
+* `settings.simpleGraphics` stänger av skuggor, sänker pixel ratio och kortar
+  siktavståndet — för svaga integrerade GPU:er.
+* Skuggor: ett riktat ljus med 1024²-karta som följer spelaren (kan stängas av).
+
+## 10. Reproducerbarhet och test
+
+| Kommando | Vad som verifieras |
+|---|---|
+| `npm test` | Startar en riktig server och två bot-klienter: handskakning, deterministisk terräng, auktoritativ rörelse + prediktionsavvikelse, skörd, avståndsavvisning, crafting, bygge, replikering, PvP, persisten över omstart (26 kontroller). |
+| `npm run test:client` | Kör **klientens egen** `client/src/net.js` mot en live-server med `ws` som WebSocket-stand-in: handskakning, prediktion, skörd, inventory, bygge, events (15 kontroller). |
+| `npm run test:ui` | Statisk kontroll av DOM-id:n, i18n-nycklar, importmap och CSS-selektorer (130 kontroller). |
+| `npm run test:dom` | Kör **HUD:en på riktigt** i jsdom mot `client/index.html`: barer, klocka, hotbar, ryggsäck, receptlista, byggmeny, karta, chatt, språkbyte (65 kontroller). Hittade bl.a. att byggdelar saknades i `ITEMS` och att recept-callbacks kunde bli inaktuella. |
+| `npm run test:render` | Scenlogik utan GPU: terränggeometri och determinism, instanspooler, dörrar som öppnas, skadetint per byggnad, djurs interpolation, spökmodellen (65 kontroller). |
+| `npm run verify:browser` | Riktig Chromium (puppeteer): konsolfel, att duken faktiskt renderar, skärmdumpar. Hoppar till statisk modulkontroll om ingen webbläsare finns. |
+
+Totalt **301 kontroller**. CI-förslag: `npm run test:all` på varje push, `npm run verify:browser` på natten
+eller före release (kräver nedladdad Chromium).
