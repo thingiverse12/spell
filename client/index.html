@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Spell — low-poly survival (prototyp)</title>
+<link rel="stylesheet" href="/css/style.css" />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🪓</text></svg>" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "/vendor/three.module.js"
+  }
+}
+</script>
+</head>
+<body>
+<canvas id="gl"></canvas>
+
+<!-- ===================== loading ===================== -->
+<div id="loading" class="overlay">
+  <div class="load-box">
+    <h1>SPELL</h1>
+    <p class="tagline" data-i18n="tagline">Lågpoly-överlevnad i webbläsaren</p>
+    <div class="bar"><div id="loadBar"></div></div>
+    <p id="loadMsg" class="dim">Startar …</p>
+  </div>
+</div>
+
+<!-- ===================== start menu ===================== -->
+<div id="menu" class="overlay hidden">
+  <div class="menu-box">
+    <h1>SPELL</h1>
+    <p class="tagline" data-i18n="menuSub">Prototyp: MVP ur utvecklingsplanen — motor, nätverk, crafting, bygge</p>
+    <label class="field">
+      <span data-i18n="menuName">Namn</span>
+      <input id="nameInput" maxlength="18" autocomplete="off" />
+    </label>
+    <div class="row">
+      <button id="playBtn" class="primary" data-i18n="menuPlay">Spela</button>
+      <button id="howBtn" data-i18n="menuHow">Så spelar du</button>
+    </div>
+    <p class="dim small" id="serverInfo">–</p>
+    <p class="dim small" id="seedInfo"></p>
+  </div>
+</div>
+
+<!-- ===================== in-game HUD ===================== -->
+<div id="hud" class="hidden">
+  <div id="crosshair"><span></span></div>
+
+  <div id="stats" class="panel">
+    <div class="clock"><span id="clockIcon">☀</span><span id="clockText">dag 1 — 06:00</span></div>
+    <div class="bar-row"><i class="ico">❤</i><div class="bar"><div id="barHealth" class="fill health"></div></div><em id="numHealth">100</em></div>
+    <div class="bar-row"><i class="ico">⚡</i><div class="bar"><div id="barStamina" class="fill stamina"></div></div><em id="numStamina">100</em></div>
+    <div class="bar-row"><i class="ico">🍗</i><div class="bar"><div id="barHunger" class="fill hunger"></div></div><em id="numHunger">100</em></div>
+    <div class="bar-row"><i class="ico">💧</i><div class="bar"><div id="barThirst" class="fill thirst"></div></div><em id="numThirst">100</em></div>
+    <div class="bar-row" id="breathRow" style="display:none"><i class="ico">🫁</i><div class="bar"><div id="barBreath" class="fill breath"></div></div><em id="numBreath">100</em></div>
+  </div>
+
+  <div id="debug" class="panel small hidden"></div>
+  <div id="toasts"></div>
+  <div id="floating"></div>
+  <div id="chatLog"></div>
+  <div id="chatInputWrap" class="hidden"><input id="chatInput" maxlength="200" placeholder="" /><span class="hint">Enter = skicka, Esc = avbryt</span></div>
+
+  <div id="hotbar"></div>
+
+  <div id="hintBar" class="panel small">
+    <span id="hintText"></span>
+  </div>
+
+  <div id="vignette"></div>
+  <div id="waterOverlay"></div>
+  <div id="buildHint" class="panel small hidden"></div>
+</div>
+
+<!-- ===================== inventory / crafting ===================== -->
+<div id="inventoryScreen" class="overlay hidden">
+  <div class="window">
+    <header>
+      <h2 data-i18n="invTitle">Ryggsäck</h2>
+      <div class="tabs">
+        <button class="tab active" data-tab="inv" data-i18n="tabInv">Föremål</button>
+        <button class="tab" data-tab="craft" data-i18n="tabCraft">Tillverka</button>
+      </div>
+      <button class="close" data-i18n="close">Stäng (Tab)</button>
+    </header>
+    <section id="tab-inv" class="tabpane">
+      <div id="invGrid" class="grid"></div>
+      <p class="dim small" data-i18n="invHelp">Klicka för att välja, klicka igen för att flytta. Högerklick = använd/ät. R = reparera.</p>
+      <div id="invTooltip" class="dim small"></div>
+    </section>
+    <section id="tab-craft" class="tabpane hidden">
+      <div id="recipeList"></div>
+    </section>
+  </div>
+</div>
+
+<!-- ===================== build menu ===================== -->
+<div id="buildMenu" class="overlay hidden">
+  <div class="window narrow">
+    <header><h2 data-i18n="buildTitle">Bygg</h2><button class="close" data-i18n="close2">Stäng (B)</button></header>
+    <div id="pieceList" class="piecelist"></div>
+    <p class="dim small" data-i18n="buildHelp">Välj del, sikta mot marken och vänsterklicka. R eller mushjul roterar. Högerklick tar bort.</p>
+  </div>
+</div>
+
+<!-- ===================== map ===================== -->
+<div id="mapScreen" class="overlay hidden">
+  <div class="window">
+    <header><h2 data-i18n="mapTitle">Karta</h2><button class="close" data-i18n="close3">Stäng (M)</button></header>
+    <canvas id="mapCanvas" width="640" height="640"></canvas>
+    <p class="dim small" id="mapLegend"></p>
+  </div>
+</div>
+
+<!-- ===================== settings ===================== -->
+<div id="settings" class="overlay hidden">
+  <div class="window narrow">
+    <header><h2 data-i18n="setTitle">Inställningar</h2><button class="close" data-i18n="close4">Stäng (Esc)</button></header>
+    <div class="settings">
+      <label><span data-i18n="setRender">Siktavstånd</span><input id="setRender" type="range" min="60" max="260" step="10" /><em id="setRenderVal"></em></label>
+      <label><span data-i18n="setFov">Synfält</span><input id="setFov" type="range" min="60" max="110" step="1" /><em id="setFovVal"></em></label>
+      <label><span data-i18n="setSens">Musens känslighet</span><input id="setSens" type="range" min="0.5" max="4" step="0.1" /><em id="setSensVal"></em></label>
+      <label class="check"><input id="setShadows" type="checkbox" /><span data-i18n="setShadows">Skuggor</span></label>
+      <label class="check"><input id="setInvert" type="checkbox" /><span data-i18n="setInvert">Invertera mus (Y)</span></label>
+      <label class="check"><input id="setSound" type="checkbox" /><span data-i18n="setSound">Ljud</span></label>
+      <label><span data-i18n="setLang">Språk</span>
+        <select id="setLang"><option value="sv">Svenska</option><option value="en">English</option></select>
+      </label>
+      <label class="check"><input id="setSimple" type="checkbox" /><span data-i18n="setSimple">Enkel grafik (lågpresterande)</span></label>
+    </div>
+    <p class="dim small" id="disclaimer"></p>
+  </div>
+</div>
+
+<!-- ===================== help ===================== -->
+<div id="help" class="overlay hidden">
+  <div class="window narrow">
+    <header><h2 data-i18n="helpTitle">Så spelar du</h2><button class="close" data-i18n="close5">Stäng</button></header>
+    <div id="helpBody"></div>
+  </div>
+</div>
+
+<!-- ===================== death ===================== -->
+<div id="death" class="overlay hidden">
+  <div class="menu-box death">
+    <h2 data-i18n="deadTitle">Du dog</h2>
+    <p id="deathCause" class="dim"></p>
+    <button id="respawnBtn" class="primary" data-i18n="respawn">Återuppstå</button>
+  </div>
+</div>
+
+<div id="disconnect" class="overlay hidden">
+  <div class="menu-box">
+    <h2 data-i18n="dcTitle">Anslutningen bröts</h2>
+    <p class="dim" id="dcText"></p>
+    <button id="reconnectBtn" class="primary" data-i18n="reconnect">Anslut igen</button>
+  </div>
+</div>
+
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
