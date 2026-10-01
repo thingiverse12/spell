@@ -1,0 +1,40 @@
+{
+  "name": "spell",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Spell - low-poly first-person multiplayer survival prototype for the browser (WebGL + authoritative WebSocket server)",
+  "type": "module",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node test/harness.js",
+    "verify:browser": "node test/browser.js",
+    "test:client": "node test/client-net.js",
+    "test:all": "node test/harness.js && node test/client-net.js && node test/ui-static.js && node test/hud-dom.js && node test/render-logic.js && node test/camera.js && node test/controls.js && node test/ground.js && node test/models.js && node test/model-catalog.js && node test/errors.js",
+    "test:ui": "node test/ui-static.js",
+    "test:dom": "node test/hud-dom.js",
+    "test:render": "node test/render-logic.js",
+    "test:camera": "node test/camera.js",
+    "test:controls": "node test/controls.js",
+    "test:ground": "node test/ground.js",
+    "test:models": "node test/models.js",
+    "test:catalog": "node test/model-catalog.js",
+    "test:errors": "node test/errors.js"
+  },
+  "keywords": [
+    "game",
+    "webgl",
+    "three.js",
+    "multiplayer",
+    "survival",
+    "prototype"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "three": "0.169.0",
+    "ws": "8.22.0"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1"
+  }
+}
