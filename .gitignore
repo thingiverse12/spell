@@ -1,0 +1,7 @@
+# Godot 4: genererad cache och import-data (skapas automatiskt av editorn)
+.godot/
+*.translation
+
+# Exporterade builds
+/build/
+/export/
