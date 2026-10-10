@@ -7,7 +7,7 @@ const CHUNK_SIZE := 48.0      # världsenheter per chunk (sida)
 const RESOLUTION := 48        # antal rutor per chunk-sida (1 enhet per ruta)
 const VIEW_RADIUS := 3        # antal chunks som laddas åt varje håll runt spelaren
 const WATER_LEVEL := 0.0
-const CHUNKS_PER_FRAME := 2   # hur många chunks som byggs per bildruta (jämnar ut lagg)
+const CHUNKS_PER_FRAME := 1   # hur många chunks som byggs per bildruta (jämnar ut lagg)
 
 var world_seed := 1337
 
@@ -223,18 +223,29 @@ func _build_chunk(key: Vector2i) -> Node3D:
 		for i in n:
 			heights[j * n + i] = height_at(origin.x + i * step, origin.y + j * step)
 
-	# Synlig mesh.
+	# Normal och färg räknas en gång per rutnätspunkt (inte per triangelhörn).
+	var normals := PackedVector3Array()
+	normals.resize(n * n)
+	var colors := PackedColorArray()
+	colors.resize(n * n)
+	for j in n:
+		for i in n:
+			var idx := j * n + i
+			var normal := _grid_normal(heights, i, j, step)
+			normals[idx] = normal
+			colors[idx] = _terrain_color(origin.x + i * step, origin.y + j * step, heights[idx], normal.y)
+
+	# Synlig mesh. Ordningen (a,b,c) och (b,d,c) ger uppåtvända framsidor i Godot.
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for j in RESOLUTION:
 		for i in RESOLUTION:
-			# Ordningen (a,b,c) och (b,d,c) ger uppåtvända framsidor i Godot.
-			_emit_vertex(st, heights, origin, i, j, step)
-			_emit_vertex(st, heights, origin, i + 1, j, step)
-			_emit_vertex(st, heights, origin, i, j + 1, step)
-			_emit_vertex(st, heights, origin, i + 1, j, step)
-			_emit_vertex(st, heights, origin, i + 1, j + 1, step)
-			_emit_vertex(st, heights, origin, i, j + 1, step)
+			_emit_vertex(st, heights, normals, colors, origin, i, j, step)
+			_emit_vertex(st, heights, normals, colors, origin, i + 1, j, step)
+			_emit_vertex(st, heights, normals, colors, origin, i, j + 1, step)
+			_emit_vertex(st, heights, normals, colors, origin, i + 1, j, step)
+			_emit_vertex(st, heights, normals, colors, origin, i + 1, j + 1, step)
+			_emit_vertex(st, heights, normals, colors, origin, i, j + 1, step)
 	var mi := MeshInstance3D.new()
 	mi.mesh = st.commit()
 	mi.material_override = _terrain_mat
@@ -261,15 +272,12 @@ func _build_chunk(key: Vector2i) -> Node3D:
 	return root
 
 
-func _emit_vertex(st: SurfaceTool, heights: PackedFloat32Array, origin: Vector2, i: int, j: int, step: float) -> void:
+func _emit_vertex(st: SurfaceTool, heights: PackedFloat32Array, normals: PackedVector3Array, colors: PackedColorArray, origin: Vector2, i: int, j: int, step: float) -> void:
 	var n := RESOLUTION + 1
-	var x := origin.x + i * step
-	var z := origin.y + j * step
-	var h: float = heights[j * n + i]
-	var normal := _grid_normal(heights, i, j, step)
-	st.set_normal(normal)
-	st.set_color(_terrain_color(x, z, h, normal.y))
-	st.add_vertex(Vector3(x, h, z))
+	var idx := j * n + i
+	st.set_normal(normals[idx])
+	st.set_color(colors[idx])
+	st.add_vertex(Vector3(origin.x + i * step, heights[idx], origin.y + j * step))
 
 
 func _grid_normal(heights: PackedFloat32Array, i: int, j: int, step: float) -> Vector3:

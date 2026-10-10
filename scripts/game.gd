@@ -11,7 +11,7 @@ const HudScript = preload("res://scripts/hud.gd")
 const TOTAL_CRYSTALS := 10
 const CRYSTAL_MIN_SPACING := 70.0
 const MAX_ENEMIES := 14
-const SPAWN_INTERVAL := 2.5
+const SPAWN_INTERVAL := 1.2
 const SPAWN_RING_MIN := 28.0
 const SPAWN_RING_MAX := 55.0
 const DESPAWN_DISTANCE := 110.0
@@ -231,17 +231,20 @@ func _try_spawn_enemy() -> void:
 	if get_tree().get_nodes_in_group("enemies").size() >= MAX_ENEMIES:
 		return
 	var player_pos: Vector3 = player.global_position
-	var angle := _rng.randf() * TAU
-	var dist := _rng.randf_range(SPAWN_RING_MIN, SPAWN_RING_MAX)
-	var x := player_pos.x + cos(angle) * dist
-	var z := player_pos.z + sin(angle) * dist
-	var h: float = terrain.height_at(x, z)
-	if h < 1.0 or h > 28.0:
+	# Prova flera slumpade punkter så att fiender inte blir sällsynta (t.ex. i vatten).
+	for _attempt in 8:
+		var angle := _rng.randf() * TAU
+		var dist := _rng.randf_range(SPAWN_RING_MIN, SPAWN_RING_MAX)
+		var x := player_pos.x + cos(angle) * dist
+		var z := player_pos.z + sin(angle) * dist
+		var h: float = terrain.height_at(x, z)
+		if h < 1.0 or h > 28.0:
+			continue
+		var enemy = EnemyScript.new()
+		enemy.position = Vector3(x, h + 1.0, z)
+		enemy.slain.connect(_on_enemy_slain)
+		add_child(enemy)
 		return
-	var enemy = EnemyScript.new()
-	enemy.position = Vector3(x, h + 1.0, z)
-	enemy.slain.connect(_on_enemy_slain)
-	add_child(enemy)
 
 
 func _cleanup_enemies() -> void:
