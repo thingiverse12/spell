@@ -70,6 +70,26 @@ Node (three.js works headlessly; only rasterisation needs a GPU). It asserts:
   children; every character keeps exactly one parent; `dispose()` empties the
   scene.
 
+### Screenshots — CPU renderer, no browser needed
+
+```bash
+npm run screenshots    # writes screenshots/*.png
+```
+
+There is no GPU or browser in CI, so `tools/softrender.ts` rasterises the scene
+on the CPU: it walks the real scene graph, projects through the real camera
+matrices, z-buffers the triangles and writes PNGs using only Node's built-in
+`zlib`. Camera framing, rig geometry and character placement all come from the
+production code — only *shading* is reimplemented (Lambert + hemisphere ambient,
+ACES tone mapping, sRGB output, per-pixel fog, frustum clipping).
+
+`tools/capture.ts` poses six shots: Eimi idle, Eimi sprinting, Asch jogging,
+Eimi airborne, both characters side by side, and a close-up.
+
+> It is an approximation of three.js, not a match — no specular/IBL, flat-shaded
+> faces. Good enough to confirm composition, silhouette and palette; do not treat
+> it as a reference render.
+
 ### End-to-end — Playwright, requires a browser
 
 ```bash
