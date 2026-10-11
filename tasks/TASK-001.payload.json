@@ -1,0 +1,3 @@
+{
+  "active_task": "# ACTIVE TASK: TASK-001\n\nTitle: Third-Person Character Controller & Dual Character Switching (Eimi & Asch)\nSystem: Gameplay Engineering\nObjective: Implement responsive third-person movement (WASD + camera-relative) and a seamless character switch button ('Tab' or Gamepad 'Y') between Eimi and Asch with preserved momentum and distinct camera offsets.\nDependencies: Three.js core scene, input manager\nAcceptance Criteria:\n1. Smooth third-person orbit camera following active player character.\n2. Instant character swap retaining world position and camera angle.\n3. Unique speeds: Eimi (8.0 m/s sprint), Asch (5.5 m/s jog).\n4. Clean state transition without memory leaks or duplicate meshes."
+}

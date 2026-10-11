@@ -1,0 +1,27 @@
+{
+  "name": "spell",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "TASK-001 — third-person character controller with dual character switching (Eimi & Asch).",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck && npm run test:logic",
+    "test:logic": "vite build --ssr tests/logic.test.ts --outDir .tmp/harness --emptyOutDir --logLevel warn && node .tmp/harness/logic.test.js",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^26.6.5",
+    "@types/three": "^0.186.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.4"
+  }
+}

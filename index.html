@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>spell — TASK-001 · Third-Person Controller</title>
+  </head>
+  <body>
+    <div id="scene-root"></div>
+
+    <div id="hud" class="hud">
+      <div class="hud__panel hud__panel--status">
+        <div class="hud__label">Active character</div>
+        <div class="hud__name" id="hud-name">—</div>
+        <div class="hud__stats">
+          <span><b id="hud-speed">0.0</b> m/s</span>
+          <span class="hud__sep">/</span>
+          <span>top <b id="hud-top">0.0</b> m/s</span>
+          <span class="hud__sep">/</span>
+          <span id="hud-state">idle</span>
+        </div>
+      </div>
+
+      <div class="hud__panel hud__panel--roster" id="hud-roster"></div>
+
+      <div class="hud__panel hud__panel--help">
+        <div class="hud__label">Controls</div>
+        <ul>
+          <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative)</li>
+          <li><kbd>Shift</kbd> sprint · <kbd>Space</kbd> jump</li>
+          <li><kbd>Tab</kbd> switch character · <kbd>1</kbd>/<kbd>2</kbd> direct</li>
+          <li>Drag to orbit · wheel to zoom</li>
+          <li>Gamepad: stick move · <kbd>Y</kbd> switch · <kbd>A</kbd> jump</li>
+        </ul>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
