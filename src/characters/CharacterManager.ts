@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Character } from './Character';
-import { Disposer } from './placeholderRig';
+import type { ModelLibrary } from './models';
 import type { CharacterProfile, MovementIntent } from './types';
 
 /**
@@ -15,7 +15,6 @@ import type { CharacterProfile, MovementIntent } from './types';
 export class CharacterManager {
   readonly characters: readonly Character[];
 
-  private readonly disposers: Disposer[] = [];
   private readonly scratchPosition = new THREE.Vector3();
   private readonly scratchVelocity = new THREE.Vector3();
   private index = 0;
@@ -25,12 +24,10 @@ export class CharacterManager {
     private readonly scene: THREE.Scene,
     profiles: readonly CharacterProfile[],
     spawn: THREE.Vector3,
+    library: ModelLibrary,
   ) {
-    const built = profiles.map((profile) => {
-      const disposer = new Disposer();
-      this.disposers.push(disposer);
-      return new Character(profile, disposer);
-    });
+    // Each character clones the shared template; no mesh data is duplicated.
+    const built = profiles.map((profile) => new Character(profile, library.get(profile.id)));
 
     this.characters = built;
 
@@ -102,9 +99,12 @@ export class CharacterManager {
     this.active.update(dt, intent);
   }
 
+  /**
+   * Detaches every character. Shared model buffers stay alive — release them
+   * with `ModelLibrary.dispose()` once nothing else references them.
+   */
   dispose(): void {
     for (const character of this.characters) character.dispose();
-    for (const disposer of this.disposers) disposer.dispose();
     this.onChangeCallbacks.length = 0;
   }
 }

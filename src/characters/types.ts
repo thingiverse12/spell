@@ -29,6 +29,20 @@ export interface CharacterPalette {
   accent: number;
   /** Visor / eye-band colour (hex). */
   visor: number;
+  /** Skin tone (hex). */
+  skin: number;
+  /** Hair colour (hex). */
+  hair: number;
+  /** Eye colour (hex). */
+  eye: number;
+}
+
+/** Drives the procedural model generator in tools/humanoid.ts. */
+export interface CharacterModelSpec {
+  /** >1 stockier, <1 slimmer. Scales widths, not lengths. */
+  build: number;
+  hair: 'long' | 'short';
+  outfit: 'skirt' | 'vest';
 }
 
 export interface CharacterProfile {
@@ -51,6 +65,7 @@ export interface CharacterProfile {
   camera: CameraProfile;
   proportions: CharacterProportions;
   palette: CharacterPalette;
+  model: CharacterModelSpec;
 }
 
 /** Per-frame intent handed to the active character. */

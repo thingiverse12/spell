@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildPlaceholderRig, type Disposer, type RigParts } from './placeholderRig';
+import { buildModelRig, type RigParts } from './models';
 import type { CharacterProfile, MovementIntent } from './types';
 
 const GRAVITY = -22;
@@ -30,7 +30,6 @@ export class Character {
   readonly object = new THREE.Group();
 
   private readonly rig: RigParts;
-  private readonly disposer: Disposer;
 
   private readonly velocity = new THREE.Vector3();
   private readonly desiredDirection = new THREE.Vector3();
@@ -44,10 +43,9 @@ export class Character {
   /** Rig's local Y offset that seats the feet on y = 0. */
   private readonly restY: number;
 
-  constructor(profile: CharacterProfile, disposer: Disposer) {
+  constructor(profile: CharacterProfile, template: THREE.Object3D) {
     this.profile = profile;
-    this.disposer = disposer;
-    this.rig = buildPlaceholderRig(profile, disposer);
+    this.rig = buildModelRig(template);
     this.rig.root.name = `${profile.id}-rig`;
     this.object.name = profile.id;
     this.object.add(this.rig.root);
@@ -117,6 +115,7 @@ export class Character {
     this.rig.legRight.rotation.x = 0;
     this.rig.armLeft.rotation.x = 0;
     this.rig.armRight.rotation.x = 0;
+    this.rig.head.rotation.x = 0;
   }
 
   update(dt: number, intent: MovementIntent): void {
@@ -221,8 +220,12 @@ export class Character {
     rig.head.rotation.x = -this.leanAmount * 0.5;
   }
 
+  /**
+   * Detaches the character. Geometry and materials are shared with the
+   * ModelLibrary template, so they are released once by `ModelLibrary.dispose()`
+   * rather than per character.
+   */
   dispose(): void {
     this.object.removeFromParent();
-    this.disposer.dispose(this.object);
   }
 }

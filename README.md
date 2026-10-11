@@ -21,8 +21,39 @@ npm run dev        # http://localhost:5173
 | Wheel | Zoom |
 | Gamepad | Left stick move · `Y` switch · `A` jump · right stick orbit · `LT` sprint |
 
-Characters are geometric placeholders — Eimi is the taller, faster sprinter
-(8.0 m/s), Asch the stockier jogger (5.5 m/s).
+Eimi is the taller, faster sprinter (8.0 m/s); Asch the stockier jogger (5.5 m/s).
+
+## Character models
+
+`public/models/*.glb` are real glTF 2.0 binaries, loaded at runtime with
+`GLTFLoader`. They are generated, not authored — there is no network access here
+to fetch assets — but they are ordinary model files, so a hand-made `.glb` can
+replace them without touching any runtime code.
+
+```bash
+npm run build:models   # regenerate public/models/{eimi,asch}.glb
+```
+
+`tools/humanoid.ts` builds each body from lofted elliptical tubes: a profile of
+cross-sections swept along a curve, which gives tapered limbs and a shaped
+torso. Details are per character:
+
+| | Eimi | Asch |
+|---|---|---|
+| Height | 1.74 m | 1.60 m |
+| Build | slim (0.92) | stocky (1.12) |
+| Hair | long — fringe, side locks, back mane | short, spiked |
+| Outfit | skirt with hem band, scarf | vest, shoulder pads, boot cuffs |
+
+Both are normalised after generation to exactly their configured height with
+their soles on `y = 0`, so the gameplay code can rely on that regardless of how
+the generator is tweaked.
+
+Each model exports the joints the controller animates as named nodes — `torso`,
+`head`, `armLeft`, `armRight`, `legLeft`, `legRight` — each positioned at its
+joint so rotating the node articulates the limb. `ModelLibrary` loads each file
+once and hands out clones; clones share buffers, so two characters cost one copy
+of the mesh data on the GPU.
 
 ## Layout
 

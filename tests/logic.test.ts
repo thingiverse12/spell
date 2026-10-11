@@ -13,8 +13,12 @@ import { ThirdPersonCamera } from '../src/camera/ThirdPersonCamera';
 import { CharacterManager } from '../src/characters/CharacterManager';
 import { ROSTER } from '../src/characters/roster';
 import type { MovementIntent } from '../src/characters/types';
+import { loadModelLibrary } from '../tools/load-models-node';
 
 const DT = 1 / 60;
+
+// The harness runs the real models, read from public/models/.
+const library = await loadModelLibrary();
 
 let failures = 0;
 
@@ -46,7 +50,7 @@ interface Harness {
 
 function createHarness(): Harness {
   const scene = new THREE.Scene();
-  const manager = new CharacterManager(scene, ROSTER, new THREE.Vector3(0, 0, 0));
+  const manager = new CharacterManager(scene, ROSTER, new THREE.Vector3(0, 0, 0), library);
   const rig = new ThirdPersonCamera(16 / 9);
 
   manager.onChange((character) => rig.setProfile(character.profile.camera));

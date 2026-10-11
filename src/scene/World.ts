@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { Disposer } from '../characters/placeholderRig';
+import { Disposer } from '../core/Disposer';
 
 export interface World {
   scene: THREE.Scene;

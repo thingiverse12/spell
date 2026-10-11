@@ -31,7 +31,11 @@ export const EIMI: CharacterProfile = {
     body: 0x2f6f8f,
     accent: 0x9fe8ff,
     visor: 0x6ee7d7,
+    skin: 0xf2cba6,
+    hair: 0x2c3f52,
+    eye: 0x6ee7d7,
   },
+  model: { build: 0.92, hair: 'long', outfit: 'skirt' },
 };
 
 export const ASCH: CharacterProfile = {
@@ -61,7 +65,11 @@ export const ASCH: CharacterProfile = {
     body: 0x8a5a2f,
     accent: 0xffc98a,
     visor: 0xff9d4d,
+    skin: 0xdcab7c,
+    hair: 0x4a3020,
+    eye: 0xff9d4d,
   },
+  model: { build: 1.12, hair: 'short', outfit: 'vest' },
 };
 
 export const ROSTER: readonly CharacterProfile[] = [EIMI, ASCH];

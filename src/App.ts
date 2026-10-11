@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ThirdPersonCamera } from './camera/ThirdPersonCamera';
 import { CharacterManager } from './characters/CharacterManager';
+import type { ModelLibrary } from './characters/models';
 import { ROSTER } from './characters/roster';
 import type { MovementIntent } from './characters/types';
 import { InputManager } from './input/InputManager';
@@ -34,7 +35,10 @@ export class App {
   private disposed = false;
   private readonly resizeObserver: ResizeObserver;
 
-  constructor(private readonly container: HTMLElement) {
+  constructor(
+    private readonly container: HTMLElement,
+    private readonly models: ModelLibrary,
+  ) {
     this.world = createWorld();
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -47,7 +51,7 @@ export class App {
 
     this.cameraRig = new ThirdPersonCamera(this.aspect);
 
-    this.characters = new CharacterManager(this.world.scene, ROSTER, SPAWN);
+    this.characters = new CharacterManager(this.world.scene, ROSTER, SPAWN, this.models);
     this.characters.onChange((character) => {
       // Yaw/pitch are owned by the rig and are deliberately left untouched, so
       // the player's camera angle survives the swap.
@@ -121,6 +125,7 @@ export class App {
     this.resizeObserver.disconnect();
     this.input.dispose();
     this.characters.dispose();
+    this.models.dispose();
     this.world.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
