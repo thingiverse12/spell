@@ -2,85 +2,98 @@
 <html lang="sv">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Pikachu Äventyr — Utforska Pallet Meadow!</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Pikachu Äventyr 3D — Utforska Pallet Meadow!</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{width:100%;height:100%;overflow:hidden;background:#0b1e3a;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;user-select:none}
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:none}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0b1e3a;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
   #wrap{position:fixed;inset:0}
-  canvas#game{position:absolute;inset:0;width:100%;height:100%;display:block}
+  canvas.webgl{position:absolute;inset:0;display:block}
   /* ============ HUD ============ */
-  #hud{position:absolute;top:0;left:0;right:0;padding:10px 12px;display:none;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:5;gap:8px}
+  #hud{position:absolute;top:env(safe-area-inset-top,0);left:0;right:0;padding:10px 10px 0;display:none;justify-content:space-between;align-items:flex-start;pointer-events:none;z-index:5;gap:8px}
   #hud.on{display:flex}
-  .panel{background:rgba(10,20,45,.72);border:2px solid rgba(255,203,5,.85);border-radius:14px;padding:8px 12px;color:#fff;backdrop-filter:blur(6px);box-shadow:0 4px 18px rgba(0,0,0,.35)}
-  #playerPanel{min-width:210px}
-  #pname{font-weight:900;font-size:15px;letter-spacing:.4px;color:#ffcb05;text-shadow:0 2px 0 #2a4d9b}
-  #plevel{font-size:11px;opacity:.9;font-weight:700}
-  .bar{height:12px;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden;margin-top:5px;border:1px solid rgba(0,0,0,.4)}
+  .panel{background:rgba(10,20,45,.72);border:2px solid rgba(255,203,5,.85);border-radius:14px;padding:7px 10px;color:#fff;backdrop-filter:blur(6px);box-shadow:0 4px 18px rgba(0,0,0,.35)}
+  #playerPanel{width:min(200px,44vw)}
+  #pname{font-weight:900;font-size:14px;color:#ffcb05;text-shadow:0 2px 0 #2a4d9b}
+  #plevel{font-size:11px;opacity:.9;font-weight:700;float:right}
+  .bar{height:11px;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden;margin-top:3px;border:1px solid rgba(0,0,0,.4)}
   .bar>i{display:block;height:100%;border-radius:99px;transition:width .25s}
   #hpfill{background:linear-gradient(90deg,#ff4757,#ff6b81);width:100%}
   #enfill{background:linear-gradient(90deg,#ffcb05,#ffe66d);width:100%}
   #xpfill{background:linear-gradient(90deg,#3b82f6,#7dd3fc);width:0%}
-  .barlabel{font-size:9px;font-weight:800;letter-spacing:1px;opacity:.85;margin-top:5px}
-  #statsPanel{text-align:right;font-size:13px;font-weight:800;line-height:1.65}
-  #questPanel{position:absolute;top:86px;left:12px;max-width:300px;font-size:12.5px;line-height:1.45}
-  #questPanel b{color:#ffcb05;display:block;font-size:13px;margin-bottom:2px}
+  .barlabel{font-size:8.5px;font-weight:800;letter-spacing:1px;opacity:.85;margin-top:4px}
+  #statsPanel{text-align:right;font-size:12px;font-weight:800;line-height:1.6;white-space:nowrap}
+  #questPanel{position:absolute;top:118px;left:10px;max-width:min(290px,62vw);font-size:12px;line-height:1.4;z-index:5;display:none}
+  #questPanel b{color:#ffcb05;display:block;font-size:12.5px;margin-bottom:2px}
   #questPanel .prog{color:#7dd3fc;font-weight:800}
-  #minimapWrap{position:absolute;top:86px;right:12px;padding:6px;text-align:center}
-  #minimap{border-radius:8px;display:block}
-  #minimapWrap span{font-size:9px;font-weight:800;letter-spacing:1px;opacity:.8;color:#fff}
-  #toast{position:absolute;top:18%;left:50%;transform:translateX(-50%) scale(.9);background:linear-gradient(180deg,#ffcb05,#f5a623);color:#3b2f00;font-weight:900;font-size:clamp(16px,3vw,24px);padding:12px 26px;border-radius:99px;border:3px solid #fff;box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;z-index:9;transition:.3s;text-align:center;white-space:nowrap}
+  #minimapWrap{position:absolute;top:118px;right:10px;padding:5px;text-align:center;z-index:5;display:none}
+  #minimap{border-radius:8px;display:block;width:104px;height:80px}
+  #minimapWrap span{font-size:8px;font-weight:800;letter-spacing:1px;opacity:.8;color:#fff}
+  #toast{position:absolute;top:20%;left:50%;transform:translateX(-50%) scale(.9);background:linear-gradient(180deg,#ffcb05,#f5a623);color:#3b2f00;font-weight:900;font-size:clamp(15px,4vw,23px);padding:11px 22px;border-radius:99px;border:3px solid #fff;box-shadow:0 10px 30px rgba(0,0,0,.4);opacity:0;pointer-events:none;z-index:9;transition:.3s;text-align:center;max-width:92vw}
   #toast.show{opacity:1;transform:translateX(-50%) scale(1)}
-  /* Dialog */
-  #dialog{position:absolute;left:50%;bottom:110px;transform:translateX(-50%) translateY(20px);width:min(620px,92vw);background:rgba(255,255,255,.97);border:4px solid #2a4d9b;border-radius:18px;padding:16px 18px 14px;z-index:8;opacity:0;pointer-events:none;transition:.25s;box-shadow:0 16px 40px rgba(0,0,0,.45)}
+  #dialog{position:absolute;left:50%;bottom:158px;transform:translateX(-50%) translateY(20px);width:min(620px,94vw);background:rgba(255,255,255,.97);border:4px solid #2a4d9b;border-radius:18px;padding:14px 16px 12px;z-index:11;opacity:0;pointer-events:none;transition:.25s;box-shadow:0 16px 40px rgba(0,0,0,.45)}
   #dialog.show{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto}
   #dname{font-weight:900;color:#2a4d9b;font-size:15px;margin-bottom:4px}
-  #dtext{color:#1f2937;font-size:15px;line-height:1.55;min-height:44px}
+  #dtext{color:#1f2937;font-size:15px;line-height:1.5;min-height:42px;white-space:pre-line}
   #dhint{text-align:right;font-size:11px;font-weight:800;color:#9ca3af;margin-top:6px}
-  /* Interact prompt */
-  #prompt{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;font-weight:800;font-size:13px;padding:8px 16px;border-radius:99px;z-index:6;display:none;border:2px solid #ffcb05}
-  #prompt kbd{background:#ffcb05;color:#000;border-radius:6px;padding:1px 8px;margin-right:6px}
+  #prompt{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);background:rgba(0,0,0,.78);color:#fff;font-weight:800;font-size:13px;padding:9px 18px;border-radius:99px;z-index:6;display:none;border:2px solid #ffcb05;white-space:nowrap}
+  #camHint{position:absolute;top:50%;right:10px;transform:translateY(-50%);z-index:4;color:rgba(255,255,255,.75);font-size:11px;font-weight:800;background:rgba(0,0,0,.35);padding:6px 10px;border-radius:99px;display:none;pointer-events:none}
+  /* floaters */
+  #floaters{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:6}
+  .floater{position:absolute;font-weight:900;font-size:15px;text-shadow:0 2px 0 rgba(0,0,0,.65),0 0 8px rgba(0,0,0,.4);transform:translate(-50%,-50%);white-space:nowrap}
   /* ============ START / END ============ */
-  .screen{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;background:radial-gradient(ellipse at 50% 30%,#3a7bd5 0%,#1c3f77 55%,#0b1e3a 100%);color:#fff;overflow:auto}
-  .screen::before{content:"⚡";position:absolute;font-size:60vh;opacity:.06;top:-8%;right:-4%;transform:rotate(15deg);pointer-events:none}
+  .screen{position:absolute;inset:0;z-index:20;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px calc(20px + env(safe-area-inset-right,0)) 20px;background:radial-gradient(ellipse at 50% 30%,#3a7bd5 0%,#1c3f77 55%,#0b1e3a 100%);color:#fff;overflow:auto}
   .badge{background:#ffcb05;color:#2a4d9b;font-weight:900;letter-spacing:2px;font-size:11px;padding:6px 14px;border-radius:99px;border:2px solid #fff;box-shadow:0 4px 0 #b78a00}
-  h1.logo{font-size:clamp(40px,9vw,84px);font-weight:900;line-height:.95;margin:16px 0 4px;color:#ffcb05;-webkit-text-stroke:2px #2a4d9b;text-shadow:0 5px 0 #2a4d9b,0 12px 30px rgba(0,0,0,.5);letter-spacing:1px}
+  h1.logo{font-size:clamp(38px,10vw,80px);font-weight:900;line-height:.95;margin:14px 0 4px;color:#ffcb05;-webkit-text-stroke:2px #2a4d9b;text-shadow:0 5px 0 #2a4d9b,0 12px 30px rgba(0,0,0,.5)}
   h1.logo span{color:#fff}
-  .sub{font-size:clamp(14px,2.5vw,19px);opacity:.92;max-width:560px;line-height:1.5}
-  .pikaFace{font-size:74px;animation:bounce 1.2s ease-in-out infinite;filter:drop-shadow(0 10px 14px rgba(0,0,0,.4))}
+  .sub{font-size:clamp(13.5px,3.6vw,18px);opacity:.94;max-width:560px;line-height:1.5}
+  .pikaFace{font-size:64px;animation:bounce 1.2s ease-in-out infinite;filter:drop-shadow(0 10px 14px rgba(0,0,0,.4))}
   @keyframes bounce{0%,100%{transform:translateY(0) rotate(-3deg)}50%{transform:translateY(-14px) rotate(3deg)}}
-  .bigbtn{margin-top:22px;background:linear-gradient(180deg,#ffcb05,#ffb703);color:#3b2f00;font-size:clamp(18px,3vw,24px);font-weight:900;border:3px solid #fff;border-radius:99px;padding:15px 46px;cursor:pointer;box-shadow:0 8px 0 #b78a00,0 18px 34px rgba(0,0,0,.4);transition:.15s;letter-spacing:.5px}
-  .bigbtn:hover{transform:translateY(-2px) scale(1.03)}
+  .bigbtn{margin-top:20px;background:linear-gradient(180deg,#ffcb05,#ffb703);color:#3b2f00;font-size:clamp(18px,5vw,24px);font-weight:900;border:3px solid #fff;border-radius:99px;padding:15px 42px;cursor:pointer;box-shadow:0 8px 0 #b78a00,0 18px 34px rgba(0,0,0,.4);transition:.15s}
   .bigbtn:active{transform:translateY(5px);box-shadow:0 2px 0 #b78a00}
-  .controls{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:22px;max-width:640px}
-  .ctl{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:8px 12px;font-size:12.5px;font-weight:700}
-  .ctl kbd{background:#fff;color:#1c3f77;border-radius:6px;padding:1px 7px;font-weight:900;margin-right:5px;box-shadow:0 2px 0 #9ca3af}
-  .features{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px;font-size:12.5px;font-weight:800}
-  .features span{background:rgba(0,0,0,.3);padding:6px 12px;border-radius:99px}
+  .controls{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:20px;max-width:640px}
+  .ctl{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);border-radius:12px;padding:7px 11px;font-size:12px;font-weight:700}
+  .ctl kbd{background:#fff;color:#1c3f77;border-radius:6px;padding:1px 7px;font-weight:900;margin-right:5px}
+  .features{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:13px;font-size:12px;font-weight:800}
+  .features span{background:rgba(0,0,0,.3);padding:6px 11px;border-radius:99px}
   #endScreen{display:none}
-  /* Touch */
-  #touch{position:absolute;inset:auto 0 0 0;display:none;justify-content:space-between;align-items:flex-end;padding:0 14px 16px;z-index:7;pointer-events:none}
-  #stick{width:118px;height:118px;border-radius:50%;background:rgba(255,255,255,.13);border:2px solid rgba(255,255,255,.4);position:relative;pointer-events:auto;touch-action:none}
-  #nub{width:52px;height:52px;border-radius:50%;background:rgba(255,203,5,.9);border:3px solid #fff;position:absolute;left:33px;top:33px;box-shadow:0 4px 12px rgba(0,0,0,.4)}
-  #tbtns{display:flex;gap:10px;pointer-events:auto}
-  .tbtn{width:66px;height:66px;border-radius:50%;border:3px solid #fff;font-size:24px;font-weight:900;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(0,0,0,.4);touch-action:none}
-  #btnZap{background:radial-gradient(circle at 35% 30%,#ffe66d,#f59e0b)}
-  #btnAct{background:radial-gradient(circle at 35% 30%,#60a5fa,#2563eb);font-size:13px}
-  #btnDash{background:radial-gradient(circle at 35% 30%,#fda4af,#e11d48);font-size:20px}
-  #topBtns{position:absolute;top:170px;right:12px;display:none;flex-direction:column;gap:8px;z-index:6}
+  /* ============ TOUCH-KONTROLLER ============ */
+  #touch{position:absolute;left:0;right:0;bottom:0;display:none;justify-content:space-between;align-items:flex-end;padding:0 calc(12px + env(safe-area-inset-right,0)) calc(14px + env(safe-area-inset-bottom,0)) calc(12px + env(safe-area-inset-left,0));z-index:8;pointer-events:none}
+  #touch.on{display:flex}
+  #stick{width:124px;height:124px;border-radius:50%;background:rgba(255,255,255,.13);border:2px solid rgba(255,255,255,.45);position:relative;pointer-events:auto;flex:none}
+  #stick::after{content:"🕹️ GÅ";position:absolute;inset:auto 0 -20px;text-align:center;font-size:9px;font-weight:900;color:rgba(255,255,255,.7);letter-spacing:1px}
+  #nub{width:54px;height:54px;border-radius:50%;background:rgba(255,203,5,.92);border:3px solid #fff;position:absolute;left:35px;top:35px;box-shadow:0 4px 12px rgba(0,0,0,.4)}
+  #tbtns{display:flex;gap:10px;align-items:flex-end;pointer-events:auto}
+  .tcol{display:flex;flex-direction:column;gap:10px;align-items:center}
+  .tbtn{width:64px;height:64px;border-radius:50%;border:3px solid #fff;font-size:25px;font-weight:900;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 6px 16px rgba(0,0,0,.4)}
+  .tbtn:active{transform:scale(.92)}
+  .tbtn.small{width:52px;height:52px;font-size:19px}
+  #btnZap{background:radial-gradient(circle at 35% 30%,#ffe66d,#f59e0b);width:76px;height:76px;font-size:32px}
+  #btnAct{background:radial-gradient(circle at 35% 30%,#60a5fa,#2563eb);font-size:12px}
+  #btnDash{background:radial-gradient(circle at 35% 30%,#fda4af,#e11d48)}
+  #btnJump{background:radial-gradient(circle at 35% 30%,#86efac,#16a34a)}
+  #topBtns{position:absolute;top:238px;right:10px;display:none;flex-direction:column;gap:7px;z-index:6}
   #topBtns.on{display:flex}
-  #topBtns button{pointer-events:auto;background:rgba(10,20,45,.72);color:#fff;border:2px solid rgba(255,203,5,.7);border-radius:10px;padding:7px 10px;font-weight:800;cursor:pointer;font-size:12px}
-  @media (pointer:coarse){#touch{display:flex}#prompt{bottom:150px}#dialog{bottom:160px}}
-  @media (max-width:640px){#questPanel{top:auto;bottom:150px;max-width:210px}#minimapWrap{transform:scale(.78);transform-origin:top right}#playerPanel{min-width:160px}#statsPanel{font-size:11px}}
+  #topBtns button{background:rgba(10,20,45,.72);color:#fff;border:2px solid rgba(255,203,5,.7);border-radius:10px;padding:7px 9px;font-weight:800;font-size:11.5px;text-align:left}
+  @media (max-width:640px){
+    #questPanel{top:auto;bottom:172px;max-width:56vw}
+    #minimapWrap{top:112px}
+    #dialog{bottom:172px}
+    #prompt{bottom:166px}
+    #statsPanel{font-size:11px}
+  }
+  @media (pointer:fine){
+    #camHint{display:block}
+  }
 </style>
 </head>
 <body>
 <div id="wrap">
-  <canvas id="game"></canvas>
+  <div id="floaters"></div>
 
   <div id="hud">
     <div class="panel" id="playerPanel">
-      <div style="display:flex;justify-content:space-between;align-items:center"><span id="pname">⚡ PIKACHU</span><span id="plevel">Lv. 5</span></div>
+      <div><span id="pname">⚡ PIKACHU</span><span id="plevel">Lv. 5</span></div>
       <div class="barlabel">❤️ HP</div><div class="bar"><i id="hpfill"></i></div>
       <div class="barlabel">⚡ ENERGI</div><div class="bar"><i id="enfill"></i></div>
       <div class="barlabel">⭐ XP</div><div class="bar"><i id="xpfill"></i></div>
@@ -92,560 +105,738 @@
       <div id="clock">☀️ Dag</div>
     </div>
   </div>
-  <div class="panel" id="questPanel" style="display:none"></div>
-  <div class="panel" id="minimapWrap" style="display:none"><canvas id="minimap" width="150" height="112"></canvas><span>KARTA — DU ÄR GUL PRICK</span></div>
-  <div id="topBtns"><button id="btnSound">🔊 Ljud: På</button><button id="btnSave">💾 Spara</button><button id="btnReset">↺ Börja om</button></div>
+  <div class="panel" id="questPanel"></div>
+  <div class="panel" id="minimapWrap"><canvas id="minimap" width="150" height="114"></canvas><span>KARTA</span></div>
+  <div id="topBtns"><button id="btnCam">🎥 Kamera bakom</button><button id="btnSound">🔊 Ljud: På</button><button id="btnSave">💾 Spara</button><button id="btnReset">↺ Börja om</button></div>
+  <div id="camHint">🖱️ Dra för att snurra kameran</div>
 
   <div id="toast"></div>
-  <div id="prompt"><kbd>E</kbd><span id="promptText">Prata</span></div>
-  <div id="dialog"><div id="dname">?</div><div id="dtext"></div><div id="dhint">Tryck E / mellanslag eller tryck här för att fortsätta ▸</div></div>
+  <div id="prompt">👆 <span id="promptText">Prata</span></div>
+  <div id="dialog"><div id="dname">?</div><div id="dtext"></div><div id="dhint">Tryck på PRATA-knappen, E eller här för att fortsätta ▸</div></div>
 
+  <!-- MOBILKONTROLLER -->
   <div id="touch">
     <div id="stick"><div id="nub"></div></div>
-    <div id="tbtns"><div class="tbtn" id="btnDash">💨</div><div class="tbtn" id="btnAct">PRATA</div><div class="tbtn" id="btnZap">⚡</div></div>
+    <div id="tbtns">
+      <div class="tcol"><div class="tbtn small" id="btnJump">⬆️</div><div class="tbtn small" id="btnDash">💨</div></div>
+      <div class="tcol"><div class="tbtn" id="btnAct">PRATA</div><div class="tbtn" id="btnZap">⚡</div></div>
+    </div>
   </div>
 
   <!-- START -->
   <div class="screen" id="startScreen">
-    <div class="badge">✦ ETT UTFORSKAR-ÄVENTYR ✦</div>
+    <div class="badge">✦ 3D-VÄRLD • FUNGERAR PÅ TELEFONEN ✦</div>
     <div class="pikaFace">⚡🐭⚡</div>
-    <h1 class="logo">PIKACHU<br><span>ÄVENTYR</span></h1>
-    <p class="sub">Utforska den stora världen <b>Pallet Meadow</b> som Pikachu! Spring genom skogar, simma vid sjön, samla bär, besegra vilda Pokémon med din åskattack, hjälp dina vänner — och hitta den försvunna Togepi!</p>
+    <h1 class="logo">PIKACHU<br><span>ÄVENTYR 3D</span></h1>
+    <p class="sub">Utforska den stora 3D-världen <b>Pallet Meadow</b> som Pikachu! Spring mellan träden, hoppa, simma i sjön, samla bär, zap:a vilda Pokémon och rädda den försvunna Togepi!</p>
     <button class="bigbtn" id="btnStart">▶ &nbsp;BÖRJA ÄVENTYRET!</button>
     <button class="bigbtn" id="btnContinue" style="display:none;background:linear-gradient(180deg,#60a5fa,#2563eb);color:#fff;font-size:16px;padding:11px 30px;margin-top:12px">↪ Fortsätt sparat spel</button>
     <div class="controls">
-      <div class="ctl"><kbd>W A S D</kbd>/ Pilar — Gå</div>
-      <div class="ctl"><kbd>SHIFT</kbd>Springa</div>
-      <div class="ctl"><kbd>SPACE</kbd>/ <kbd>J</kbd> Åskstöt ⚡</div>
-      <div class="ctl"><kbd>E</kbd>Prata / Plocka</div>
-      <div class="ctl"><kbd>Q</kbd>Dash 💨</div>
-      <div class="ctl"><kbd>M</kbd>Ljud av/på</div>
+      <div class="ctl">📱 <b>Vänster spak</b> — Gå</div>
+      <div class="ctl">👆 <b>Dra på skärmen</b> — Snurra kamera</div>
+      <div class="ctl"><kbd>WASD</kbd>Gå (dator)</div>
+      <div class="ctl"><kbd>SPACE</kbd>Åskstöt ⚡</div>
+      <div class="ctl"><kbd>E</kbd>Prata</div>
+      <div class="ctl"><kbd>Q</kbd>Dash</div>
+      <div class="ctl"><kbd>F</kbd>Hoppa</div>
+      <div class="ctl"><kbd>Shift</kbd>Springa</div>
     </div>
-    <div class="features"><span>🗺️ Stor öppen värld</span><span>🌲 Skog &amp; sjö</span><span>⚔️ Strider &amp; levels</span><span>📜 Uppdrag</span><span>🌙 Dag &amp; natt</span><span>📱 Fungerar på mobil</span></div>
+    <div class="features"><span>🌍 Riktig 3D-värld</span><span>📱 Mobil + dator</span><span>🌲 Skog &amp; sjö</span><span>⚔️ Strider</span><span>📜 Uppdrag</span><span>🌙 Dag &amp; natt</span></div>
   </div>
 
   <!-- END -->
   <div class="screen" id="endScreen">
     <div class="badge">🏆 ÄVENTYRET KLARAT!</div>
     <div class="pikaFace">🎉⚡🎉</div>
-    <h1 class="logo" style="font-size:clamp(34px,7vw,60px)">BRA JOBBAT,<br><span>PIKACHU!</span></h1>
+    <h1 class="logo" style="font-size:clamp(32px,8vw,58px)">BRA JOBBAT,<br><span>PIKACHU!</span></h1>
     <p class="sub" id="endStats"></p>
-    <p class="sub" style="margin-top:10px">Du räddade Togepi och blev Pallet Meadows hjälte! Du kan fortsätta utforska världen hur länge du vill. 🌟</p>
+    <p class="sub" style="margin-top:10px">Du räddade Togepi och blev Pallet Meadows hjälte! Fortsätt utforska 3D-världen hur länge du vill. 🌟</p>
     <button class="bigbtn" id="btnFree">🗺️ Fortsätt utforska</button>
   </div>
 </div>
 
+<script src="lib/three.min.js"></script>
 <script>
 "use strict";
 /* ================================================================
-   PIKACHU ÄVENTYR — ett öppet utforskarspel i en enda fil
-   Styr Pikachu, utforska, strid, samla, lös uppdrag!
+   PIKACHU ÄVENTYR 3D — öppen 3D-värld (Three.js), mobil + dator
 ================================================================ */
-const cv = document.getElementById('game'), ctx = cv.getContext('2d');
-const mm = document.getElementById('minimap'), mmx = mm.getContext('2d');
-let VW=0, VH=0, DPR=1;
-function resize(){ DPR=Math.min(devicePixelRatio||1,2); VW=innerWidth; VH=innerHeight; cv.width=VW*DPR; cv.height=VH*DPR; ctx.setTransform(DPR,0,0,DPR,0,0); }
-addEventListener('resize',resize); resize();
-
-/* ---------- Värld ---------- */
-const W = { w: 3400, h: 2600 };
+const $=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), rnd=(a,b)=>a+Math.random()*(b-a), irnd=(a,b)=>Math.floor(rnd(a,b+1));
-const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const dist2=(ax,az,bx,bz)=>Math.hypot(ax-bx,az-bz);
 function mulberry(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
-const rng = mulberry(20261014);
+const rng=mulberry(20261014);
+const IS_TOUCH = matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window;
 
-/* ---------- Ljud (WebAudio, inga filer behövs) ---------- */
-let AC=null, soundOn=true;
-function ac(){ if(!AC) AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); return AC; }
-function beep(f,d=.12,type='square',v=.12,slide=0){ if(!soundOn)return; try{ const a=ac(),o=a.createOscillator(),g=a.createGain(); o.type=type; o.frequency.value=f; if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,f+slide),a.currentTime+d); g.gain.setValueAtTime(v,a.currentTime); g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d); o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime+d);}catch(e){} }
-const sfx={
-  zap(){ beep(880,.18,'sawtooth',.14,-700); setTimeout(()=>beep(1200,.12,'square',.1,-900),40); },
-  hit(){ beep(180,.15,'sawtooth',.15,-80); },
-  coin(){ beep(950,.07,'square',.1); setTimeout(()=>beep(1400,.14,'square',.1),70); },
-  berry(){ beep(520,.09,'sine',.14,260); setTimeout(()=>beep(780,.12,'sine',.12,200),80); },
-  level(){ [523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.16,'square',.11),i*95)); },
-  quest(){ [784,988,1175].forEach((f,i)=>setTimeout(()=>beep(f,.15,'triangle',.13),i*90)); },
-  hurt(){ beep(220,.2,'square',.13,-120); },
-  dash(){ beep(300,.14,'sine',.1,500); },
-  talk(){ beep(660,.06,'sine',.08,80); },
-  splash(){ beep(400,.2,'sine',.07,-220); },
-  win(){ [523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>beep(f,.2,'square',.11),i*110)); },
-};
+/* ---------- Världsmått ---------- */
+const W={w:340,h:260};
+const lake={x:235,z:42,r:43};
+const bridge={x:202,z:39.2,w:30,h:5.6};
+const inLake=(x,z)=>dist2(x,z,lake.x,lake.z)<lake.r-1;
+const onBridge=(x,z)=>x>bridge.x&&x<bridge.x+bridge.w&&z>bridge.z&&z<bridge.z+bridge.h;
 
 /* ---------- Spelstatus ---------- */
-const P = { x:1700,y:2050, vx:0,vy:0, dir:'down', frame:0, moving:false, speed:2.6,
-  hp:100,maxhp:100, energy:100, level:5, xp:0, xpNext:60, berries:0, coins:0, wins:0,
-  evolved:false, dashCd:0, zapCd:0, hurtT:0, swim:false };
-let cam={x:0,y:0}, time=0, dayT=0.32, gameStarted=false, dialogQueue=null, paused=false, questStage=0, togepiFollowing=false, finished=false;
-const keys={}; let joy={x:0,y:0,active:false};
+const P={x:170,z:216,vx:0,vz:0,y:0,vy:0,onGround:true,angle:Math.PI,walkPh:0,moving:false,
+  hp:100,maxhp:100,energy:100,level:5,xp:0,xpNext:60,berries:0,coins:0,wins:0,
+  evolved:false,dashCd:0,zapCd:0,hurtT:0,swim:false};
+let time=0, dayT=0.34, gameStarted=false, dialogQueue=null, paused=false, questStage=0, togepiFollowing=false, finished=false;
+const keys={}; let joy={x:0,y:0};
+let camYaw=Math.PI, camPitch=0.38, camDist=13;
 
-/* Uppdrag:
- 0 prata med Ash -> 1 samla 8 bär -> 2 besegra 5 vilda -> 3 hitta Togepi -> 4 lämna Togepi hos Ash -> klart */
 const QUESTS=[
-  {title:"📜 Uppdrag: Prata med Ash", desc:"Hitta Ash vid det röda huset i söder och tryck på E.", prog:()=>"Gå till Ash 🏠"},
-  {title:"📜 Uppdrag: Samla bär", desc:"Pikachu är hungrig! Plocka bär från de rosa bärbuskarna.", prog:()=>`${Math.min(P.berries,8)} / 8 bär 🫐`},
-  {title:"📜 Uppdrag: Bli starkare", desc:"Besegra vilda Pokémon med din åskstöt (SPACE). Akta dig för deras attacker!", prog:()=>`${Math.min(P.wins,5)} / 5 besegrade ⚔️`},
-  {title:"📜 Uppdrag: Hitta Togepi!", desc:"Togepi har gått vilse i skogen i nordväst. Leta efter ett litet ägg-Pokémon!", prog:()=>"Leta i skogen 🌲"},
-  {title:"📜 Uppdrag: Lämna Togepi", desc:"Togepi följer efter dig! Ta med Togepi tillbaka till Ash.", prog:()=>"Tillbaka till Ash 🏠"},
-  {title:"🏆 Alla uppdrag klara!", desc:"Du är Pallet Meadows hjälte! Utforska fritt, levla upp och ha kul!", prog:()=>"Fri utforskning 🗺️"},
+  {title:"📜 Uppdrag: Prata med Ash", desc:"Hitta Ash vid det röda huset i söder och tryck PRATA / E.", prog:()=>"Gå till Ash 🏠"},
+  {title:"📜 Uppdrag: Samla bär", desc:"Plocka bär från de rosa bärbuskarna runt om i världen.", prog:()=>`${Math.min(P.berries,8)} / 8 bär 🫐`},
+  {title:"📜 Uppdrag: Bli starkare", desc:"Besegra vilda Pokémon med åskstöten (⚡-knappen / SPACE).", prog:()=>`${Math.min(P.wins,5)} / 5 besegrade ⚔️`},
+  {title:"📜 Uppdrag: Hitta Togepi!", desc:"Togepi är vilse i skogen i nordväst. Kolla kartan (rosa prick)!", prog:()=>"Leta i skogen 🌲"},
+  {title:"📜 Uppdrag: Lämna Togepi", desc:"Togepi följer dig! Ta med Togepi tillbaka till Ash.", prog:()=>"Tillbaka till Ash 🏠"},
+  {title:"🏆 Alla uppdrag klara!", desc:"Du är hjälten i Pallet Meadow! Utforska fritt i 3D!", prog:()=>"Fri utforskning 🗺️"},
 ];
 
-/* ---------- Världsobjekt ---------- */
-const trees=[], rocks=[], flowers=[], bushes=[], grasses=[], houses=[], fences=[], signs=[];
-function solid(x,y,r){ // kollisionslistor byggs dynamiskt
-  for(const t of trees) if(Math.hypot(x-t.x,y-(t.y-6))<r+16) return true;
-  for(const r2 of rocks) if(Math.hypot(x-r2.x,y-r2.y)<r+r2.r) return true;
-  for(const h of houses) if(x>h.x-r&&x<h.x+h.w+r&&y>h.y-r&&y<h.y+h.h+r) return true;
-  for(const f of fences) if(Math.hypot(x-f.x,y-f.y)<r+13) return true;
-  return false;
+/* ---------- Ljud ---------- */
+let AC=null, soundOn=true;
+function ac(){ if(!AC)AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); return AC; }
+function beep(f,d=.12,type='square',v=.11,slide=0){ if(!soundOn)return; try{ const a=ac(),o=a.createOscillator(),g=a.createGain(); o.type=type; o.frequency.value=f; if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(30,f+slide),a.currentTime+d); g.gain.setValueAtTime(v,a.currentTime); g.gain.exponentialRampToValueAtTime(.001,a.currentTime+d); o.connect(g).connect(a.destination); o.start(); o.stop(a.currentTime+d);}catch(e){} }
+const sfx={ zap(){beep(880,.18,'sawtooth',.13,-700); setTimeout(()=>beep(1200,.12,'square',.09,-900),40);},
+  hit(){beep(180,.15,'sawtooth',.14,-80);}, coin(){beep(950,.07,'square',.09); setTimeout(()=>beep(1400,.14,'square',.09),70);},
+  berry(){beep(520,.09,'sine',.13,260); setTimeout(()=>beep(780,.12,'sine',.11,200),80);},
+  level(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.16,'square',.1),i*95));},
+  quest(){[784,988,1175].forEach((f,i)=>setTimeout(()=>beep(f,.15,'triangle',.12),i*90));},
+  hurt(){beep(220,.2,'square',.12,-120);}, dash(){beep(300,.14,'sine',.09,500);},
+  talk(){beep(660,.06,'sine',.07,80);}, splash(){beep(400,.2,'sine',.06,-220);}, jump(){beep(350,.14,'sine',.09,300);},
+  win(){[523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>beep(f,.2,'square',.1),i*110));} };
+
+/* ================================================================
+   THREE.JS — scenen
+================================================================ */
+const renderer=new THREE.WebGLRenderer({antialias:!IS_TOUCH, powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio||1, IS_TOUCH?2:2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.domElement.classList.add('webgl');
+$('wrap').prepend(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x87ceeb);
+scene.fog=new THREE.Fog(0x87ceeb, 55, 190);
+const camera=new THREE.PerspectiveCamera(58, innerWidth/innerHeight, .1, 500);
+
+const hemi=new THREE.HemisphereLight(0xcfe8ff,0x4a7c3a,.75); scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xfff2cc,1.05); sun.castShadow=true;
+sun.shadow.mapSize.set(IS_TOUCH?1024:2048, IS_TOUCH?1024:2048);
+sun.shadow.camera.left=-42; sun.shadow.camera.right=42; sun.shadow.camera.top=42; sun.shadow.camera.bottom=-42;
+sun.shadow.camera.far=160; sun.shadow.bias=-0.0006; scene.add(sun); scene.add(sun.target);
+const pikaLight=new THREE.PointLight(0xffd34d,0,16); scene.add(pikaLight);
+
+addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
+
+const MAT=(c,r=.85)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:0});
+function shadowed(m){ m.traverse(o=>{ if(o.isMesh){o.castShadow=true; o.receiveShadow=false;} }); return m; }
+
+/* ---------- Mark, stigar, sjö ---------- */
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(W.w,W.h), MAT(0x5da244,1));
+ground.rotation.x=-Math.PI/2; ground.position.set(W.w/2,0,W.h/2); ground.receiveShadow=true; scene.add(ground);
+// kantberg
+for(let i=0;i<26;i++){ const a=i/26*Math.PI*2, rx=W.w/2+Math.cos(a)*(W.w/2+16), rz=W.h/2+Math.sin(a)*(W.h/2+16);
+  const m=new THREE.Mesh(new THREE.ConeGeometry(rnd(13,24),rnd(16,34),6), MAT(0x7d8aa0,1)); m.position.set(rx,rnd(4,8),rz); m.castShadow=false; scene.add(m);
+  const snow=new THREE.Mesh(new THREE.ConeGeometry(rnd(5,9),rnd(6,11),6), MAT(0xffffff,1)); snow.position.set(rx,m.position.y+m.geometry.parameters.height/2-3,rz); scene.add(snow); }
+function pathBetween(x1,z1,x2,z2,wdt){
+  const len=Math.hypot(x2-x1,z2-z1), p=new THREE.Mesh(new THREE.PlaneGeometry(wdt,len), MAT(0xd9b678,1));
+  p.rotation.x=-Math.PI/2; p.rotation.z=-Math.atan2(x2-x1,z2-z1); p.position.set((x1+x2)/2,.02,(z1+z2)/2); p.receiveShadow=true; scene.add(p); }
+pathBetween(170,260,170,196,6); pathBetween(170,196,150,100,5); pathBetween(150,100,70,52,5);
+pathBetween(50,150,170,208,5.4); pathBetween(170,208,283,188,5.4); pathBetween(170,196,232,66,4.6);
+
+const lakeMesh=new THREE.Mesh(new THREE.CircleGeometry(lake.r,42), new THREE.MeshStandardMaterial({color:0x2f9be8,roughness:.25,metalness:.1,transparent:true,opacity:.88}));
+lakeMesh.rotation.x=-Math.PI/2; lakeMesh.position.set(lake.x,.06,lake.z); scene.add(lakeMesh);
+const sand=new THREE.Mesh(new THREE.RingGeometry(lake.r-.5,lake.r+2.2,42), MAT(0xecd28f,1));
+sand.rotation.x=-Math.PI/2; sand.position.set(lake.x,.03,lake.z); sand.receiveShadow=true; scene.add(sand);
+// bro
+const bridgeG=new THREE.Group();
+const deck=new THREE.Mesh(new THREE.BoxGeometry(bridge.w,1,bridge.h), MAT(0x9a6a35,.9)); deck.position.y=.55; bridgeG.add(deck);
+for(let i=0;i<9;i++){ const pl=new THREE.Mesh(new THREE.BoxGeometry(.5,1.15,bridge.h), MAT(0xb9834a,.9)); pl.position.set(-bridge.w/2+1.5+i*3.4,.55,0); bridgeG.add(pl); }
+for(const s of[-1,1]){ const rail=new THREE.Mesh(new THREE.BoxGeometry(bridge.w,.5,.4), MAT(0x7c4a03,.9)); rail.position.set(0,1.6,s*(bridge.h/2-.2)); bridgeG.add(rail); }
+bridgeG.position.set(bridge.x+bridge.w/2,0,bridge.z+bridge.h/2); shadowed(bridgeG); scene.add(bridgeG);
+
+/* ---------- Träd, stenar, blommor, gräs (instanserat = snabbt på mobil) ---------- */
+const solids=[]; // {x,z,r}
+const treePos=[];
+for(let i=0;i<220&&treePos.length<170;i++){
+  const x=rng()*W.w, z=rng()*W.h;
+  if(inLake(x,z)||onBridge(x,z)) continue;
+  if(dist2(x,z,170,214)<11||dist2(x,z,170,205)<9) continue;
+  if(x>148&&x<192&&z>178&&z<216) continue;
+  if(x>34&&x<66&&z>140&&z<172) continue;
+  if(x>266&&x<300&&z>166&&z<198) continue;
+  if(dist2(x,z,64,47)<13) continue; // Togepi-gäntan hålls öppen-ish men skog runtom
+  treePos.push({x,z,s:.8+rng()*.7,kind:irnd(0,2),ph:rng()*6});
 }
-const lake={x:2350,y:420,r:430};
-const inLake=(x,y)=>Math.hypot(x-lake.x,y-lake.y)<lake.r-10;
-const bridge={x:lake.x-330,y:lake.y-28,w:300,h:56};
-const onBridge=(x,y)=>x>bridge.x&&x<bridge.x+bridge.w&&y>bridge.y&&y<bridge.y+bridge.h;
+for(const t of treePos) solids.push({x:t.x,z:t.z,r:1.1});
+{
+  const trunkG=new THREE.CylinderGeometry(.32,.48,3,6), trunkM=MAT(0x7c4a03,1);
+  const canG=new THREE.SphereGeometry(2.6,10,8);
+  const trunks=new THREE.InstancedMesh(trunkG,trunkM,treePos.length);
+  const cans=new THREE.InstancedMesh(canG,MAT(0x2f9e44,1),treePos.length);
+  const cans2=new THREE.InstancedMesh(canG,MAT(0x4cc95e,1),treePos.length);
+  const autumn=new THREE.InstancedMesh(canG,MAT(0xea7a2c,1),treePos.length);
+  const d=new THREE.Object3D(); let ai=0;
+  treePos.forEach((t,i)=>{ d.rotation.set(0,0,0); d.position.set(t.x,1.5*t.s,t.z); d.scale.setScalar(t.s); d.updateMatrix(); trunks.setMatrixAt(i,d.matrix);
+    d.position.set(t.x,3.6*t.s,t.z); d.scale.setScalar(t.s); d.updateMatrix(); (t.kind===1?autumn:cans).setMatrixAt(i,d.matrix);
+    if(t.kind===1){ d.position.set(-999,-99,-999); d.updateMatrix(); cans.setMatrixAt(i,d.matrix); }
+    else { d.position.set(t.x+1.1*t.s,4.6*t.s,t.z+.4); d.scale.setScalar(t.s*.62); d.updateMatrix(); cans2.setMatrixAt(i,d.matrix); }
+    d.position.set(-999,-99,-999); d.scale.setScalar(1); d.updateMatrix(); if(t.kind!==1)autumn.setMatrixAt(i,d.matrix); else cans2.setMatrixAt(i,d.matrix);
+  });
+  trunks.castShadow=cans.castShadow=true; cans2.castShadow=true; autumn.castShadow=true;
+  scene.add(trunks,cans,cans2,autumn);
+}
+const rockPos=[];
+for(let i=0;i<55;i++){ const x=rng()*W.w,z=rng()*W.h; if(inLake(x,z))continue; const r=rnd(.8,1.9); rockPos.push({x,z,r,rot:rng()*6}); solids.push({x,z,r:r*.9}); }
+{
+  const rocks=new THREE.InstancedMesh(new THREE.DodecahedronGeometry(1,0), MAT(0x94a3b8,1), rockPos.length);
+  const d=new THREE.Object3D();
+  rockPos.forEach((r,i)=>{ d.position.set(r.x,r.r*.45,r.z); d.rotation.set(r.rot,r.rot*2,0); d.scale.set(r.r,r.r*.75,r.r); d.updateMatrix(); rocks.setMatrixAt(i,d.matrix); });
+  rocks.castShadow=true; rocks.receiveShadow=true; scene.add(rocks);
+}
+{ // blommor
+  const fl=new THREE.InstancedMesh(new THREE.SphereGeometry(.22,6,5), new THREE.MeshStandardMaterial({roughness:.6}), 260);
+  const cols=[new THREE.Color(0xff6b9d),new THREE.Color(0xffd93d),new THREE.Color(0xc084fc),new THREE.Color(0xffffff),new THREE.Color(0xfb923c)];
+  const d=new THREE.Object3D();
+  for(let i=0;i<260;i++){ d.position.set(rng()*W.w,.25,rng()*W.h); d.scale.setScalar(rnd(.7,1.5)); d.rotation.set(0,0,0); d.updateMatrix(); fl.setMatrixAt(i,d.matrix); fl.setColorAt(i,cols[irnd(0,4)]); }
+  scene.add(fl);
+}
+const grassPatches=[];
+for(let i=0;i<15;i++){ const x=rng()*(W.w-30)+8, z=rng()*(W.h-24)+8; if(inLake(x,z))continue; grassPatches.push({x,z,w:rnd(12,22),h:rnd(9,16)}); }
+{ // högt gräs = massor av koner, instanserat
+  const blades=new THREE.InstancedMesh(new THREE.ConeGeometry(.16,1.5,4), MAT(0x2f9e44,1), grassPatches.length*45);
+  const d=new THREE.Object3D(); let idx=0;
+  for(const g of grassPatches) for(let i=0;i<45;i++){ d.position.set(g.x+rng()*g.w,.7,g.z+rng()*g.h); d.rotation.set(rnd(-.16,.16),0,rnd(-.16,.16)); d.scale.setScalar(rnd(.8,1.5)); d.updateMatrix(); blades.setMatrixAt(idx++,d.matrix); }
+  scene.add(blades);
+}
 
-// Träd (undvik sjö, hus, start)
-for(let i=0;i<230;i++){ const x=rng()*W.w, y=rng()*W.h; if(inLake(x,y)||(x>1450&&x<1950&&y>1750)||Math.hypot(x-700,y-500)<260&&questStage<3) {} if(inLake(x,y))continue; if(x>1450&&x<2000&&y>1700)continue; trees.push({x,y,s:.8+rng()*.6,kind:irnd(0,2),ph:rng()*6}); }
-for(let i=0;i<60;i++){ const x=rng()*W.w,y=rng()*W.h; if(inLake(x,y))continue; rocks.push({x,y,r:14+rng()*20}); }
-for(let i=0;i<420;i++) flowers.push({x:rng()*W.w,y:rng()*W.h,c:['#ff6b9d','#ffd93d','#c084fc','#fff','#fb923c'][irnd(0,4)],ph:rng()*6});
-for(let i=0;i<26;i++){ const x=rng()*W.w,y=rng()*W.h; if(inLake(x,y))continue; bushes.push({x,y,berries:3,ph:rng()*6}); } // bärbuskar
-for(let i=0;i<16;i++){ const x=rng()*W.w,y=rng()*W.h; if(inLake(x,y))continue; grasses.push({x,y,w:rnd(120,220),h:rnd(90,160)}); } // högt gräs
-houses.push({x:1560,y:1880,w:180,h:130,roof:'#e63946',name:'Ash hus'});
-houses.push({x:420,y:1500,w:150,h:115,roof:'#3b82f6',name:'PokéCenter'});
-houses.push({x:2750,y:1750,w:160,h:120,roof:'#8b5cf6',name:'Butik'});
-for(let x=1480;x<1840;x+=36) fences.push({x,y:2065});
-signs.push({x:1700,y:1780,text:"🌲 Välkommen till Pallet Meadow!\nSkog i norr, sjö i öster.\nTryck E för att läsa skyltar!"});
-signs.push({x:bridge.x-30,y:bridge.y+90,text:"🌉 Bron över Gnistrande Sjön.\nPikachu kan simma — men se upp,\nenergin tar slut snabbare i vatten!"});
-signs.push({x:640,y:560,text:"⚠️ Djup skog! Här har Togepi\nsenast setts... Leta noga mellan\nträden i nordväst!"});
-
-/* ---------- NPC:er & vilda Pokémon ---------- */
-const NPCS=[
- {name:'🧢 Ash', kind:'ash', x:1700,y:1835, home:{x:1700,y:1835}, wander:40, ph:0},
- {name:'🌿 Bulbasaur', kind:'bulbasaur', x:900,y:1100, home:{x:900,y:1100}, wander:170, ph:1},
- {name:'🔥 Charmander', kind:'charmander', x:2500,y:1500, home:{x:2500,y:1500}, wander:150, ph:2},
- {name:'💧 Squirtle', kind:'squirtle', x:2150,y:640, home:{x:2150,y:640}, wander:120, ph:3},
- {name:'🦊 Eevee', kind:'eevee', x:1300,y:900, home:{x:1300,y:900}, wander:190, ph:4},
- {name:'😴 Snorlax', kind:'snorlax', x:bridge.x+bridge.w+60, y:bridge.y+28, home:{x:bridge.x+bridge.w+60,y:bridge.y+28}, wander:0, ph:5, sleeping:true},
- {name:'🥚 Togepi', kind:'togepi', x:640,y:470, home:{x:640,y:470}, wander:25, ph:6, hidden:true},
+/* ---------- Hus ---------- */
+const houses=[
+  {x:156,z:188,w:18,d:13,roof:0xe63946,name:'Ash hus'},
+  {x:42,z:150,w:15,d:11.5,roof:0x3b82f6,name:'PokéCenter'},
+  {x:275,z:175,w:16,d:12,roof:0x8b5cf6,name:'Butik'},
 ];
+function makeHouse(h){
+  const g=new THREE.Group();
+  const walls=new THREE.Mesh(new THREE.BoxGeometry(h.w,6,h.d), MAT(0xfef3c7,.95)); walls.position.y=3; g.add(walls);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(h.w,h.d)*.78,4.6,4), MAT(h.roof,.8)); roof.position.y=8.3; roof.rotation.y=Math.PI/4; roof.scale.set(1,1,h.d/h.w>1?1:.85); g.add(roof);
+  const door=new THREE.Mesh(new THREE.BoxGeometry(3,4.4,.4), MAT(0x92400e,.9)); door.position.set(0,2.2,h.d/2+.15); g.add(door);
+  const knob=new THREE.Mesh(new THREE.SphereGeometry(.22,8,6), MAT(0xfde047,.4)); knob.position.set(.8,2.2,h.d/2+.4); g.add(knob);
+  for(const s of[-1,1]){ const win=new THREE.Mesh(new THREE.BoxGeometry(2.6,2.2,.3), new THREE.MeshStandardMaterial({color:0xbae6fd,roughness:.2,emissive:0x554411,emissiveIntensity:.25})); win.position.set(s*h.w/4,3.4,h.d/2+.12); g.add(win); }
+  const chim=new THREE.Mesh(new THREE.BoxGeometry(1.6,3,1.6), MAT(0x9ca3af,1)); chim.position.set(h.w/4,8.6,-1); g.add(chim);
+  g.position.set(h.x+h.w/2,0,h.z+h.d/2); shadowed(g); scene.add(g);
+  solids.push({x:h.x+h.w/2,z:h.z+h.d/2,r:Math.max(h.w,h.d)*.62,box:{w:h.w,d:h.d}});
+  return g;
+}
+houses.forEach(makeHouse);
+// skyltar
+const signs=[ {x:170,z:178,text:"🌲 Välkommen till Pallet Meadow 3D!\nSkog i norr, sjö i öster.\nDra på skärmen för att snurra kameran!"},
+  {x:198,z:47,text:"🌉 Bron över Gnistrande Sjön.\nDu kan simma — men det kostar energi!"},
+  {x:78,z:56,text:"⚠️ Djup skog! Togepi sågs senast\nhär i nordväst... leta noga! 🥚"} ];
+for(const s of signs){ const g=new THREE.Group();
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,1.6,6), MAT(0x8a5a12,1)); post.position.y=.8; g.add(post);
+  const board=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.3,.25), MAT(0xd9a441,.9)); board.position.y=1.9; g.add(board);
+  const bang=new THREE.Mesh(new THREE.SphereGeometry(.28,8,6), MAT(0xffffff,.5)); bang.position.set(0,1.95,.2); g.add(bang);
+  g.position.set(s.x,0,s.z); shadowed(g); scene.add(g); }
+function collide(x,z,r){
+  for(const n of NPCS){ const nr=n.kind==='snorlax'?3:1.05; if(!(n.kind==='togepi'&&togepiFollowing)&&dist2(x,z,n.x,n.z)<r+nr) return true; }
+  for(const s of solids){
+    if(s.box){ const hx=s.box.w/2+r, hz=s.box.d/2+r; if(Math.abs(x-s.x)<hx&&Math.abs(z-s.z)<hz) return true; }
+    else if(dist2(x,z,s.x,s.z)<r+s.r) return true;
+  }
+  return x<r||x>W.w-r||z<r||z>W.h-r;
+}
+
+/* ---------- Pikachu i 3D! ---------- */
+function buildPikachu(){
+  const g=new THREE.Group();
+  const yellow=MAT(P.evolved?0xfb923c:0xffd93d,.65), dark=MAT(0x7c4a03,.8), black=MAT(0x1f2937,.5), red=MAT(0xef4444,.55);
+  const body=new THREE.Mesh(new THREE.SphereGeometry(1,18,14), yellow); body.scale.set(1,.92,.88); body.position.y=.95; g.add(body);
+  const belly=new THREE.Mesh(new THREE.SphereGeometry(.72,14,10), MAT(0xfff3b0,.7)); belly.scale.set(.85,.8,.6); belly.position.set(0,.85,.48); g.add(belly);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.82,20,16), yellow); head.position.set(0,2.05,.18); g.add(head);
+  const parts={yellow,head};
+  // öron
+  parts.ears=[];
+  for(const s of[-1,1]){
+    const ear=new THREE.Group();
+    const e1=new THREE.Mesh(new THREE.CylinderGeometry(.09,.2,.95,8), yellow); e1.position.y=.42; ear.add(e1);
+    const tip=new THREE.Mesh(new THREE.CylinderGeometry(.015,.09,.45,8), black); tip.position.y=1.05; ear.add(tip);
+    ear.position.set(s*.42,2.7,.1); ear.rotation.z=s*-.48; ear.rotation.x=-.12; g.add(ear); parts.ears.push(ear);
+  }
+  // kinder, ögon, näsa, mun
+  for(const s of[-1,1]){ const ch=new THREE.Mesh(new THREE.SphereGeometry(.21,10,8), red); ch.scale.set(1,1,.45); ch.position.set(s*.68,1.88,.78); g.add(ch); }
+  for(const s of[-1,1]){ const eye=new THREE.Mesh(new THREE.SphereGeometry(.11,10,8), black); eye.position.set(s*.3,2.22,.92); g.add(eye);
+    const hl=new THREE.Mesh(new THREE.SphereGeometry(.04,6,5), MAT(0xffffff,.3)); hl.position.set(s*.3+.03,2.28,1.0); g.add(hl); }
+  const nose=new THREE.Mesh(new THREE.SphereGeometry(.045,6,5), black); nose.position.set(0,2.02,1.0); g.add(nose);
+  // armar & fötter
+  parts.arms=[]; parts.feet=[];
+  for(const s of[-1,1]){ const arm=new THREE.Mesh(new THREE.SphereGeometry(.3,10,8), yellow); arm.scale.set(.6,1,.6); arm.position.set(s*.88,1.0,.35); g.add(arm); parts.arms.push(arm);
+    const foot=new THREE.Mesh(new THREE.SphereGeometry(.34,10,8), yellow); foot.scale.set(.75,.4,1.25); foot.position.set(s*.42,.16,.55); g.add(foot); parts.feet.push(foot); }
+  // ryggränder
+  for(let i=0;i<2;i++){ const st=new THREE.Mesh(new THREE.BoxGeometry(.75,.16,.1), dark); st.position.set(0,1.35-i*.4,-.82+i*.08); st.rotation.x=.3; g.add(st); }
+  // blixtsvans
+  const tail=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.BoxGeometry(.34,.5,.16), dark); base.position.y=.2; tail.add(base);
+  const seg=[[0.42,0.62,.34,.95],[-0.05,1.25,.28,.95],[0.5,1.75,.4,1.1]].map(([px,py,w2,l])=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(w2,l,.15), yellow); m.position.set(px,py,0); m.rotation.z=-.5; tail.add(m); return m; });
+  tail.position.set(-.75,1.0,-.75); tail.rotation.y=.5; tail.rotation.x=-.25; g.add(tail); parts.tail=tail;
+  shadowed(g);
+  return {group:g,parts};
+}
+let pik=buildPikachu(); scene.add(pik.group);
+function evolveVisual(){ scene.remove(pik.group); pik=buildPikachu(); pik.group.scale.setScalar(1.22); scene.add(pik.group); }
+
+/* ---------- Andra Pokémon / figurer i 3D ---------- */
+function buildMon(kind){
+  const g=new THREE.Group(); const add=(geo,mat,x,y,z,sx=1,sy=1,sz=1)=>{ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.scale.set(sx,sy,sz); g.add(m); return m; };
+  const sph=(c,r)=>new THREE.Mesh(new THREE.SphereGeometry(r,14,11), MAT(c,.7));
+  const eyes=(dx,y,z)=>{ for(const s of[-1,1]) add(new THREE.SphereGeometry(.09,8,6),MAT(0x111111,.4),s*dx,y,z); };
+  switch(kind){
+    case 'ash':
+      add(new THREE.BoxGeometry(.95,1.25,.6),MAT(0x2563eb,.8),0,1.05,0);
+      add(new THREE.BoxGeometry(.34,.85,.4),MAT(0x1f2937,.9),-.26,.42,0); add(new THREE.BoxGeometry(.34,.85,.4),MAT(0x1f2937,.9),.26,.42,0);
+      { const h=sph(0xfcd9b8,.52); h.position.set(0,2.05,0); g.add(h);
+        const cap=new THREE.Mesh(new THREE.SphereGeometry(.55,14,8,0,Math.PI*2,0,Math.PI/2),MAT(0xe63946,.7)); cap.position.set(0,2.14,0); g.add(cap);
+        add(new THREE.BoxGeometry(.8,.09,.5),MAT(0xe63946,.7),0,2.18,.55); eyes(.18,2.1,.48); }
+      add(new THREE.SphereGeometry(.17,8,6),MAT(0xffffff,.5),.0,.95,.34); // pokéboll i handen-ish
+      { const b=new THREE.Mesh(new THREE.SphereGeometry(.17,10,8),MAT(0xe63946,.5)); b.position.set(0,1.02,.34); b.scale.set(1,.55,1); g.add(b); }
+      break;
+    case 'bulbasaur': { const b=sph(0x5ec98a,.72); b.position.y=.62; b.scale.set(1.15,.8,1); g.add(b); const bulb=sph(0x2f9e5f,.42); bulb.position.set(0,1.25,-.1); g.add(bulb); eyes(.24,.78,.62); } break;
+    case 'charmander': { const b=sph(0xfb923c,.68); b.position.y=.68; b.scale.set(1,.95,1); g.add(b); const bel=sph(0xfde68a,.42); bel.position.set(0,.55,.42); g.add(bel);
+      const tail=add(new THREE.CylinderGeometry(.07,.12,.9,6),MAT(0xfb923c,.7),-.55,1.0,-.4); tail.rotation.z=.8;
+      const fl=sph(0xf97316,.22); fl.position.set(-.95,1.5,-.45); g.add(fl); const fl2=sph(0xfacc15,.13); fl2.position.set(-.95,1.62,-.45); g.add(fl2); eyes(.22,.95,.58); } break;
+    case 'squirtle': { const b=sph(0x7dd3fc,.68); b.position.y=.66; g.add(b); const sh=sph(0x92400e,.5); sh.position.set(0,.75,-.32); sh.scale.set(1,1,.6); g.add(sh); const bel=sph(0xfef3c7,.42); bel.position.set(0,.55,.4); g.add(bel); eyes(.22,.92,.58); } break;
+    case 'eevee': { const b=sph(0xc98a4b,.62); b.position.y=.6; g.add(b); const mane=sph(0xfde68a,.48); mane.position.set(0,.95,.25); mane.scale.set(1,.65,1); g.add(mane);
+      for(const s of[-1,1]){ const e=add(new THREE.ConeGeometry(.16,.75,6),MAT(0xa1672c,.8),s*.25,1.55,0); e.rotation.z=s*-.18; } eyes(.18,.98,.55);
+      const t=sph(0xa1672c,.34); t.position.set(0,.75,-.65); g.add(t); } break;
+    case 'snorlax': g.scale.setScalar(1.9); { const b=sph(0x5b7a99,1); b.position.y=.8; b.scale.set(1,1.05,.9); g.add(b); const bel=sph(0xfef3c7,.72); bel.position.set(0,.72,.5); g.add(bel);
+      for(const s of[-1,1]) add(new THREE.BoxGeometry(.3,.07,.07),MAT(0x111111,.5),s*.22,1.62,.82); } break;
+    case 'togepi': g.scale.setScalar(.78); { const b=sph(0xfef9c3,.62); b.position.y=.55; b.scale.set(1,.92,1); g.add(b);
+      add(new THREE.ConeGeometry(.17,.4,5),MAT(0xfef9c3,.7),0,1.28,0);
+      add(new THREE.BoxGeometry(.26,.26,.1),MAT(0x60a5fa,.6),-.3,.65,.55); add(new THREE.BoxGeometry(.26,.26,.1),MAT(0xf87171,.6),.32,.8,.52); eyes(.17,.78,.52); } break;
+    case 'rattata': { const b=sph(0xa78bfa,.6); b.position.y=.55; b.scale.set(1.2,.8,1); g.add(b);
+      for(const s of[-1,1]){ const e=sph(0x8b5cf6,.24); e.position.set(s*.3,1.1,.1); g.add(e); }
+      const t=add(new THREE.CylinderGeometry(.05,.05,1.1,6),MAT(0x8b5cf6,.7),-0.85,.6,-.3); t.rotation.z=1.1; eyes(.18,.68,.5); } break;
+    case 'pidgey': { const b=sph(0xfcd9a0,.55); b.position.y=.62; g.add(b); const h=sph(0xffffff,.4); h.position.set(0,1.15,.18); g.add(h);
+      add(new THREE.ConeGeometry(.13,.42,6),MAT(0xf59e0b,.6),0,1.1,.6).rotation.x=Math.PI/2; eyes(.15,1.22,.5); } break;
+    case 'caterpie': for(let i=0;i<4;i++){ const s=sph(0x4ade80,.34); s.position.set(0,.35,-.55+i*.36); g.add(s); } add(new THREE.SphereGeometry(.13,8,6),MAT(0xfacc15,.5),0,.82,.55); eyes(.12,.6,.82-.55+.55); break;
+    case 'zubat': { const b=sph(0x818cf8,.52); b.position.y=.95; g.add(b);
+      for(const s of[-1,1]){ const w=add(new THREE.BoxGeometry(.85,.08,.42),MAT(0x6366f1,.7),s*.68,1.2,0); w.rotation.z=s*-.35; } eyes(.15,1.05,.44); } break;
+    default: { const b=sph(0xf9a8d4,.6); b.position.y=.6; g.add(b); eyes(.2,.75,.5); }
+  }
+  shadowed(g);
+  return g;
+}
+
+/* ---------- NPC:er ---------- */
+const NPCS=[
+ {name:'🧢 Ash', kind:'ash', x:170,z:206, home:{x:170,z:206}, wander:3.5, ph:0},
+ {name:'🌿 Bulbasaur', kind:'bulbasaur', x:90,z:110, home:{x:90,z:110}, wander:16, ph:1},
+ {name:'🔥 Charmander', kind:'charmander', x:250,z:150, home:{x:250,z:150}, wander:14, ph:2},
+ {name:'💧 Squirtle', kind:'squirtle', x:208,z:66, home:{x:208,z:66}, wander:10, ph:3},
+ {name:'🦊 Eevee', kind:'eevee', x:130,z:90, home:{x:130,z:90}, wander:18, ph:4},
+ {name:'😴 Snorlax', kind:'snorlax', x:240,z:42, home:{x:240,z:42}, wander:0, ph:5, sleeping:true},
+ {name:'🥚 Togepi', kind:'togepi', x:64,z:47, home:{x:64,z:47}, wander:2.5, ph:6, hidden:false},
+];
+for(const n of NPCS){ n.mesh=buildMon(n.kind); n.mesh.position.set(n.x,0,n.z); scene.add(n.mesh); n.baseY=0; }
+
+/* ---------- Bärbuskar ---------- */
+const bushes=[];
+for(let i=0;i<26;i++){ let x=rng()*W.w, z=rng()*W.h; if(inLake(x,z)){ i--; continue; }
+  const g=new THREE.Group();
+  const bush=new THREE.Mesh(new THREE.SphereGeometry(1.25,10,8), MAT(0x2fbf5a,1)); bush.position.y=.9; bush.scale.y=.8; g.add(bush);
+  const berryMeshes=[];
+  for(let b=0;b<3;b++){ const bm=new THREE.Mesh(new THREE.SphereGeometry(.26,8,6), MAT(0xec4899,.5)); bm.position.set(-.6+b*.6,1.35,(b%2?.35:-.3)); g.add(bm); berryMeshes.push(bm); }
+  g.position.set(x,0,z); shadowed(g); scene.add(g);
+  bushes.push({x,z,berries:3,mesh:g,berryMeshes,ph:rng()*6});
+}
+function refreshBush(b){ b.berryMeshes.forEach((m,i)=>m.visible=i<b.berries); }
+
+/* ---------- Vilda Pokémon ---------- */
 const WILD_TYPES=[
- {kind:'rattata', name:'Rattata', hp:30, dmg:6, xp:22, speed:1.15, color:'#a78bfa'},
- {kind:'pidgey', name:'Pidgey', hp:26, dmg:5, xp:20, speed:1.35, color:'#fbbf24'},
- {kind:'caterpie', name:'Caterpie', hp:24, dmg:4, xp:16, speed:.8, color:'#4ade80'},
- {kind:'zubat', name:'Zubat', hp:28, dmg:7, xp:24, speed:1.5, color:'#818cf8'},
+ {kind:'rattata', name:'Rattata', hp:30, dmg:6, xp:22, speed:5.2},
+ {kind:'pidgey', name:'Pidgey', hp:26, dmg:5, xp:20, speed:6},
+ {kind:'caterpie', name:'Caterpie', hp:24, dmg:4, xp:16, speed:3.6},
+ {kind:'zubat', name:'Zubat', hp:28, dmg:7, xp:24, speed:6.6},
 ];
 let wilds=[];
-function spawnWild(){ const g=grasses[irnd(0,grasses.length-1)]; const t=WILD_TYPES[irnd(0,WILD_TYPES.length-1)];
-  wilds.push({ ...t, maxhp:t.hp, x:g.x+rnd(0,g.w), y:g.y+rnd(0,g.h), vx:0,vy:0, ph:rnd(0,6), state:'idle', t:0, hurtT:0, atkCd:0 }); }
+function spawnWild(){
+  const g=grassPatches[irnd(0,grassPatches.length-1)], t=WILD_TYPES[irnd(0,WILD_TYPES.length-1)];
+  const mesh=buildMon(t.kind); const x=g.x+rnd(1,g.w), z=g.z+rnd(1,g.h); mesh.position.set(x,0,z); scene.add(mesh);
+  // HP-skylt som sprite
+  const c=document.createElement('canvas'); c.width=128; c.height=40; const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
+  sp.scale.set(3.4,1.05,1); sp.position.y=2.6; mesh.add(sp);
+  const w={...t,maxhp:t.hp,x,z,mesh,label:sp,labelCanvas:c,ph:rnd(0,6),state:'idle',t:0,hurtT:0,atkCd:0,vx:0,vz:0,angle:0};
+  drawWildLabel(w); wilds.push(w);
+}
+function drawWildLabel(w){
+  const c=w.labelCanvas.getContext('2d'); c.clearRect(0,0,128,40);
+  c.fillStyle='rgba(0,0,0,.55)'; c.beginPath(); c.roundRect(14,2,100,17,8); c.fill();
+  c.fillStyle='#fff'; c.font='bold 11px sans-serif'; c.textAlign='center'; c.fillText(w.name,64,15);
+  c.fillStyle='rgba(0,0,0,.5)'; c.fillRect(14,24,100,8);
+  c.fillStyle=w.hp/w.maxhp>.35?'#4ade80':'#f87171'; c.fillRect(14,24,100*Math.max(0,w.hp/w.maxhp),8);
+  w.label.material.map.needsUpdate=true;
+}
 for(let i=0;i<9;i++) spawnWild();
-let particles=[], bolts=[], floaters=[], sparkles=[];
-for(let i=0;i<70;i++) sparkles.push({x:rng()*W.w,y:rng()*W.h,ph:rng()*6});
 
-/* ---------- Dialog ---------- */
-const dlgEl=document.getElementById('dialog'), dname=document.getElementById('dname'), dtext=document.getElementById('dtext');
-function say(name, lines, cb){ dialogQueue={lines:[...lines], i:0, name, cb}; paused=true; dname.textContent=name; dtext.textContent=lines[0]; dlgEl.classList.add('show'); sfx.talk(); }
+/* ---------- Moln, stjärnor, eldflugor, partiklar, blixtar ---------- */
+const clouds=[];
+for(let i=0;i<11;i++){ const g=new THREE.Group(); const m=MAT(0xffffff,.95);
+  for(let j=0;j<4;j++){ const s=new THREE.Mesh(new THREE.SphereGeometry(rnd(1.6,3),10,8),m); s.position.set(j*2-3,rnd(-.4,.4),rnd(-1,1)); s.scale.y=.55; g.add(s); }
+  g.position.set(rng()*W.w, rnd(26,38), rng()*W.h); scene.add(g); clouds.push(g); }
+let starMat, fireMat, firePos;
+{
+  const sg=new THREE.BufferGeometry(), pts=[];
+  for(let i=0;i<500;i++){ const a=rnd(0,Math.PI*2), e=rnd(.15,1.4), r=230; pts.push(W.w/2+Math.cos(a)*Math.cos(e)*r, Math.sin(e)*r*.6, W.h/2+Math.sin(a)*Math.cos(e)*r); }
+  sg.setAttribute('position', new THREE.Float32BufferAttribute(pts,3));
+  starMat=new THREE.PointsMaterial({color:0xffffff,size:1.15,transparent:true,opacity:0,fog:false});
+  scene.add(new THREE.Points(sg,starMat));
+  const fg=new THREE.BufferGeometry(); firePos=new Float32Array(80*3);
+  for(let i=0;i<80;i++){ firePos[i*3]=rng()*W.w; firePos[i*3+1]=rnd(.5,2.5); firePos[i*3+2]=rng()*W.h; }
+  fg.setAttribute('position', new THREE.BufferAttribute(firePos,3));
+  fireMat=new THREE.PointsMaterial({color:0xfde047,size:.55,transparent:true,opacity:0});
+  scene.add(new THREE.Points(fg,fireMat)); fireMat.userData.geo=fg;
+}
+const particles=[];
+const partGeo=new THREE.BoxGeometry(.22,.22,.22);
+function burst(x,y,z,color,n=10){
+  for(let i=0;i<n;i++){ if(particles.length>130)break;
+    const m=new THREE.Mesh(partGeo, new THREE.MeshBasicMaterial({color})); m.position.set(x,y,z); scene.add(m);
+    particles.push({m,vx:rnd(-3,3),vy:rnd(1,5),vz:rnd(-3,3),t:0,life:rnd(.4,.9)}); }
+}
+let bolts=[];
+function makeBolt(x1,y1,z1,x2,y2,z2){
+  const pts=[]; const segs=6;
+  for(let i=0;i<=segs;i++){ const t=i/segs; pts.push(new THREE.Vector3(x1+(x2-x1)*t+(i&&i<segs?rnd(-.8,.8):0), y1+(y2-y1)*t+(i&&i<segs?rnd(-.8,.8):0), z1+(z2-z1)*t+(i&&i<segs?rnd(-.8,.8):0))); }
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color:0xfde047,transparent:true}));
+  line.userData.t=0; scene.add(line); bolts.push(line);
+  const flash=new THREE.PointLight(0xfde047,2.2,18); flash.position.set(x2,y2+1,z2); flash.userData.t=0; scene.add(flash); bolts.push(flash);
+}
+
+/* ---------- Floaters (HTML som projiceras från 3D) ---------- */
+const floaters=[];
+function floater(x,y,z,txt,color='#fff'){
+  const el=document.createElement('div'); el.className='floater'; el.textContent=txt; el.style.color=color;
+  $('floaters').appendChild(el); floaters.push({x,y,z,el,t:0});
+}
+
+/* ---------- Dialog / toast / HUD ---------- */
+const dlgEl=$('dialog'), dname=$('dname'), dtext=$('dtext');
+function say(name,lines,cb){ dialogQueue={lines:[...lines],i:0,name,cb}; paused=true; dname.textContent=name; dtext.textContent=lines[0]; dlgEl.classList.add('show'); sfx.talk(); }
 function nextDialog(){ if(!dialogQueue)return; dialogQueue.i++; sfx.talk();
   if(dialogQueue.i>=dialogQueue.lines.length){ dlgEl.classList.remove('show'); const cb=dialogQueue.cb; dialogQueue=null; paused=false; if(cb)cb(); }
   else dtext.textContent=dialogQueue.lines[dialogQueue.i]; }
-dlgEl.addEventListener('click',nextDialog);
-
+dlgEl.addEventListener('pointerdown',e=>{ e.stopPropagation(); nextDialog(); });
 let toastT=null;
-function toast(msg,ms=2600){ const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
-function floater(x,y,txt,color='#fff'){ floaters.push({x,y,txt,color,t:0}); }
+function toast(msg,ms=2700){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),ms); }
 
-/* ---------- Rita Pokémon ---------- */
-function drawPikachu(x,y,dir,frame,scale=1,evolved=false,moving=true){
-  const bob=moving?Math.sin(frame*.9)*2.2:Math.sin(time*.05)*1.2;
-  const flip=dir==='left'?-1:1;
-  ctx.save(); ctx.translate(x,y+bob*.4); ctx.scale(flip*scale,scale);
-  // svans (blixt)
-  ctx.save(); ctx.translate(-13,-14); ctx.rotate(Math.sin(frame*.7)*.12-.25);
-  ctx.fillStyle='#8a5a12'; ctx.fillRect(-4,2,9,8);
-  ctx.fillStyle=evolved?'#f59e0b':'#ffcb05'; ctx.strokeStyle='#7c4a03'; ctx.lineWidth=1.5;
-  ctx.beginPath(); ctx.moveTo(0,4); ctx.lineTo(-13,-4); ctx.lineTo(-6,-5); ctx.lineTo(-16,-16); ctx.lineTo(-3,-14); ctx.lineTo(-8,-24); ctx.lineTo(5,-12); ctx.lineTo(1,-4); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
-  // kropp
-  ctx.fillStyle=evolved?'#fb923c':'#ffd93d'; ctx.strokeStyle='#7c4a03';
-  ctx.beginPath(); ctx.ellipse(0,-8,15,13,0,0,7); ctx.fill(); ctx.stroke();
-  // fötter
-  ctx.fillStyle=evolved?'#fb923c':'#ffd93d'; const st=moving?Math.sin(frame*.9)*5:0;
-  ctx.beginPath(); ctx.ellipse(-8+st,4,7,4,0,0,7); ctx.ellipse(8-st,4,7,4,0,0,7); ctx.fill();
-  // huvud
-  ctx.beginPath(); ctx.arc(5,-24,13,0,7); ctx.fillStyle=evolved?'#fb923c':'#ffd93d'; ctx.fill(); ctx.stroke();
-  // öron
-  for(const s of [-1,1]){ ctx.save(); ctx.translate(5+s*8,-33); ctx.rotate(s*.5+Math.sin(frame*.8+s)* (moving?.07:.03));
-    ctx.fillStyle=evolved?'#fb923c':'#ffd93d'; ctx.beginPath(); ctx.ellipse(0,-8,4,11,0,0,7); ctx.fill(); ctx.stroke();
-    ctx.fillStyle='#1f2937'; ctx.beginPath(); ctx.ellipse(0,-15,3.6,5,0,0,7); ctx.fill(); ctx.restore(); }
-  // kinder
-  ctx.fillStyle='#ef4444'; ctx.beginPath(); ctx.arc(-4,-20,4.2,0,7); ctx.arc(15,-20,4.2,0,7); ctx.fill();
-  // ögon & mun
-  ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(2,-26,2.1,0,7); ctx.arc(11,-26,2.1,0,7); ctx.fill();
-  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(2.7,-26.8,.8,0,7); ctx.arc(11.7,-26.8,.8,0,7); ctx.fill();
-  ctx.strokeStyle='#7c4a03'; ctx.lineWidth=1.4; ctx.beginPath(); ctx.arc(6.5,-20,3,.15*Math.PI,.85*Math.PI); ctx.stroke();
-  // ränder på ryggen
-  ctx.strokeStyle='#8a5a12'; ctx.lineWidth=2.4; ctx.beginPath(); ctx.moveTo(-11,-16); ctx.lineTo(-4,-14); ctx.moveTo(-12,-10); ctx.lineTo(-5,-8); ctx.stroke();
-  ctx.restore();
-  // skugga
-  ctx.fillStyle='rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(x,y+7,15*scale,5*scale,0,0,7); ctx.fill();
+function updateHUD(){
+  $('hpfill').style.width=(P.hp/P.maxhp*100)+'%'; $('enfill').style.width=P.energy+'%'; $('xpfill').style.width=(P.xp/P.xpNext*100)+'%';
+  $('plevel').textContent='Lv. '+P.level+(P.evolved?' ⭐':''); $('sBerries').textContent=P.berries; $('sWins').textContent=P.wins; $('sCoins').textContent=P.coins;
+  $('pname').textContent=P.evolved?'⚡ RAICHU':'⚡ PIKACHU';
+  const q=QUESTS[questStage]; $('questPanel').innerHTML=`<b>${q.title}</b>${q.desc}<div class="prog">${q.prog()}</div>`;
 }
-function drawMon(w){
-  const {x,y}=w, ph=w.ph||0, bob=Math.sin(time*.08+ph)*1.5;
-  ctx.fillStyle='rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(x,y+9,14,4.5,0,0,7); ctx.fill();
-  ctx.save(); ctx.translate(x,y+bob);
-  const hurt=w.hurtT>0&&Math.floor(time/3)%2===0;
-  const body=(c)=>{ ctx.fillStyle=hurt?'#fff':c; ctx.beginPath(); ctx.ellipse(0,-6,14,11,0,0,7); ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.35)'; ctx.lineWidth=1.2; ctx.stroke(); };
-  const eyes=(dx=4)=>{ ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(-dx,-9,1.8,0,7); ctx.arc(dx,-9,1.8,0,7); ctx.fill(); };
-  switch(w.kind){
-    case 'ash': // tränare
-      ctx.fillStyle='#2563eb'; ctx.fillRect(-7,-16,14,14); ctx.fillStyle='#fcd9b8'; ctx.beginPath(); ctx.arc(0,-22,8,0,7); ctx.fill();
-      ctx.fillStyle='#e63946'; ctx.beginPath(); ctx.arc(0,-25,8,Math.PI,0); ctx.fill(); ctx.fillRect(-9,-25,18,3);
-      ctx.fillStyle='#111'; ctx.fillRect(-7,-2,5,7); ctx.fillRect(2,-2,5,7); eyes(3); break;
-    case 'bulbasaur': body('#5ec98a'); ctx.fillStyle='#2f9e5f'; ctx.beginPath(); ctx.ellipse(0,-18,7,6,0,0,7); ctx.fill(); eyes(5); break;
-    case 'charmander': body('#fb923c'); ctx.fillStyle='#fde68a'; ctx.beginPath(); ctx.ellipse(0,-4,7,6,0,0,7); ctx.fill();
-      ctx.fillStyle='#f97316'; ctx.beginPath(); ctx.moveTo(13,-12); ctx.quadraticCurveTo(20,-22,15,-24); ctx.quadraticCurveTo(18,-14,13,-12); ctx.fill();
-      ctx.fillStyle='#facc15'; ctx.beginPath(); ctx.arc(16,-19,3,0,7); ctx.fill(); eyes(5); break;
-    case 'squirtle': body('#7dd3fc'); ctx.fillStyle='#fef3c7'; ctx.beginPath(); ctx.ellipse(0,-4,8,7,0,0,7); ctx.fill();
-      ctx.fillStyle='#92400e'; ctx.beginPath(); ctx.ellipse(-8,-8,5,8,0,0,7); ctx.fill(); eyes(5); break;
-    case 'eevee': body('#c98a4b'); ctx.fillStyle='#fde68a'; ctx.beginPath(); ctx.ellipse(0,-14,10,6,0,0,7); ctx.fill();
-      ctx.fillStyle='#a1672c'; for(const s of[-1,1]){ctx.beginPath();ctx.ellipse(s*7,-24,3.5,9,s*.3,0,7);ctx.fill();} eyes(4); break;
-    case 'snorlax': ctx.scale(1.7,1.7); body('#5b7a99'); ctx.fillStyle='#fef3c7'; ctx.beginPath(); ctx.ellipse(0,-5,9,8,0,0,7); ctx.fill();
-      ctx.strokeStyle='#111'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(-5,-13); ctx.lineTo(-2,-13); ctx.moveTo(2,-13); ctx.lineTo(5,-13); ctx.stroke();
-      ctx.fillStyle='#111'; ctx.font='bold 9px sans-serif'; ctx.fillText('Z',12,-20+Math.sin(time*.05)*2); ctx.fillText('z',18,-26+Math.sin(time*.05+1)*2); break;
-    case 'togepi': ctx.scale(.75,.75); ctx.fillStyle='#fef9c3'; ctx.beginPath(); ctx.ellipse(0,-6,12,11,0,0,7); ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.stroke();
-      ctx.fillStyle='#60a5fa'; ctx.beginPath(); ctx.moveTo(-8,-8); ctx.lineTo(-3,-4); ctx.lineTo(-8,-1); ctx.fill();
-      ctx.fillStyle='#f87171'; ctx.beginPath(); ctx.moveTo(7,-9); ctx.lineTo(11,-4); ctx.lineTo(6,-3); ctx.fill(); eyes(4);
-      ctx.strokeStyle='#7c4a03'; ctx.beginPath(); ctx.arc(0,-3,3,.1*Math.PI,.9*Math.PI); ctx.stroke(); break;
-    case 'rattata': body('#a78bfa'); ctx.fillStyle='#8b5cf6'; for(const s of[-1,1]){ctx.beginPath();ctx.arc(s*8,-17,5,0,7);ctx.fill();}
-      ctx.strokeStyle='#8b5cf6'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(-13,-4); ctx.quadraticCurveTo(-22,0,-18,-10); ctx.stroke(); eyes(5); break;
-    case 'pidgey': body('#fcd9a0'); ctx.fillStyle='#f59e0b'; ctx.beginPath(); ctx.moveTo(3,-9); ctx.lineTo(10,-7); ctx.lineTo(3,-5); ctx.fill();
-      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(0,-14,6,5,0,0,7); ctx.fill(); eyes(3); break;
-    case 'caterpie': ctx.fillStyle=hurt?'#fff':'#4ade80'; for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(-10+i*7,-4-Math.abs(Math.sin(time*.1+ph+i)) *2,6,0,7);ctx.fill();}
-      ctx.fillStyle='#facc15'; ctx.beginPath(); ctx.arc(12,-12,3,0,7); ctx.fill(); eyes(3); break;
-    case 'zubat': body('#818cf8'); ctx.fillStyle='#6366f1'; ctx.beginPath(); ctx.moveTo(-4,-10); ctx.lineTo(-18,-16); ctx.lineTo(-14,-4); ctx.fill();
-      ctx.beginPath(); ctx.moveTo(4,-10); ctx.lineTo(18,-16); ctx.lineTo(14,-4); ctx.fill(); eyes(4);
-      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(-2,-5); ctx.lineTo(0,-2); ctx.lineTo(2,-5); ctx.fill(); break;
-    default: body('#f9a8d4'); eyes(4);
-  }
-  ctx.restore();
-  // namn + HP för vilda
-  if(w.maxhp){ ctx.font='bold 10px sans-serif'; ctx.textAlign='center';
-    ctx.fillStyle='rgba(0,0,0,.55)'; const tw=ctx.measureText(w.name).width+12; ctx.beginPath(); ctx.roundRect(x-tw/2,y-46,tw,14,7); ctx.fill();
-    ctx.fillStyle='#fff'; ctx.fillText(w.name,x,y-35.5);
-    ctx.fillStyle='rgba(0,0,0,.5)'; ctx.fillRect(x-16,y-30,32,5);
-    ctx.fillStyle=w.hp/w.maxhp>.35?'#4ade80':'#f87171'; ctx.fillRect(x-16,y-30,32*Math.max(0,w.hp/w.maxhp),5); ctx.textAlign='left'; }
-}
+function showEnd(){ $('endStats').innerHTML=`Du nådde <b>level ${P.level}</b>, samlade <b>${P.berries} bär</b> &amp; <b>${P.coins} mynt</b> och besegrade <b>${P.wins} vilda Pokémon</b>!`; $('endScreen').style.display='flex'; sfx.win(); }
 
 /* ---------- Interaktion ---------- */
 let nearTarget=null;
 function checkNear(){
   nearTarget=null;
-  for(const n of NPCS){ if(n.hidden)continue; if(dist(P,n)<62){ nearTarget={type:'npc',o:n,label:'Prata med '+n.name}; return; } }
-  for(const b of bushes) if(b.berries>0&&dist(P,b)<55){ nearTarget={type:'bush',o:b,label:'Plocka bär 🫐'}; return; }
-  for(const s of signs) if(dist(P,s)<55){ nearTarget={type:'sign',o:s,label:'Läs skylt 🪧'}; return; }
-  for(const h of houses) if(Math.hypot(P.x-(h.x+h.w/2),P.y-(h.y+h.h+16))<60){ nearTarget={type:'house',o:h,label:'Titta på '+h.name}; return; }
+  for(const n of NPCS){ if(n.kind==='togepi'&&togepiFollowing) continue; if(dist2(P.x,P.z,n.x,n.z)<6.5){ nearTarget={type:'npc',o:n,label:'Prata med '+n.name}; return; } }
+  for(const b of bushes) if(b.berries>0&&dist2(P.x,P.z,b.x,b.z)<5.5){ nearTarget={type:'bush',o:b,label:'Plocka bär 🫐'}; return; }
+  for(const s of signs) if(dist2(P.x,P.z,s.x,s.z)<5.5){ nearTarget={type:'sign',o:s,label:'Läs skylt 🪧'}; return; }
+  for(const h of houses) if(dist2(P.x,P.z,h.x+h.w/2,h.z+h.d+2.5)<7){ nearTarget={type:'house',o:h,label:'Titta på '+h.name}; return; }
 }
 function interact(){
   if(dialogQueue){ nextDialog(); return; }
   if(!nearTarget) return;
   const t=nearTarget;
-  if(t.type==='bush'){ t.o.berries--; P.berries++; P.coins+=irnd(0,2); sfx.berry(); floater(P.x,P.y-40,'+1 Bär 🫐','#fda4af');
-    particles.push(...burst(P.x,P.y-20,'#f472b6',8));
-    if(questStage===1&&P.berries>=8){ questStage=2; sfx.quest(); toast('🎉 Uppdrag klart! Besegra 5 vilda Pokémon!'); }
-    updateHUD(); return; }
+  if(t.type==='bush'){ t.o.berries--; refreshBush(t.o); P.berries++; if(Math.random()<.4)P.coins+=irnd(1,3); sfx.berry(); floater(P.x,3.4,P.z,'+1 Bär 🫐','#fda4af'); burst(t.o.x,1.6,t.o.z,0xf472b6,8);
+    if(questStage===1&&P.berries>=8){ questStage=2; sfx.quest(); toast('🎉 Uppdrag klart! Besegra 5 vilda Pokémon!'); } updateHUD(); return; }
   if(t.type==='sign'){ say('🪧 Skylt', t.o.text.split('\n')); return; }
-  if(t.type==='house'){ say('🏠 '+t.o.name, t.o.name==='PokéCenter'?['Välkommen till PokéCenter!','Din Pikachu blir helt frisk! ❤️']:t.o.name==='Butik'?['Välkommen till butiken!','(Butiken är stängd idag — ägaren letar också efter Togepi!)']:['Det här är Ash hus.','Här bor Pikachus bästa vän!']); if(t.o.name==='PokéCenter'){P.hp=P.maxhp; sfx.level(); floater(P.x,P.y-40,'❤️ Full HP!','#f87171'); updateHUD();} return; }
-  // NPC
+  if(t.type==='house'){ const h=t.o;
+    if(h.name==='PokéCenter'){ say('🏥 PokéCenter',['Välkommen till PokéCenter!','Din Pikachu blir helt frisk! ❤️'],null); P.hp=P.maxhp; sfx.level(); floater(P.x,3.6,P.z,'❤️ Full HP!','#f87171'); }
+    else if(h.name==='Butik') say('🛒 Butik',['Välkommen till butiken!','(Stängd idag — ägaren letar också efter Togepi!)']);
+    else say('🏠 Ash hus',['Det här är Ash hus.','Här bor Pikachus bästa vän!']);
+    updateHUD(); return; }
   const n=t.o;
   if(n.kind==='ash'){
-    if(questStage===0){ say('🧢 Ash',['Pika! Där är du! ⚡','Jag behöver din hjälp. Först: plocka 8 bär från de rosa buskarna så vi får frukost!','Sen måste du bli stark — och... Togepi har försvunnit i skogen! 😢','Du klarar det, partner!'],()=>{questStage=1; sfx.quest(); toast('📜 Nytt uppdrag: Samla 8 bär!'); updateHUD();}); }
-    else if(questStage===1) say('🧢 Ash',[`Du har ${P.berries} av 8 bär. Fortsätt plocka från rosa buskar! 🫐`]);
-    else if(questStage===2) say('🧢 Ash',[`Bra bärplockning! Nu: besegra 5 vilda Pokémon. Du har ${P.wins} än så länge.`,`Använd SPACE för åskstöt — och ät bär... eh, besök PokéCenter om du skadar dig!`]);
-    else if(questStage===3) say('🧢 Ash',['Togepi sågs senast i skogen i NORDVÄST. Följ kartan (gul prick = du, vit = Togepi)! 🥚']);
-    else if(questStage===4&&togepiFollowing){ say('🧢 Ash',['TOGEPI! Du hittade Togepi!! 🎉','Tack, Pikachu — du är en riktig hjälte!','Som tack får du en ÅSKSTEN... Titta — du utvecklas till RAICHU! ⚡'],()=>{ P.evolved=true; finished=true; sfx.win(); toast('⚡ PIKACHU UTVECKLADES TILL RAICHU! ⚡',4000); questStage=5; updateHUD(); setTimeout(()=>{ if(!document.getElementById('endScreen').style.display||document.getElementById('endScreen').style.display==='none'){ showEnd(); } },1200); }); }
-    else say('🧢 Ash',['Pika pika! ⚡ Utforska vidare, partner!','Tips: Snorlax sover vid bron... hen vaknar om du zappar henom tre gånger? Prova! 😴']);
+    if(questStage===0) say('🧢 Ash',['Pika! Där är du! ⚡','Jag behöver din hjälp. Plocka först 8 bär från de rosa buskarna!','Sen måste du bli stark — och... Togepi har försvunnit i skogen! 😢','Du klarar det, partner!'],()=>{ questStage=1; sfx.quest(); toast('📜 Nytt uppdrag: Samla 8 bär!'); updateHUD(); });
+    else if(questStage===1) say('🧢 Ash',[`Du har ${P.berries} av 8 bär. Rosa buskar finns överallt! 🫐`]);
+    else if(questStage===2) say('🧢 Ash',[`Bra! Nu: besegra 5 vilda Pokémon (${P.wins}/5 klara).`,'Använd ⚡-knappen! Besök PokéCenter (blått hus i väst) om du skadar dig.']);
+    else if(questStage===3) say('🧢 Ash',['Togepi sågs i skogen i NORDVÄST. Rosa prick på kartan! 🥚']);
+    else if(questStage===4&&togepiFollowing) say('🧢 Ash',['TOGEPI! Du hittade Togepi!! 🎉','Tack Pikachu — du är en riktig hjälte!','Som tack får du en ÅSKSTEN... du utvecklas till RAICHU! ⚡'],()=>{
+      P.evolved=true; finished=true; evolveVisual(); sfx.win(); toast('⚡ PIKACHU UTVECKLADES TILL RAICHU! ⚡',4200); questStage=5; updateHUD();
+      burst(P.x,2,P.z,0xfde047,26); setTimeout(showEnd,1400); });
+    else say('🧢 Ash',['Pika pika! ⚡ Tips: Snorlax sover vid bron...','Zap:a henom 3 gånger så kanske hen vaknar! 😴']);
   }
-  else if(n.kind==='togepi'){ say('🥚 Togepi',['Toge... togepiii! 😢 (Togepi är vilse och rädd)','(Togepi börjar följa efter dig! Ta Togepi till Ash!)'],()=>{ togepiFollowing=true; n.hidden=false; if(questStage===3){questStage=4;} sfx.quest(); toast('🥚 Togepi följer efter dig! Gå till Ash!'); updateHUD(); }); }
-  else if(n.kind==='snorlax'){ if(n.sleeping) say('😴 Snorlax',['Zzz... Zzz... (Snorlax sover djupt och blockerar bron)','(Kanske vaknar hen av 3 åskstötar? Tryck SPACE nära!)']); else say('😴 Snorlax',['*gäsp* ...okej okej, jag flyttar mig... Zzz.']); }
-  else if(n.kind==='bulbasaur') say('🌿 Bulbasaur',['Bulba! I det höga gräset gömmer sig vilda Pokémon.','Var försiktig — men din åska är super effektiv! ⚡']);
-  else if(n.kind==='charmander') say('🔥 Charmander',['Char! Min svansflamma visar vägen när det blir mörkt.','På natten syns eldflugor över hela ängen. Vackert! ✨']);
-  else if(n.kind==='squirtle') say('💧 Squirtle',['Squirtle! Jag älskar sjön. Pikachu kan också simma,','men det kostar extra energi. Dash (Q) funkar även i vatten!']);
-  else if(n.kind==='eevee') say('🦊 Eevee',['Eevee eevee! Visste du att det finns 26 bärbuskar?','Och gömt mynt överallt! Samla på dig! 🪙']);
+  else if(n.kind==='togepi') say('🥚 Togepi',['Toge... togepiii! 😢 (Togepi är vilse och rädd)','(Togepi följer efter dig nu! Ta Togepi till Ash!)'],()=>{ togepiFollowing=true; if(questStage===3)questStage=4; sfx.quest(); toast('🥚 Togepi följer dig! Gå till Ash!'); updateHUD(); });
+  else if(n.kind==='snorlax'){ if(n.sleeping) say('😴 Snorlax',['Zzz... (Snorlax sover och blockerar bron)','(Kanske vaknar hen av 3 åskstötar? ⚡)']); else say('😴 Snorlax',['*gäsp* ...okej, jag har flyttat mig... Zzz.']); }
+  else if(n.kind==='bulbasaur') say('🌿 Bulbasaur',['Bulba! Vilda Pokémon gömmer sig i det höga gräset.','Din åska är super effektiv! ⚡']);
+  else if(n.kind==='charmander') say('🔥 Charmander',['Char! På natten tänds eldflugor över ängen.','Och stjärnorna... visst är 3D-världen fin? ✨']);
+  else if(n.kind==='squirtle') say('💧 Squirtle',['Squirtle! Bron går över sjön, men du kan också simma!','Det kostar energi bara. Hoppa med ⬆️-knappen!']);
+  else if(n.kind==='eevee') say('🦊 Eevee',['Eevee! Det finns 26 bärbuskar i världen.','Ibland hittar man mynt i dem också! 🪙']);
 }
 
-/* ---------- Strid ---------- */
-function burst(x,y,color,n=10){ const a=[]; for(let i=0;i<n;i++)a.push({x,y,vx:rnd(-2.4,2.4),vy:rnd(-3,.5),t:0,life:rnd(20,42),color,r:rnd(2,4.5)}); return a; }
+/* ---------- Strid & förmågor ---------- */
 function zap(){
-  if(P.zapCd>0||paused) return;
+  if(P.zapCd>0||paused||!gameStarted) return;
   if(P.energy<12){ toast('⚡ För lite energi! Den laddas igen...'); return; }
-  P.energy-=12; P.zapCd=P.evolved?16:22; sfx.zap();
+  P.energy-=12; P.zapCd=P.evolved?15:21; sfx.zap();
   const dmg=P.evolved?26:16+P.level;
-  // blixt visuellt i riktning man tittar
-  const dirs={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]};
-  let dx=0,dy=1; const mvx=(keys.ArrowRight||keys.KeyD?1:0)-(keys.ArrowLeft||keys.KeyA?1:0), mvy=(keys.ArrowDown||keys.KeyS?1:0)-(keys.ArrowUp||keys.KeyW?1:0);
-  if(mvx||mvy){dx=mvx;dy=mvy;} else [dx,dy]=dirs[P.dir]||[0,1];
-  const bx=P.x+dx*70, by=P.y+dy*70-10;
-  bolts.push({x1:P.x,y1:P.y-22,x2:bx+rnd(-14,14),y2:by+rnd(-10,10),t:0});
-  particles.push(...burst(bx,by,'#fde047',12));
-  let hitAny=false;
-  for(const w of wilds){ if(Math.hypot(w.x-bx,w.y-by)<85){ w.hp-=dmg; w.hurtT=14; w.state='chase'; hitAny=true; sfx.hit(); floater(w.x,w.y-52,'-'+dmg+' ⚡','#fde047');
-    if(w.hp<=0){ defeatWild(w); } } }
-  // Snorlax väckning
+  const fx=P.x+Math.sin(P.angle)*7, fz=P.z+Math.cos(P.angle)*7;
+  makeBolt(P.x,2.2,P.z, fx,1.2,fz);
+  burst(fx,1.2,fz,0xfde047,10);
+  for(const w of wilds){ if(dist2(w.x,w.z,fx,fz)<8.5){ w.hp-=dmg; w.hurtT=14; w.state='chase'; sfx.hit(); floater(w.x,3.4,w.z,'-'+dmg+' ⚡','#fde047'); drawWildLabel(w); if(w.hp<=0) defeatWild(w); } }
   const sn=NPCS.find(n=>n.kind==='snorlax');
-  if(sn.sleeping&&Math.hypot(sn.x-bx,sn.y-by)<100){ sn.zaps=(sn.zaps||0)+1; hitAny=true; floater(sn.x,sn.y-60,`💤 ${sn.zaps}/3 zaps!`,'#fde047');
-    if(sn.zaps>=3){ sn.sleeping=false; sn.home={x:sn.x+130,y:sn.y+70}; toast('😴 Snorlax vaknade och flyttade sig!'); sfx.quest(); } }
-  if(!hitAny){ /* miss */ }
+  if(sn.sleeping&&dist2(sn.x,sn.z,fx,fz)<10){ sn.zaps=(sn.zaps||0)+1; floater(sn.x,4.5,sn.z,`💤 ${sn.zaps}/3 zaps!`,'#fde047');
+    if(sn.zaps>=3){ sn.sleeping=false; sn.home={x:253,z:52}; solids.splice(solids.findIndex(s=>Math.abs(s.x-240)<2&&Math.abs(s.z-42)<2),0); toast('😴 Snorlax vaknade och flyttade sig!'); sfx.quest(); } }
   updateHUD();
 }
-function defeatWild(w){ w.dead=true; P.wins++; const coins=irnd(3,9); P.coins+=coins; sfx.coin();
-  floater(w.x,w.y-30,`Besegrad! +${w.xp} XP`,'#7dd3fc'); floater(w.x,w.y-14,`+${coins} 🪙`,'#fde047');
-  particles.push(...burst(w.x,w.y-10,'#fde047',18)); gainXP(w.xp);
-  if(questStage===2&&P.wins>=5){ questStage=3; sfx.quest(); toast('🎉 Uppdrag klart! Hitta Togepi i nordvästra skogen!'); }
-  setTimeout(spawnWild, 2500); updateHUD(); }
-function gainXP(n){ P.xp+=n; while(P.xp>=P.xpNext){ P.xp-=P.xpNext; P.level++; P.xpNext=Math.floor(P.xpNext*1.45); P.maxhp+=12; P.hp=P.maxhp; sfx.level(); toast(`⭐ LEVEL UP! Pikachu är nu level ${P.level}!`); particles.push(...burst(P.x,P.y-20,'#7dd3fc',24)); } }
-function dash(){ if(P.dashCd>0||paused)return; P.dashCd=55; sfx.dash();
-  const dirs={up:[0,-1],down:[0,1],left:[-1,0],right:[1,0]}; let [dx,dy]=dirs[P.dir]||[0,1];
-  const mvx=(keys.ArrowRight||keys.KeyD?1:0)-(keys.ArrowLeft||keys.KeyA?1:0), mvy=(keys.ArrowDown||keys.KeyS?1:0)-(keys.ArrowUp||keys.KeyW?1:0);
-  if(mvx||mvy){dx=mvx;dy=mvy;}
-  particles.push(...burst(P.x,P.y-10,'#fff',8));
-  for(let i=0;i<14;i++){ const nx=P.x+dx*9, ny=P.y+dy*9; if(solid(nx,ny,13)||(inLake(nx,ny)&&!onBridge(nx,ny)&&false)) break; if(solid(nx,ny,13))break; P.x=nx; P.y=ny; }
-  P.x=clamp(P.x,20,W.w-20); P.y=clamp(P.y,20,W.h-20); }
-
-/* ---------- HUD ---------- */
-const $=id=>document.getElementById(id);
-function updateHUD(){
-  $('hpfill').style.width=(P.hp/P.maxhp*100)+'%'; $('enfill').style.width=P.energy+'%'; $('xpfill').style.width=(P.xp/P.xpNext*100)+'%';
-  $('plevel').textContent='Lv. '+P.level+(P.evolved?' ⭐ RAICHU':''); $('sBerries').textContent=P.berries; $('sWins').textContent=P.wins; $('sCoins').textContent=P.coins;
-  $('pname').textContent=P.evolved?'⚡ RAICHU':'⚡ PIKACHU';
-  const q=QUESTS[questStage]; $('questPanel').innerHTML=`<b>${q.title}</b>${q.desc}<div class="prog">${q.prog()}</div>`;
+function defeatWild(w){ w.dead=true; scene.remove(w.mesh); P.wins++; const coins=irnd(3,9); P.coins+=coins; sfx.coin();
+  floater(w.x,3,w.z,`Besegrad! +${w.xp} XP`,'#7dd3fc'); floater(w.x,2.2,w.z,`+${coins} 🪙`,'#fde047');
+  burst(w.x,1.4,w.z,0xfde047,18); gainXP(w.xp);
+  if(questStage===2&&P.wins>=5){ questStage=3; sfx.quest(); toast('🎉 Uppdrag klart! Hitta Togepi i nordväst!'); }
+  setTimeout(spawnWild,2600); updateHUD(); }
+function gainXP(n){ P.xp+=n; while(P.xp>=P.xpNext){ P.xp-=P.xpNext; P.level++; P.xpNext=Math.floor(P.xpNext*1.45); P.maxhp+=12; P.hp=P.maxhp; sfx.level(); toast(`⭐ LEVEL UP! Level ${P.level}!`); burst(P.x,2,P.z,0x7dd3fc,24); } }
+function doDash(){
+  if(P.dashCd>0||paused||!gameStarted)return; P.dashCd=52; sfx.dash();
+  const step=1.1; burst(P.x,1,P.z,0xffffff,8);
+  for(let i=0;i<11;i++){ const nx=P.x+Math.sin(P.angle)*step, nz=P.z+Math.cos(P.angle)*step; if(collide(nx,nz,1))break; P.x=nx; P.z=nz; }
 }
-function showEnd(){ finished=true; $('endStats').innerHTML=`Du nådde <b>level ${P.level}</b>, samlade <b>${P.berries} bär</b> &amp; <b>${P.coins} mynt</b> och besegrade <b>${P.wins} vilda Pokémon</b>!`; $('endScreen').style.display='flex'; sfx.win(); }
+function doJump(){ if(!P.onGround||paused||!gameStarted)return; P.vy=8.6; P.onGround=false; sfx.jump(); burst(P.x,.4,P.z,0xffffff,5); }
 
 /* ---------- Spara ---------- */
-function save(silent){ try{ localStorage.setItem('pikachuSave',JSON.stringify({P,questStage,togepiFollowing,finished})); if(!silent)toast('💾 Spelet sparat!'); }catch(e){} }
-function load(){ try{ const s=JSON.parse(localStorage.getItem('pikachuSave')); if(!s)return false; Object.assign(P,s.P); questStage=s.questStage; togepiFollowing=s.togepiFollowing; finished=s.finished;
-  if(togepiFollowing){ const t=NPCS.find(n=>n.kind==='togepi'); t.hidden=false; } return true; }catch(e){ return false; } }
+function save(silent){ try{ localStorage.setItem('pikachu3dSave',JSON.stringify({P,questStage,togepiFollowing,finished})); if(!silent)toast('💾 Spelet sparat!'); }catch(e){} }
+function load(){ try{ const s=JSON.parse(localStorage.getItem('pikachu3dSave')); if(!s)return false; Object.assign(P,s.P); questStage=s.questStage; togepiFollowing=s.togepiFollowing; finished=s.finished; if(P.evolved)evolveVisual(); return true; }catch(e){ return false; } }
 
-/* ---------- Uppdatering ---------- */
-function update(){
-  time++;
-  dayT=(dayT+0.000045)%1;
-  if(paused||!gameStarted) return;
-  // rörelse
-  let mx=(keys.ArrowRight||keys.KeyD?1:0)-(keys.ArrowLeft||keys.KeyA?1:0)+joy.x;
-  let my=(keys.ArrowDown||keys.KeyS?1:0)-(keys.ArrowUp||keys.KeyW?1:0)+joy.y;
-  const mag=Math.hypot(mx,my); if(mag>1){mx/=mag;my/=mag;}
-  P.moving=mag>.12;
-  const swimming=inLake(P.x,P.y)&&!onBridge(P.x,P.y); P.swim=swimming;
-  let sp=P.speed*(keys.ShiftLeft||keys.ShiftRight?1.65:1)*(swimming?.62:1)*(P.evolved?1.08:1);
-  if(P.moving){ P.frame += ((keys.ShiftLeft||keys.ShiftRight) ? .55 : .38);
-    if(Math.abs(mx)>Math.abs(my)) P.dir=mx>0?'right':'left'; else P.dir=my>0?'down':'up';
-    const nx=P.x+mx*sp, ny=P.y+my*sp;
-    if(!solid(nx,P.y,13)) P.x=clamp(nx,18,W.w-18);
-    if(!solid(P.x,ny,13)) P.y=clamp(ny,18,W.h-18);
-    if(swimming&&time%22===0){ particles.push({x:P.x+rnd(-10,10),y:P.y+4,vx:0,vy:-.4,t:0,life:26,color:'rgba(147,197,253,.8)',r:rnd(2,4)}); if(time%66===0)sfx.splash(); }
-    if(time%(keys.ShiftLeft||keys.ShiftRight?9:16)===0) particles.push({x:P.x+rnd(-6,6),y:P.y+6,vx:rnd(-.3,.3),vy:rnd(-.5,-.1),t:0,life:16,color:'rgba(255,255,255,.5)',r:1.8});
-  }
-  // energi & hp regen
-  P.energy=clamp(P.energy+(swimming?-.06:.22),0,100);
-  if(swimming&&P.energy<=0){ P.hp-=.06; if(time%80===0){floater(P.x,P.y-42,'🥵 Trött! Simma till land!','#f87171');} }
-  else if(P.hp<P.maxhp&&time%90===0) P.hp=Math.min(P.maxhp,P.hp+.7);
-  if(P.zapCd>0)P.zapCd--; if(P.dashCd>0)P.dashCd--; if(P.hurtT>0)P.hurtT--;
-  if(P.hp<=0){ P.hp=P.maxhp*.6; P.x=500; P.y=1440; toast('😵 Pikachu svimmade! Du vaknar vid PokéCenter med lite HP...'); sfx.hurt(); }
-  // Togepi följer
-  const tog=NPCS.find(n=>n.kind==='togepi');
-  if(togepiFollowing){ const d=dist(tog,P); if(d>46){ tog.x+=(P.x-tog.x)*.055; tog.y+=(P.y-tog.y)*.055; } tog.hidden=false; }
-  else if(questStage>=3) tog.hidden=false;
-  // NPC vandring
-  for(const n of NPCS){ if(n.hidden||n.kind==='togepi'&&togepiFollowing) continue; if(n.wander>0){ n.ph+=.008; const tx=n.home.x+Math.sin(n.ph)*n.wander, ty=n.home.y+Math.cos(n.ph*1.3)*n.wander*.6; n.x+=(tx-n.x)*.012; n.y+=(ty-n.y)*.012; }
-    if(n.kind==='snorlax'&&!n.sleeping){ n.x+=(n.home.x-n.x)*.02; n.y+=(n.home.y-n.y)*.02; } }
-  // Vilda Pokémon AI
-  for(const w of wilds){ if(w.dead)continue; if(w.hurtT>0)w.hurtT--; if(w.atkCd>0)w.atkCd--;
-    const d=dist(w,P);
-    if(d<190) w.state='chase'; else if(d>300) w.state='idle';
-    if(w.state==='chase'){ const a=Math.atan2(P.y-w.y,P.x-w.x); const nx=w.x+Math.cos(a)*w.speed, ny=w.y+Math.sin(a)*w.speed; if(!solid(nx,ny,11)){w.x=nx;w.y=ny;}
-      if(d<30&&w.atkCd<=0){ w.atkCd=55; P.hp-=w.dmg; P.hurtT=16; sfx.hurt(); floater(P.x,P.y-48,'-'+w.dmg+' HP','#f87171'); particles.push(...burst(P.x,P.y-16,'#f87171',8)); updateHUD(); } }
-    else { w.t--; if(w.t<=0){ w.t=irnd(60,170); w.vx=rnd(-.5,.5); w.vy=rnd(-.5,.5);} const nx=w.x+w.vx, ny=w.y+w.vy; if(!solid(nx,ny,11)&&nx>20&&nx<W.w-20&&ny>20&&ny<W.h-20){w.x=nx;w.y=ny;} }
-  }
-  wilds=wilds.filter(w=>!w.dead);
-  // partiklar
-  for(const p of particles){ p.t++; p.x+=p.vx; p.y+=p.vy; p.vy+=.04; }
-  particles=particles.filter(p=>p.t<p.life);
-  for(const b of bolts)b.t++; bolts=bolts.filter(b=>b.t<9);
-  for(const f of floaters){f.t++; f.y-=.7;} floaters=floaters.filter(f=>f.t<70);
-  // bärbuskar växer tillbaka
-  if(time%1400===0) for(const b of bushes) if(b.berries<3)b.berries++;
-  checkNear();
-  $('prompt').style.display=nearTarget&&!dialogQueue?'block':'none';
-  if(nearTarget)$('promptText').textContent=nearTarget.label;
-  // klocka
-  const dayPhase = dayT>.28&&dayT<.75;
-  $('clock').textContent = dayT<.22||dayT>.82?'🌙 Natt':dayT<.32?'🌅 Morgon':dayT<.68?'☀️ Dag':'🌇 Kväll';
-  cam.x=clamp(P.x-VW/2,0,Math.max(0,W.w-VW)); cam.y=clamp(P.y-VH/2,0,Math.max(0,W.h-VH));
-  if(time%10===0) updateHUD();
-}
-
-/* ---------- Rita världen ---------- */
-function draw(){
-  ctx.clearRect(0,0,VW,VH);
-  const cx=cam.x, cy=cam.y;
-  // himmelkant / gräs-botten
-  const dayPhase = dayT>.28&&dayT<.75, night = dayT<.2||dayT>.85;
-  const grassCol = night?'#1d4d2b':dayPhase?'#57a639':'#3f7d33';
-  ctx.fillStyle=grassCol; ctx.fillRect(0,0,VW,VH);
-  // rutnät av gräs-nyanser (bara synliga)
-  const ts=64;
-  for(let gx=Math.floor(cx/ts)*ts; gx<cx+VW+ts; gx+=ts) for(let gy=Math.floor(cy/ts)*ts; gy<cy+VH+ts; gy+=ts){
-    const h=Math.abs(Math.sin(gx*12.9898+gy*78.233)*43758.5453)%1;
-    ctx.fillStyle=`rgba(${night?10:255},${night?40:255},${night?20:180},${.03+h*.05})`; ctx.fillRect(gx-cx,gy-cy,ts,ts);
-    if(h>.82){ ctx.strokeStyle=night?'rgba(120,220,140,.25)':'rgba(30,90,20,.35)'; ctx.lineWidth=1.4; const ox=gx-cx+ (h*40)%50, oy=gy-cy+(h*70)%50;
-      ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(ox-2,oy-7); ctx.moveTo(ox+4,oy); ctx.lineTo(ox+5,oy-8); ctx.moveTo(ox+8,oy); ctx.lineTo(ox+11,oy-6); ctx.stroke(); }
-  }
-  // stigar
-  ctx.strokeStyle=night?'#6b543a':'#d9b678'; ctx.lineCap='round';
-  ctx.lineWidth=52; ctx.beginPath(); ctx.moveTo(1700-cx,2600-cy); ctx.quadraticCurveTo(1650-cx,2100-cy,1700-cx,1830-cy); ctx.quadraticCurveTo(1720-cx,1400-cy,1500-cx,1000-cy); ctx.quadraticCurveTo(1350-cx,700-cy,700-cx,520-cy); ctx.stroke();
-  ctx.lineWidth=44; ctx.beginPath(); ctx.moveTo(500-cx,1440-cy); ctx.quadraticCurveTo(1100-cx,1600-cy,1700-cx,1950-cy); ctx.quadraticCurveTo(2300-cx,1900-cy,2780-cx,1830-cy); ctx.stroke();
-  ctx.lineWidth=38; ctx.beginPath(); ctx.moveTo(1700-cx,1830-cy); ctx.quadraticCurveTo(2000-cx,1200-cy,2250-cx,760-cy); ctx.stroke();
-  // högt gräs
-  for(const g of grasses){ if(g.x+g.w<cx-40||g.x>cx+VW+40||g.y+g.h<cy-40||g.y>cy+VH+40)continue;
-    ctx.fillStyle=night?'rgba(20,90,40,.55)':'rgba(34,130,50,.4)'; ctx.beginPath(); ctx.roundRect(g.x-cx,g.y-cy,g.w,g.h,18); ctx.fill();
-    ctx.strokeStyle=night?'#2f9e5f':'#2f9e44'; ctx.lineWidth=2;
-    for(let i=0;i<14;i++){ const px=g.x-cx+((i*47)%g.w), py=g.y-cy+((i*31)%g.h); const sw=Math.sin(time*.06+i)*3; ctx.beginPath(); ctx.moveTo(px,py); ctx.quadraticCurveTo(px+sw,py-10,px+sw*1.6,py-16); ctx.stroke(); } }
-  // sjö
-  ctx.fillStyle=night?'#164e7a':'#38a8e0'; ctx.beginPath(); ctx.arc(lake.x-cx,lake.y-cy,lake.r,0,7); ctx.fill();
-  ctx.fillStyle=night?'#1d6aa8':'#5fc3f0'; ctx.beginPath(); ctx.arc(lake.x-cx,lake.y-cy,lake.r-22,0,7); ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=2;
-  for(let i=0;i<6;i++){ const a=time*.02+i*1.1, r=lake.r*.35+Math.sin(time*.03+i)*30; ctx.beginPath(); ctx.arc(lake.x-cx+Math.cos(a)*r, lake.y-cy+Math.sin(a)*r*.7, 12+Math.sin(time*.05+i)*4, .2, Math.PI-.4); ctx.stroke(); }
-  // strand
-  ctx.strokeStyle=night?'#8a734f':'#ecd28f'; ctx.lineWidth=10; ctx.beginPath(); ctx.arc(lake.x-cx,lake.y-cy,lake.r+2,0,7); ctx.stroke();
-  // bro
-  ctx.fillStyle='#9a6a35'; ctx.fillRect(bridge.x-cx,bridge.y-cy,bridge.w,bridge.h);
-  ctx.fillStyle='#b9834a'; for(let x=0;x<bridge.w;x+=26) ctx.fillRect(bridge.x-cx+x,bridge.y-cy,3,bridge.h);
-  ctx.fillStyle='#7c4a03'; ctx.fillRect(bridge.x-cx,bridge.y-cy-6,bridge.w,7); ctx.fillRect(bridge.x-cx,bridge.y-cy+bridge.h-1,bridge.w,7);
-  // blommor
-  for(const f of flowers){ if(f.x<cx-20||f.x>cx+VW+20||f.y<cy-20||f.y>cy+VH+20)continue; const sw=Math.sin(time*.05+f.ph)*1.2;
-    ctx.fillStyle=f.c; for(let p=0;p<5;p++){ const a=p/5*Math.PI*2; ctx.beginPath(); ctx.arc(f.x-cx+Math.cos(a)*3+sw,f.y-cy+Math.sin(a)*3,2.4,0,7); ctx.fill(); }
-    ctx.fillStyle='#fff7ae'; ctx.beginPath(); ctx.arc(f.x-cx+sw,f.y-cy,1.8,0,7); ctx.fill(); }
-  // glimmer
-  for(const s of sparkles){ if(s.x<cx-20||s.x>cx+VW+20||s.y<cy-20||s.y>cy+VH+20)continue; const a=.3+Math.abs(Math.sin(time*.04+s.ph))*.7;
-    ctx.fillStyle=night?`rgba(253,224,71,${a})`:`rgba(255,255,255,${a*.6})`; ctx.beginPath(); ctx.arc(s.x-cx,s.y-cy,1.8,0,7); ctx.fill(); }
-  // buskar med bär
-  for(const b of bushes){ if(b.x<cx-50||b.x>cx+VW+50||b.y<cy-50||b.y>cy+VH+50)continue; const sw=Math.sin(time*.04+b.ph)*1.5;
-    ctx.fillStyle='rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(b.x-cx,b.y-cy+10,24,6,0,0,7); ctx.fill();
-    ctx.fillStyle=night?'#1e7a3c':'#2fbf5a'; ctx.beginPath(); ctx.arc(b.x-cx+sw,b.y-cy,20,0,7); ctx.arc(b.x-cx-13,b.y-cy+4,14,0,7); ctx.arc(b.x-cx+13,b.y-cy+4,14,0,7); ctx.fill();
-    if(b.berries>0){ ctx.fillStyle='#ec4899'; for(let i=0;i<b.berries;i++){ ctx.beginPath(); ctx.arc(b.x-cx-9+i*9+sw,b.y-cy-6+((i%2)*8),4.4,0,7); ctx.fill(); ctx.fillStyle='#f9a8d4'; ctx.beginPath(); ctx.arc(b.x-cx-10+i*9+sw,b.y-cy-8+((i%2)*8),1.5,0,7); ctx.fill(); ctx.fillStyle='#ec4899'; } } }
-  // stenar
-  for(const r of rocks){ if(r.x<cx-50||r.x>cx+VW+50||r.y<cy-50||r.y>cy+VH+50)continue;
-    ctx.fillStyle='rgba(0,0,0,.2)'; ctx.beginPath(); ctx.ellipse(r.x-cx,r.y-cy+r.r*.6,r.r,r.r*.35,0,0,7); ctx.fill();
-    ctx.fillStyle=night?'#5b6b7d':'#94a3b8'; ctx.beginPath(); ctx.ellipse(r.x-cx,r.y-cy,r.r,r.r*.78,0,0,7); ctx.fill();
-    ctx.fillStyle=night?'#71859c':'#cbd5e1'; ctx.beginPath(); ctx.ellipse(r.x-cx-r.r*.25,r.y-cy-r.r*.25,r.r*.5,r.r*.35,0,0,7); ctx.fill(); }
-  // staket
-  for(const f of fences){ if(f.x<cx-30||f.x>cx+VW+30||f.y<cy-40||f.y>cy+VH+30)continue;
-    ctx.fillStyle='#8a5a12'; ctx.fillRect(f.x-cx-3,f.y-cy-14,6,20); ctx.fillStyle='#a9711f'; ctx.fillRect(f.x-cx-13,f.y-cy-10,26,4); ctx.fillRect(f.x-cx-13,f.y-cy-3,26,4); }
-  // skyltar
-  for(const s of signs){ ctx.fillStyle='#8a5a12'; ctx.fillRect(s.x-cx-3,s.y-cy-8,6,14); ctx.fillStyle='#d9a441'; ctx.beginPath(); ctx.roundRect(s.x-cx-17,s.y-cy-26,34,19,4); ctx.fill(); ctx.strokeStyle='#7c4a03'; ctx.stroke();
-    ctx.fillStyle='#3b2f00'; ctx.font='bold 11px sans-serif'; ctx.textAlign='center'; ctx.fillText('!',s.x-cx,s.y-cy-12); ctx.textAlign='left'; }
-  // hus
-  for(const h of houses){ const hx=h.x-cx, hy=h.y-cy; if(hx+h.w<-40||hx>VW+40||hy+h.h<-40||hy>VH+60)continue;
-    ctx.fillStyle='rgba(0,0,0,.25)'; ctx.beginPath(); ctx.ellipse(hx+h.w/2,hy+h.h+10,h.w*.55,12,0,0,7); ctx.fill();
-    ctx.fillStyle='#fef3c7'; ctx.fillRect(hx,hy+28,h.w,h.h-28); ctx.strokeStyle='#92400e'; ctx.lineWidth=2; ctx.strokeRect(hx,hy+28,h.w,h.h-28);
-    ctx.fillStyle=h.roof; ctx.beginPath(); ctx.moveTo(hx-12,hy+34); ctx.lineTo(hx+h.w/2,hy-24); ctx.lineTo(hx+h.w+12,hy+34); ctx.closePath(); ctx.fill(); ctx.strokeStyle='rgba(0,0,0,.3)'; ctx.stroke();
-    ctx.fillStyle='#92400e'; ctx.fillRect(hx+h.w/2-14,hy+h.h-46,28,46);
-    ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(hx+h.w/2+8,hy+h.h-22,2.6,0,7); ctx.fill();
-    ctx.fillStyle=night?'#fde047':'#bae6fd'; ctx.fillRect(hx+18,hy+52,26,24); ctx.fillRect(hx+h.w-44,hy+52,26,24);
-    ctx.fillStyle='rgba(0,0,0,.75)'; const label=h.name; ctx.font='bold 12px sans-serif'; const tw=ctx.measureText(label).width+16;
-    ctx.beginPath(); ctx.roundRect(hx+h.w/2-tw/2,hy-42,tw,19,9); ctx.fill(); ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.fillText(label,hx+h.w/2,hy-28); ctx.textAlign='left'; }
-  // träd
-  const sortedTrees=trees.filter(t=>t.x>cx-70&&t.x<cx+VW+70&&t.y>cy-90&&t.y<cy+VH+70).sort((a,b)=>a.y-b.y);
-  for(const t of sortedTrees){ const tx=t.x-cx, ty=t.y-cy, s=t.s, sway=Math.sin(time*.03+t.ph)*2;
-    ctx.fillStyle='rgba(0,0,0,.22)'; ctx.beginPath(); ctx.ellipse(tx,ty+6,17*s,5*s,0,0,7); ctx.fill();
-    ctx.fillStyle='#7c4a03'; ctx.fillRect(tx-4*s,ty-16*s,8*s,20*s);
-    const cols=t.kind===0?['#1e7a34','#2f9e44','#4cc95e']:t.kind===1?['#c2410c','#ea580c','#fb923c']:['#166534','#22c55e','#86efac'];
-    ctx.fillStyle=cols[0]; ctx.beginPath(); ctx.arc(tx+sway,ty-34*s,25*s,0,7); ctx.fill();
-    ctx.fillStyle=cols[1]; ctx.beginPath(); ctx.arc(tx-12*s+sway,ty-24*s,18*s,0,7); ctx.arc(tx+13*s+sway,ty-25*s,17*s,0,7); ctx.fill();
-    ctx.fillStyle=cols[2]; ctx.beginPath(); ctx.arc(tx+sway,ty-40*s,14*s,0,7); ctx.fill();
-    if(t.kind===1){ ctx.fillStyle='#fde68a'; for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(tx-10*s+i*10*s+sway,ty-28*s+((i%2)*8*s),2.6*s,0,7);ctx.fill();} } }
-  // entiteter sorterade på y
-  const ents=[];
-  for(const n of NPCS) if(!n.hidden) ents.push({y:n.y,f:()=>drawMon({...n,x:n.x-cx,y:n.y-cy})});
-  for(const w of wilds) ents.push({y:w.y,f:()=>drawMon({...w,x:w.x-cx,y:w.y-cy})});
-  ents.push({y:P.y,f:()=>{ 
-    if(P.hurtT>0&&Math.floor(time/3)%2===0){ ctx.globalAlpha=.45; }
-    drawPikachu(P.x-cx,P.y-cy,P.dir,P.frame,P.evolved?1.18:1,P.evolved,P.moving);
-    ctx.globalAlpha=1;
-    if(P.dashCd>38){ ctx.strokeStyle='rgba(255,255,255,.6)'; ctx.beginPath(); ctx.arc(P.x-cx,P.y-cy-12,22,0,7); ctx.stroke(); }
-  }});
-  ents.sort((a,b)=>a.y-b.y); for(const e of ents)e.f();
-  // blixtar
-  for(const b of bolts){ ctx.strokeStyle=`rgba(253,224,71,${1-b.t/9})`; ctx.lineWidth=3.5; ctx.shadowColor='#facc15'; ctx.shadowBlur=14;
-    ctx.beginPath(); ctx.moveTo(b.x1-cx,b.y1-cy); const segs=5; for(let i=1;i<=segs;i++){ const t=i/segs; ctx.lineTo(b.x1+(b.x2-b.x1)*t-cx+rnd(-9,9), b.y1+(b.y2-b.y1)*t-cy+rnd(-9,9)); } ctx.stroke(); ctx.shadowBlur=0; }
-  // partiklar & floaters
-  for(const p of particles){ ctx.globalAlpha=1-p.t/p.life; ctx.fillStyle=p.color; ctx.beginPath(); ctx.arc(p.x-cx,p.y-cy,p.r,0,7); ctx.fill(); } ctx.globalAlpha=1;
-  ctx.font='bold 14px sans-serif'; ctx.textAlign='center';
-  for(const f of floaters){ ctx.globalAlpha=1-f.t/70; ctx.fillStyle=f.color; ctx.strokeStyle='rgba(0,0,0,.6)'; ctx.lineWidth=3; ctx.strokeText(f.txt,f.x-cx,f.y-cy); ctx.fillText(f.txt,f.x-cx,f.y-cy); } ctx.globalAlpha=1; ctx.textAlign='left';
-  // natt-overlay + eldflugor
-  const darkness = night?.52 : (dayT>.68&&dayT<.85)?.22 : (dayT>.2&&dayT<.3)?.18 : 0;
-  if(darkness>0){ ctx.fillStyle=`rgba(8,12,48,${darkness})`; ctx.fillRect(0,0,VW,VH);
-    // ljus runt Pikachu
-    const g=ctx.createRadialGradient(P.x-cx,P.y-cy,30,P.x-cx,P.y-cy,190); g.addColorStop(0,'rgba(255,220,100,.20)'); g.addColorStop(1,'rgba(255,220,100,0)'); ctx.fillStyle=g; ctx.fillRect(0,0,VW,VH);
-    for(let i=0;i<26;i++){ const fx=(Math.sin(i*37.7+time*.008)*.5+.5)*VW, fy=(Math.cos(i*53.3+time*.006)*.5+.5)*VH; const a=.3+Math.abs(Math.sin(time*.06+i))* .7; ctx.fillStyle=`rgba(253,224,71,${a})`; ctx.beginPath(); ctx.arc(fx,fy,2,0,7); ctx.fill(); }
-  }
-  // minimap
-  if(gameStarted&&time%6===0) drawMinimap();
-}
+/* ================================================================
+   SPELLOOP
+================================================================ */
+const mm=$('minimap'), mmx=mm.getContext('2d');
 function drawMinimap(){
-  const sx=150/W.w, sy=112/W.h; mmx.clearRect(0,0,150,112);
-  mmx.fillStyle='#2f9e44'; mmx.fillRect(0,0,150,112);
-  mmx.fillStyle='#38a8e0'; mmx.beginPath(); mmx.arc(lake.x*sx,lake.y*sy,lake.r*sx,0,7); mmx.fill();
-  mmx.fillStyle='#d9b678'; mmx.fillRect(bridge.x*sx,bridge.y*sy,bridge.w*sx,4);
-  for(const h of houses){ mmx.fillStyle='#fff'; mmx.fillRect(h.x*sx-2,h.y*sy-2,5,5); }
-  mmx.fillStyle='#fff'; mmx.beginPath(); mmx.arc(NPCS[0].x*sx,NPCS[0].y*sy,3,0,7); mmx.fill();
-  const tog=NPCS.find(n=>n.kind==='togepi'); if(!tog.hidden||questStage>=3){ mmx.fillStyle='#fda4af'; mmx.beginPath(); mmx.arc(tog.x*sx,tog.y*sy,3.4,0,7); mmx.fill(); }
-  for(const w of wilds){ mmx.fillStyle='#f87171'; mmx.fillRect(w.x*sx-1.5,w.y*sy-1.5,3,3); }
-  mmx.fillStyle='#fde047'; mmx.strokeStyle='#000'; mmx.beginPath(); mmx.arc(P.x*sx,P.y*sy,4,0,7); mmx.fill(); mmx.stroke();
-  mmx.strokeStyle='rgba(255,255,255,.6)'; mmx.strokeRect(cam.x*sx,cam.y*sy,VW*sx,VH*sy);
+  const sx=150/W.w, sy=114/W.h; mmx.clearRect(0,0,150,114);
+  mmx.fillStyle='#2f7d38'; mmx.fillRect(0,0,150,114);
+  mmx.fillStyle='#38a8e0'; mmx.beginPath(); mmx.arc(lake.x*sx,lake.z*sy,lake.r*sx,0,7); mmx.fill();
+  mmx.fillStyle='#d9b678'; mmx.fillRect(bridge.x*sx,bridge.z*sy,bridge.w*sx,3);
+  for(const h of houses){ mmx.fillStyle='#fff'; mmx.fillRect(h.x*sx-2,(h.z)*sy-2,5,5); }
+  const tog=NPCS.find(n=>n.kind==='togepi');
+  mmx.fillStyle='#fda4af'; mmx.beginPath(); mmx.arc(tog.x*sx,tog.z*sy,3.4,0,7); mmx.fill();
+  mmx.fillStyle='#fff'; mmx.beginPath(); mmx.arc(NPCS[0].x*sx,NPCS[0].z*sy,3,0,7); mmx.fill();
+  for(const w of wilds){ mmx.fillStyle='#f87171'; mmx.fillRect(w.x*sx-1.5,w.z*sy-1.5,3,3); }
+  mmx.fillStyle='#fde047'; mmx.strokeStyle='#000'; mmx.beginPath(); mmx.arc(P.x*sx,P.z*sy,4.2,0,7); mmx.fill(); mmx.stroke();
+  // kamerans synfält
+  mmx.strokeStyle='rgba(255,255,255,.65)'; mmx.beginPath(); mmx.moveTo(P.x*sx,P.z*sy);
+  mmx.lineTo((P.x+Math.sin(camYaw-.5)*9)*sx,(P.z+Math.cos(camYaw-.5)*9)*sy); mmx.moveTo(P.x*sx,P.z*sy);
+  mmx.lineTo((P.x+Math.sin(camYaw+.5)*9)*sx,(P.z+Math.cos(camYaw+.5)*9)*sy); mmx.stroke();
 }
 
-/* ---------- Loop ---------- */
-function loop(){ update(); if(gameStarted) draw(); requestAnimationFrame(loop); }
-loop();
+let lastT=performance.now(), fpsAcc=0, fpsN=0, fpsTimer=0;
+function loop(now){
+  requestAnimationFrame(loop);
+  let dt=Math.min(.05,(now-lastT)/1000||.016); lastT=now; time++;
+  // dynamisk kvalitet för svaga telefoner
+  fpsAcc+=dt; fpsN++; fpsTimer+=dt;
+  if(fpsTimer>2.5){ const avg=fpsN/fpsAcc; if(avg<26&&renderer.getPixelRatio()>1){ renderer.setPixelRatio(Math.max(1,renderer.getPixelRatio()-.35)); } fpsAcc=0; fpsN=0; fpsTimer=0; }
 
-/* ---------- Input ---------- */
+  if(gameStarted&&!paused){
+    /* --- rörelse: joystick/tangenter relativt kameran --- */
+    let ix=joy.x, iz=joy.y;
+    if(keys.KeyW||keys.ArrowUp)iz-=1; if(keys.KeyS||keys.ArrowDown)iz+=1; if(keys.KeyA||keys.ArrowLeft)ix-=1; if(keys.KeyD||keys.ArrowRight)ix+=1;
+    const mag=Math.hypot(ix,iz); if(mag>1){ix/=mag;iz/=mag;}
+    P.moving=mag>.14;
+    const swimming=inLake(P.x,P.z)&&!onBridge(P.x,P.z); P.swim=swimming;
+    const run=(keys.ShiftLeft||keys.ShiftRight)?1.55:1;
+    const speed=(P.evolved?11.5:10.5)*run*(swimming?.55:1);
+    if(P.moving){
+      // kamera-framåt = (sin(camYaw), cos(camYaw)) pekar från kamera mot spelare-> vidare
+      const fx=Math.sin(camYaw), fz=Math.cos(camYaw), rx=Math.cos(camYaw), rz=-Math.sin(camYaw);
+      const wx=fx*(-iz)+rx*ix, wz=fz*(-iz)+rz*ix;
+      const targetAngle=Math.atan2(wx,wz);
+      let da=targetAngle-P.angle; while(da>Math.PI)da-=Math.PI*2; while(da<-Math.PI)da+=Math.PI*2;
+      P.angle+=da*Math.min(1,dt*13);
+      const vx=Math.sin(P.angle)*speed*mag, vz=Math.cos(P.angle)*speed*mag;
+      const nx=P.x+vx*dt, nz=P.z+vz*dt;
+      if(!collide(nx,P.z,.95)) P.x=nx;
+      if(!collide(P.x,nz,.95)) P.z=nz;
+      P.walkPh+=dt*(run>1?13:10);
+      if(swimming&&time%20===0){ burst(P.x,.3,P.z,0x93c5fd,3); if(time%70===0)sfx.splash(); }
+    } else P.walkPh+=dt*2;
+    // hopp/gravitation
+    if(!P.onGround){ P.vy-=24*dt; P.y+=P.vy*dt; if(P.y<=0){ P.y=0; P.vy=0; P.onGround=true; burst(P.x,.3,P.z,0xffffff,5); } }
+    // energi/hp
+    P.energy=clamp(P.energy+(swimming?-.09:.3)*dt*60/2.2,0,100);
+    if(swimming&&P.energy<=0){ P.hp-=3*dt; if(time%90===0)floater(P.x,3.6,P.z,'🥵 Trött! Till land!','#f87171'); }
+    else if(P.hp<P.maxhp) P.hp=Math.min(P.maxhp,P.hp+1.1*dt);
+    if(P.zapCd>0)P.zapCd--; if(P.dashCd>0)P.dashCd--; if(P.hurtT>0)P.hurtT--;
+    if(P.hp<=0){ P.hp=P.maxhp*.6; P.x=50; P.z=166; toast('😵 Pikachu svimmade! Du vaknar vid PokéCenter...'); sfx.hurt(); updateHUD(); }
+    // Togepi följer
+    const tog=NPCS.find(n=>n.kind==='togepi');
+    if(togepiFollowing){ const d=dist2(P.x,P.z,tog.x,tog.z); if(d>5){ tog.x+=(P.x-tog.x)*dt*2.4; tog.z+=(P.z-tog.z)*dt*2.4; tog.mesh.position.set(tog.x,Math.abs(Math.sin(time*.22))*.35,tog.z); } }
+    // NPC-vandring
+    for(const n of NPCS){
+      if(n.kind==='togepi'&&togepiFollowing) continue;
+      if(n.kind==='snorlax'&&!n.sleeping){ n.x+=(n.home.x-n.x)*dt*1.4; n.z+=(n.home.z-n.z)*dt*1.4; }
+      else if(n.wander>0){ n.ph+=dt*.32; const tx=n.home.x+Math.sin(n.ph)*n.wander, tz=n.home.z+Math.cos(n.ph*1.3)*n.wander*.6;
+        const ox=n.x, oz=n.z; n.x+=(tx-n.x)*dt*1.1; n.z+=(tz-n.z)*dt*1.1;
+        if(Math.abs(n.x-ox)+Math.abs(n.z-oz)>.001) n.mesh.rotation.y=Math.atan2(n.x-ox,n.z-oz); }
+      n.mesh.position.x=n.x; n.mesh.position.z=n.z;
+      if(n.kind!=='togepi'||!togepiFollowing) n.mesh.position.y=n.kind==='snorlax'?0:Math.abs(Math.sin(time*.09+n.ph*7))*.14;
+    }
+    // vilda Pokémon-AI
+    for(const w of wilds){ if(w.dead)continue; if(w.hurtT>0)w.hurtT--; if(w.atkCd>0)w.atkCd--;
+      const d=dist2(w.x,w.z,P.x,P.z);
+      if(d<20)w.state='chase'; else if(d>32)w.state='idle';
+      if(w.state==='chase'){ const a=Math.atan2(P.x-w.x,P.z-w.z); w.angle=a;
+        const nx=w.x+Math.sin(a)*w.speed*dt, nz=w.z+Math.cos(a)*w.speed*dt;
+        if(!collide(nx,nz,.8)){w.x=nx;w.z=nz;}
+        if(d<3.1&&w.atkCd<=0){ w.atkCd=52; P.hp-=w.dmg; P.hurtT=16; sfx.hurt(); floater(P.x,3.8,P.z,'-'+w.dmg+' HP','#f87171'); burst(P.x,1.6,P.z,0xf87171,8); updateHUD(); } }
+      else { w.t-=dt*60; if(w.t<=0){ w.t=irnd(60,170); w.vx=rnd(-1.4,1.4); w.vz=rnd(-1.4,1.4); w.angle=Math.atan2(w.vx,w.vz); }
+        const nx=w.x+w.vx*dt, nz=w.z+w.vz*dt; if(!collide(nx,nz,.8)&&nx>3&&nx<W.w-3&&nz>3&&nz<W.h-3){w.x=nx;w.z=nz;} }
+      w.mesh.position.set(w.x, w.kind==='zubat'?1.3+Math.sin(time*.15+w.ph)*.3 : Math.abs(Math.sin(time*.16+w.ph))*.22, w.z);
+      w.mesh.rotation.y=w.angle;
+      if(w.hurtT>0) w.mesh.traverse(o=>{ if(o.isMesh)o.material.emissive&&o.material.setHex&&false; });
+    }
+    wilds=wilds.filter(w=>!w.dead);
+    if(time%1500===0) for(const b of bushes) if(b.berries<3){ b.berries++; refreshBush(b); }
+    checkNear();
+    $('prompt').style.display=nearTarget&&!dialogQueue?'block':'none';
+    if(nearTarget)$('promptText').textContent=nearTarget.label;
+    if(time%12===0) updateHUD();
+  }
+
+  /* --- dag/natt --- */
+  dayT=(dayT+dt*0.0042)%1;
+  const sunA=dayT*Math.PI*2-Math.PI/2; // solens vinkel
+  const elev=Math.sin(sunA);
+  const dayF=clamp(elev*1.6+.35,0,1); // 1 = dag
+  const skyDay=new THREE.Color(0x87ceeb), skyNight=new THREE.Color(0x121a3d), skyDusk=new THREE.Color(0xff9a5c);
+  const sky=skyNight.clone().lerp(skyDay,dayF); if(elev>-.12&&elev<.28) sky.lerp(skyDusk,.45*Math.max(0,1-Math.abs(elev-.06)*4));
+  scene.background=sky; scene.fog.color.copy(sky); scene.fog.near=55-dayF*10; scene.fog.far=190-dayF*40;
+  hemi.intensity=.22+dayF*.55;
+  sun.intensity=Math.max(0,elev)*1.15+.04;
+  sun.position.set(P.x+Math.cos(sunA)*70, Math.max(8,elev*80), P.z+30);
+  sun.target.position.set(P.x,0,P.z);
+  starMat.opacity=clamp(1-dayF*1.7,0,1);
+  fireMat.opacity=clamp(.75-dayF,0,.8);
+  pikaLight.intensity=clamp(.7-dayF,0,.65); pikaLight.position.set(P.x,2.5,P.z);
+  $('clock').textContent= dayT<.2||dayT>.84?'🌙 Natt':dayT<.3?'🌅 Morgon':dayT<.68?'☀️ Dag':'🌇 Kväll';
+  // eldflugor svävar
+  if(fireMat.opacity>0.03){ const pos=fireMat.userData.geo.attributes.position; for(let i=0;i<80;i++){ pos.array[i*3]+=Math.sin(time*.02+i)*.015; pos.array[i*3+1]+=Math.cos(time*.03+i*2)*.008; } pos.needsUpdate=true; }
+  for(const c of clouds){ c.position.x+=dt*1.1; if(c.position.x>W.w+25)c.position.x=-25; c.traverse(o=>{ if(o.isMesh)o.material.opacity=1; }); }
+
+  /* --- animera Pikachu --- */
+  {
+    const swimSink=P.swim?-.55:0;
+    const bob=P.moving?Math.abs(Math.sin(P.walkPh))*.32:Math.sin(time*.07)*.07;
+    pik.group.position.set(P.x, P.y+bob+swimSink, P.z);
+    pik.group.rotation.y=P.angle;
+    pik.group.rotation.x=P.swim?-.25:0;
+    const wob=P.moving?Math.sin(P.walkPh):Math.sin(time*.07)*.4;
+    pik.parts.ears.forEach((e,i)=>{ e.rotation.z=(i===0?1:-1)*-.48 + wob*.1*(i?1:-1); });
+    pik.parts.tail.rotation.z=wob*.22;
+    pik.parts.arms.forEach((a,i)=>{ a.position.y=1.0+wob*(i?.18:-.18); });
+    pik.parts.feet.forEach((f,i)=>{ f.position.z=.55+wob*(i?.3:-.3)*(P.moving?1:.2); });
+    if(P.hurtT>0) pik.group.traverse(o=>{ if(o.isMesh&&o.material===pik.parts.yellow) o.material.emissive=new THREE.Color(Math.floor(time/3)%2?0x661111:0x000000); });
+  }
+  for(const b of bushes){ b.mesh.rotation.y=Math.sin(time*.03+b.ph)*.05; const s=1+Math.sin(time*.05+b.ph)*.02; b.mesh.scale.set(s,s,s); }
+  for(const n of NPCS){ if(n.kind==='snorlax'&&n.sleeping&&time%100===0) floater(n.x,5,n.z,'Z z z 💤','rgba(255,255,255,.85)'); }
+
+  /* --- partiklar / blixtar / floaters --- */
+  for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.t+=dt; p.m.position.x+=p.vx*dt; p.m.position.y+=p.vy*dt; p.m.position.z+=p.vz*dt; p.vy-=9*dt; p.m.scale.setScalar(Math.max(.05,1-p.t/p.life));
+    if(p.t>=p.life){ scene.remove(p.m); p.m.material.dispose(); particles.splice(i,1); } }
+  for(let i=bolts.length-1;i>=0;i--){ const b=bolts[i]; b.userData.t+=dt; if(b.isLine)b.material.opacity=1-b.userData.t/.18; if(b.isLight)b.intensity=Math.max(0,2.2-b.userData.t*12);
+    if(b.userData.t>.2){ scene.remove(b); bolts.splice(i,1); } }
+  {
+    const v=new THREE.Vector3();
+    for(let i=floaters.length-1;i>=0;i--){ const f=floaters[i]; f.t+=dt; f.y+=dt*1.1;
+      v.set(f.x,f.y,f.z).project(camera);
+      if(v.z>1||v.x<-1.1||v.x>1.1){ f.el.style.display='none'; } else { f.el.style.display='block'; f.el.style.left=((v.x*.5+.5)*innerWidth)+'px'; f.el.style.top=((-v.y*.5+.5)*innerHeight)+'px'; f.el.style.opacity=String(1-f.t/1.5); }
+      if(f.t>1.5){ f.el.remove(); floaters.splice(i,1); } }
+  }
+
+  /* --- kamera (3:e person, snurrbar) --- */
+  const camTarget=new THREE.Vector3(P.x, 2+P.y, P.z);
+  const cx=P.x-Math.sin(camYaw)*Math.cos(camPitch)*camDist;
+  const cz=P.z-Math.cos(camYaw)*Math.cos(camPitch)*camDist;
+  const cy=2+P.y+Math.sin(camPitch)*camDist;
+  camera.position.lerp(new THREE.Vector3(cx,Math.max(cy,1.2),cz), gameStarted?Math.min(1,dt*7):1);
+  camera.lookAt(camTarget);
+
+  if(gameStarted&&time%5===0) drawMinimap();
+  renderer.render(scene,camera);
+}
+requestAnimationFrame(loop);
+
+/* ================================================================
+   INPUT — mobil (joystick + dra kamera) & dator
+================================================================ */
 addEventListener('keydown',e=>{ keys[e.code]=true;
-  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code)) e.preventDefault();
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();
   if(!gameStarted)return;
-  if(e.code==='Space'||e.code==='KeyJ'){ if(dialogQueue)nextDialog(); else zap(); }
-  if(e.code==='KeyE'||e.code==='Enter'){ if(dialogQueue)nextDialog(); else interact(); }
-  if(e.code==='KeyQ') dash();
+  if(e.code==='Space'||e.code==='KeyJ'){ dialogQueue?nextDialog():zap(); }
+  if(e.code==='KeyE'||e.code==='Enter'){ dialogQueue?nextDialog():interact(); }
+  if(e.code==='KeyQ'||e.code==='KeyK') doDash();
+  if(e.code==='KeyF'||e.code==='KeyL') doJump();
   if(e.code==='KeyM'){ soundOn=!soundOn; $('btnSound').textContent=soundOn?'🔊 Ljud: På':'🔇 Ljud: Av'; }
 });
 addEventListener('keyup',e=>keys[e.code]=false);
-// touch joystick
-const stick=$('stick'), nub=$('nub');
-function stickMove(e){ const r=stick.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2; const t=e.touches?e.touches[0]:e; let dx=(t.clientX-cx)/38, dy=(t.clientY-cy)/38; const m=Math.hypot(dx,dy); if(m>1){dx/=m;dy/=m;} joy.x=dx; joy.y=dy; joy.active=true; nub.style.left=(33+dx*30)+'px'; nub.style.top=(33+dy*30)+'px'; }
-stick.addEventListener('touchstart',e=>{e.preventDefault();stickMove(e);},{passive:false});
-stick.addEventListener('touchmove',e=>{e.preventDefault();stickMove(e);},{passive:false});
-stick.addEventListener('touchend',()=>{joy.x=joy.y=0;joy.active=false;nub.style.left='33px';nub.style.top='33px';});
-$('btnZap').addEventListener('touchstart',e=>{e.preventDefault(); dialogQueue?nextDialog():zap();},{passive:false});
-$('btnAct').addEventListener('touchstart',e=>{e.preventDefault(); dialogQueue?nextDialog():interact();},{passive:false});
-$('btnDash').addEventListener('touchstart',e=>{e.preventDefault(); dash();},{passive:false});
-// klick = zap mot klicket / gå? klick zappar framåt
-cv.addEventListener('pointerdown',e=>{ if(gameStarted&&!dialogQueue){ P.dir = Math.abs(e.clientX-VW/2)>Math.abs(e.clientY-VH/2) ? (e.clientX>VW/2?'right':'left') : (e.clientY>VH/2?'down':'up'); zap(); } });
 
-/* ---------- Knappar ---------- */
+/* joystick */
+const stick=$('stick'), nub=$('nub'); let stickId=null;
+function stickPos(e){ const r=stick.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+  let dx=(e.clientX-cx)/(r.width/2), dy=(e.clientY-cy)/(r.height/2); const m=Math.hypot(dx,dy); if(m>1){dx/=m;dy/=m;}
+  joy.x=dx; joy.y=dy; nub.style.left=(35+dx*32)+'px'; nub.style.top=(35+dy*32)+'px'; }
+stick.addEventListener('pointerdown',e=>{ stickId=e.pointerId; stick.setPointerCapture(e.pointerId); stickPos(e); e.preventDefault(); });
+stick.addEventListener('pointermove',e=>{ if(e.pointerId===stickId)stickPos(e); });
+const stickEnd=e=>{ if(e.pointerId===stickId){ stickId=null; joy.x=joy.y=0; nub.style.left='35px'; nub.style.top='35px'; } };
+stick.addEventListener('pointerup',stickEnd); stick.addEventListener('pointercancel',stickEnd);
+
+/* kamera-drag: dra var som helst på 3D-vyn (inte på knappar/HUD) */
+let camDragId=null, lastPX=0, lastPY=0;
+renderer.domElement.addEventListener('pointerdown',e=>{ camDragId=e.pointerId; lastPX=e.clientX; lastPY=e.clientY; renderer.domElement.setPointerCapture(e.pointerId); });
+renderer.domElement.addEventListener('pointermove',e=>{ if(e.pointerId!==camDragId)return;
+  const dx=e.clientX-lastPX, dy=e.clientY-lastPY; lastPX=e.clientX; lastPY=e.clientY;
+  camYaw+=dx*.0075; camPitch=clamp(camPitch+dy*.005,.06,1.15); });
+const camEnd=e=>{ if(e.pointerId===camDragId)camDragId=null; };
+renderer.domElement.addEventListener('pointerup',camEnd); renderer.domElement.addEventListener('pointercancel',camEnd);
+renderer.domElement.addEventListener('wheel',e=>{ camDist=clamp(camDist+e.deltaY*.02,7,22); },{passive:true});
+// nyp-zoom på mobil
+let pinchD=0;
+renderer.domElement.addEventListener('touchmove',e=>{ if(e.touches.length===2){ const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+  if(pinchD) camDist=clamp(camDist-(d-pinchD)*.04,7,22); pinchD=d; e.preventDefault(); } },{passive:false});
+renderer.domElement.addEventListener('touchend',()=>pinchD=0);
+
+/* touch-knappar */
+function bindBtn(id,fn){ const el=$(id);
+  el.addEventListener('pointerdown',e=>{ e.preventDefault(); e.stopPropagation(); if(gameStarted)fn(); });
+  el.addEventListener('touchstart',e=>e.preventDefault(),{passive:false}); }
+bindBtn('btnZap',()=>dialogQueue?nextDialog():zap());
+bindBtn('btnAct',()=>dialogQueue?nextDialog():interact());
+bindBtn('btnDash',doDash);
+bindBtn('btnJump',doJump);
+
+/* ---------- Knappar & start ---------- */
 function startGame(fresh){
-  if(fresh){ localStorage.removeItem('pikachuSave'); }
-  ac(); sfx.level();
-  $('startScreen').style.display='none'; $('hud').classList.add('on'); $('questPanel').style.display='block'; $('minimapWrap').style.display='block'; $('topBtns').classList.add('on');
+  if(fresh) localStorage.removeItem('pikachu3dSave');
+  try{ ac(); }catch(e){}
+  sfx.level();
+  $('startScreen').style.display='none';
+  $('hud').classList.add('on'); $('questPanel').style.display='block'; $('minimapWrap').style.display='block'; $('topBtns').classList.add('on'); $('touch').classList.add('on');
   gameStarted=true; updateHUD();
-  if(fresh||questStage===0&&!togepiFollowing&&P.berries===0) setTimeout(()=>say('🧢 Ash',['Pika! Välkommen till Pallet Meadow! ⚡','Kom och prata med mig vid det röda huset — jag har ett uppdrag åt dig!','(Styr med WASD/pilarna, eller joysticken på mobilen)']),400);
+  camera.position.set(P.x-Math.sin(camYaw)*camDist, 8, P.z-Math.cos(camYaw)*camDist);
+  if(fresh||(questStage===0&&P.berries===0)) setTimeout(()=>say('🧢 Ash',['Pika! Välkommen till Pallet Meadow — i 3D! ⚡','Kom och prata med mig vid det röda huset söderut!','📱 Gå med spaken, dra på skärmen för att snurra kameran!']),450);
 }
 $('btnStart').addEventListener('click',()=>startGame(true));
 $('btnContinue').addEventListener('click',()=>{ load(); startGame(false); toast('↪ Sparat spel laddat!'); });
-$('btnFree').addEventListener('click',()=>{ $('endScreen').style.display='none'; });
+$('btnFree').addEventListener('click',()=>$('endScreen').style.display='none');
+$('btnCam').addEventListener('click',()=>{ camYaw=P.angle+Math.PI; camPitch=.38; toast('🎥 Kameran bakom Pikachu!'); });
 $('btnSound').addEventListener('click',()=>{ soundOn=!soundOn; $('btnSound').textContent=soundOn?'🔊 Ljud: På':'🔇 Ljud: Av'; if(soundOn)sfx.coin(); });
 $('btnSave').addEventListener('click',()=>save(false));
-$('btnReset').addEventListener('click',()=>{ if(confirm('Börja om från början? Din sparning raderas.')){ localStorage.removeItem('pikachuSave'); location.reload(); } });
-if(localStorage.getItem('pikachuSave')) $('btnContinue').style.display='block';
-setInterval(()=>{ if(gameStarted) save(true); }, 20000);
+$('btnReset').addEventListener('click',()=>{ if(confirm('Börja om från början? Din sparning raderas.')){ localStorage.removeItem('pikachu3dSave'); location.reload(); } });
+if(localStorage.getItem('pikachu3dSave')) $('btnContinue').style.display='block';
+setInterval(()=>{ if(gameStarted)save(true); },20000);
 </script>
 </body>
 </html>
