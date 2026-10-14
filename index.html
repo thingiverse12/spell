@@ -38,6 +38,7 @@
   #dhint{text-align:right;font-size:11px;font-weight:800;color:#9ca3af;margin-top:6px}
   #prompt{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);background:rgba(0,0,0,.78);color:#fff;font-weight:800;font-size:13px;padding:9px 18px;border-radius:99px;z-index:6;display:none;border:2px solid #ffcb05;white-space:nowrap}
   #camHint{position:absolute;top:50%;right:10px;transform:translateY(-50%);z-index:4;color:rgba(255,255,255,.75);font-size:11px;font-weight:800;background:rgba(0,0,0,.35);padding:6px 10px;border-radius:99px;display:none;pointer-events:none}
+  #fade{position:absolute;inset:0;background:#000;opacity:0;pointer-events:none;transition:opacity .22s;z-index:15}
   /* floaters */
   #floaters{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:6}
   .floater{position:absolute;font-weight:900;font-size:15px;text-shadow:0 2px 0 rgba(0,0,0,.65),0 0 8px rgba(0,0,0,.4);transform:translate(-50%,-50%);white-space:nowrap}
@@ -109,6 +110,7 @@
   <div class="panel" id="minimapWrap"><canvas id="minimap" width="150" height="114"></canvas><span>KARTA</span></div>
   <div id="topBtns"><button id="btnCam">🎥 Kamera bakom</button><button id="btnSound">🔊 Ljud: På</button><button id="btnSave">💾 Spara</button><button id="btnReset">↺ Börja om</button></div>
   <div id="camHint">🖱️ Dra för att snurra kameran</div>
+  <div id="fade"></div>
 
   <div id="toast"></div>
   <div id="prompt">👆 <span id="promptText">Prata</span></div>
@@ -128,7 +130,7 @@
     <div class="badge">✦ 3D-VÄRLD • FUNGERAR PÅ TELEFONEN ✦</div>
     <div class="pikaFace">⚡🐭⚡</div>
     <h1 class="logo">PIKACHU<br><span>ÄVENTYR 3D</span></h1>
-    <p class="sub">Utforska den stora 3D-världen <b>Pallet Meadow</b> som Pikachu! Spring mellan träden, hoppa, simma i sjön, samla bär, zap:a vilda Pokémon och rädda den försvunna Togepi!</p>
+    <p class="sub">Utforska den stora 3D-världen <b>Pallet Meadow</b> som Pikachu! Spring mellan träden, hoppa, simma i sjön, gå ner i mörka <b>grottor</b> med glödande kristaller och skattkistor, zap:a vilda Pokémon och rädda Togepi! Ett helt dygn tar 20 minuter.</p>
     <button class="bigbtn" id="btnStart">▶ &nbsp;BÖRJA ÄVENTYRET!</button>
     <button class="bigbtn" id="btnContinue" style="display:none;background:linear-gradient(180deg,#60a5fa,#2563eb);color:#fff;font-size:16px;padding:11px 30px;margin-top:12px">↪ Fortsätt sparat spel</button>
     <div class="controls">
@@ -141,7 +143,7 @@
       <div class="ctl"><kbd>F</kbd>Hoppa</div>
       <div class="ctl"><kbd>Shift</kbd>Springa</div>
     </div>
-    <div class="features"><span>🌍 Riktig 3D-värld</span><span>📱 Mobil + dator</span><span>🌲 Skog &amp; sjö</span><span>⚔️ Strider</span><span>📜 Uppdrag</span><span>🌙 Dag &amp; natt</span></div>
+    <div class="features"><span>🌍 Riktig 3D-värld</span><span>📱 Mobil + dator</span><span>🕳️ Grottor att utforska</span><span>💎 Kristaller &amp; skatter</span><span>⚔️ Strider</span><span>🕐 20-minutersdygn</span></div>
   </div>
 
   <!-- END -->
@@ -178,10 +180,10 @@ const onBridge=(x,z)=>x>bridge.x&&x<bridge.x+bridge.w&&z>bridge.z&&z<bridge.z+br
 /* ---------- Spelstatus ---------- */
 const P={x:170,z:216,vx:0,vz:0,y:0,vy:0,onGround:true,angle:Math.PI,walkPh:0,moving:false,
   hp:100,maxhp:100,energy:100,level:5,xp:0,xpNext:60,berries:0,coins:0,wins:0,
-  evolved:false,dashCd:0,zapCd:0,hurtT:0,swim:false};
+  evolved:false,dashCd:0,zapCd:0,hurtT:0,swim:false,inCave:false};
 let time=0, dayT=0.34, gameStarted=false, dialogQueue=null, paused=false, questStage=0, togepiFollowing=false, finished=false;
 const keys={}; let joy={x:0,y:0};
-let camYaw=Math.PI, camPitch=0.38, camDist=13;
+let camYaw=Math.PI, camPitch=0.38, camDist=11;
 
 const QUESTS=[
   {title:"📜 Uppdrag: Prata med Ash", desc:"Hitta Ash vid det röda huset i söder och tryck PRATA / E.", prog:()=>"Gå till Ash 🏠"},
@@ -213,6 +215,7 @@ renderer.setPixelRatio(Math.min(devicePixelRatio||1, IS_TOUCH?2:2));
 renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.12;
 renderer.domElement.classList.add('webgl');
 $('wrap').prepend(renderer.domElement);
 
@@ -227,6 +230,7 @@ sun.shadow.mapSize.set(IS_TOUCH?1024:2048, IS_TOUCH?1024:2048);
 sun.shadow.camera.left=-42; sun.shadow.camera.right=42; sun.shadow.camera.top=42; sun.shadow.camera.bottom=-42;
 sun.shadow.camera.far=160; sun.shadow.bias=-0.0006; scene.add(sun); scene.add(sun.target);
 const pikaLight=new THREE.PointLight(0xffd34d,0,16); scene.add(pikaLight);
+const rimLight=new THREE.DirectionalLight(0x9db8ff,.38); scene.add(rimLight); scene.add(rimLight.target);
 
 addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); });
 
@@ -268,6 +272,7 @@ for(let i=0;i<220&&treePos.length<170;i++){
   if(x>34&&x<66&&z>140&&z<172) continue;
   if(x>266&&x<300&&z>166&&z<198) continue;
   if(dist2(x,z,64,47)<13) continue; // Togepi-gäntan hålls öppen-ish men skog runtom
+  if(dist2(x,z,52,30)<12||dist2(x,z,306,100)<12) continue; // grottöppningarna hålls fria
   treePos.push({x,z,s:.8+rng()*.7,kind:irnd(0,2),ph:rng()*6});
 }
 for(const t of treePos) solids.push({x:t.x,z:t.z,r:1.1});
@@ -341,6 +346,15 @@ for(const s of signs){ const g=new THREE.Group();
   const bang=new THREE.Mesh(new THREE.SphereGeometry(.28,8,6), MAT(0xffffff,.5)); bang.position.set(0,1.95,.2); g.add(bang);
   g.position.set(s.x,0,s.z); shadowed(g); scene.add(g); }
 function collide(x,z,r){
+  if(P.inCave){ // inne i grottan gäller grottans väggar
+    if(x<CAVE.x0+r||x>CAVE.x1-r||z<CAVE.z0+r||z>CAVE.z1-r) return true;
+    if(typeof caveBrock!=='undefined'&&caveBrock&&dist2(x,z,caveBrock.x,caveBrock.z)<r+1.1) return true;
+    for(const s of caveSolids){
+      if(s.box){ const hx=s.box.w/2+r, hz=s.box.d/2+r; if(Math.abs(x-s.x)<hx&&Math.abs(z-s.z)<hz) return true; }
+      else if(dist2(x,z,s.x,s.z)<r+s.r) return true;
+    }
+    return false;
+  }
   for(const n of NPCS){ const nr=n.kind==='snorlax'?3:1.05; if(!(n.kind==='togepi'&&togepiFollowing)&&dist2(x,z,n.x,n.z)<r+nr) return true; }
   for(const s of solids){
     if(s.box){ const hx=s.box.w/2+r, hz=s.box.d/2+r; if(Math.abs(x-s.x)<hx&&Math.abs(z-s.z)<hz) return true; }
@@ -464,6 +478,18 @@ function buildMon(kind){
   const sph=(c,r)=>new THREE.Mesh(new THREE.SphereGeometry(r,14,11), MAT(c,.7));
   const eyes=(dx,y,z)=>{ for(const s of[-1,1]) add(new THREE.SphereGeometry(.09,8,6),MAT(0x111111,.4),s*dx,y,z); };
   switch(kind){
+    case 'brock':
+      add(new THREE.BoxGeometry(.38,.9,.42),MAT(0x374151,.9),-.26,.45,0); add(new THREE.BoxGeometry(.38,.9,.42),MAT(0x374151,.9),.26,.45,0);
+      add(new THREE.BoxGeometry(1.05,1.25,.62),MAT(0xea7a2c,.85),0,1.5,0);
+      add(new THREE.BoxGeometry(.9,.5,.55),MAT(0x4b7a3a,.85),0,1.78,0);
+      { const h=sph(0xfcd9b8,.52); h.position.set(0,2.5,0); g.add(h);
+        for(let i=0;i<5;i++){ const spike=add(new THREE.ConeGeometry(.17,.5,6),MAT(0x6b4423,.9),(i-2)*.18,3.05,(i%2?.08:-.05)); spike.rotation.z=(i-2)*-.16; }
+        add(new THREE.BoxGeometry(.34,.07,.07),MAT(0x111111,.5),-.17,2.52,.49); add(new THREE.BoxGeometry(.34,.07,.07),MAT(0x111111,.5),.17,2.52,.49); }
+      break;
+    case 'geodude': { const b=sph(0x8d99ae,.72); b.position.y=.72; b.scale.set(1.1,.9,1); g.add(b);
+      for(const s of[-1,1]){ const a=sph(0x7d8aa0,.34); a.position.set(s*1.0,.62,.25); g.add(a); const f=sph(0x6b7a8d,.24); f.position.set(s*1.28,.42,.38); g.add(f); }
+      eyes(.22,.88,.6);
+      for(const s of[-1,1]){ const br=add(new THREE.BoxGeometry(.3,.08,.06),MAT(0x111111,.5),s*.22,1.06,.66); br.rotation.z=s*-.3; } } break;
     case 'ash':
       add(new THREE.BoxGeometry(.95,1.25,.6),MAT(0x2563eb,.8),0,1.05,0);
       add(new THREE.BoxGeometry(.34,.85,.4),MAT(0x1f2937,.9),-.26,.42,0); add(new THREE.BoxGeometry(.34,.85,.4),MAT(0x1f2937,.9),.26,.42,0);
@@ -512,6 +538,137 @@ const NPCS=[
 ];
 for(const n of NPCS){ n.mesh=buildMon(n.kind); n.mesh.position.set(n.x,0,n.z); scene.add(n.mesh); n.baseY=0; }
 
+/* ================================================================
+   GROTTORNA — ett underjordiskt område att utforska!
+   Två ingångar (nordväst + öster) leder till samma grottsystem.
+================================================================ */
+const CAVE={x0:980,z0:980,x1:1160,z1:1145,lake:{x:1135,z:1102,r:17}};
+const CAVE_SKY=new THREE.Color(0x090812);
+const caveSolids=[]; let caveCrystals=[], caveMushrooms=[], caveReward=false, chestOpened=false, caveChestLid=null, caveBrock=null;
+const caveEntrances=[
+  {name:'Skogsgråttan', x:52,z:30, rot:0,     inX:1002,inZ:1018,inAngle:Math.PI/2,  outX:52,outZ:39.5,outAngle:0},
+  {name:'Bergsgrottan', x:306,z:100, rot:-Math.PI/2, inX:1144,inZ:1117,inAngle:-Math.PI/2, outX:297,outZ:100,outAngle:-Math.PI/2},
+];
+function makeLabelSprite(text,color='#fff'){
+  const c=document.createElement('canvas'); c.width=512; c.height=110; const x=c.getContext('2d');
+  x.fillStyle='rgba(5,8,20,.72)'; x.fillRect(56,14,400,76);
+  x.strokeStyle='#ffcb05'; x.lineWidth=5; x.strokeRect(56,14,400,76);
+  x.fillStyle=color; x.font='bold 42px sans-serif'; x.textAlign='center'; x.textBaseline='middle'; x.fillText(text,256,54);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
+  sp.scale.set(11,2.4,1); return sp;
+}
+function buildCaveEntrance(e){
+  const g=new THREE.Group(); g.position.set(e.x,0,e.z); g.rotation.y=e.rot;
+  const rockM=MAT(0x76839b,1), darkM=MAT(0x59667c,1);
+  const hill=new THREE.Mesh(new THREE.DodecahedronGeometry(7.5,0),rockM); hill.scale.set(1.35,.82,1.05); hill.position.y=2.4; g.add(hill);
+  const hill2=new THREE.Mesh(new THREE.DodecahedronGeometry(5,0),darkM); hill2.scale.set(1.2,.8,1); hill2.position.set(-4.5,1.6,-1); g.add(hill2);
+  const hill3=new THREE.Mesh(new THREE.DodecahedronGeometry(4.2,0),darkM); hill3.scale.set(1.2,.85,1); hill3.position.set(5,1.3,-.5); g.add(hill3);
+  const mouth=new THREE.Mesh(new THREE.CircleGeometry(2.7,26), new THREE.MeshBasicMaterial({color:0x030308}));
+  mouth.position.set(0,2.2,6.4); g.add(mouth);
+  const arch=new THREE.Mesh(new THREE.TorusGeometry(2.95,.6,8,20,Math.PI),rockM); arch.position.set(0,2.2,6.45); g.add(arch);
+  const label=makeLabelSprite('🕳️ '+e.name.toUpperCase()); label.position.set(0,8.6,2); g.add(label);
+  for(const s of[-1,1]){ const cry=new THREE.Mesh(new THREE.OctahedronGeometry(.55), new THREE.MeshStandardMaterial({color:0x67e8f9,emissive:0x22d3ee,emissiveIntensity:1.2,roughness:.2}));
+    cry.position.set(s*3.6,.6,6.1); cry.rotation.y=s; g.add(cry); }
+  shadowed(g); scene.add(g);
+  solids.push({x:e.x,z:e.z,r:5.2});
+}
+caveEntrances.forEach(buildCaveEntrance);
+
+{ // ---- grottans insida ----
+  const caveG=new THREE.Group(); scene.add(caveG);
+  const floorM=MAT(0x55483f,1), wallM=MAT(0x463d38,1), wallM2=MAT(0x5a4f47,1);
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(CAVE.x1-CAVE.x0,CAVE.z1-CAVE.z0),floorM);
+  floor.rotation.x=-Math.PI/2; floor.position.set((CAVE.x0+CAVE.x1)/2,.02,(CAVE.z0+CAVE.z1)/2); floor.receiveShadow=true; caveG.add(floor);
+  for(let i=0;i<42;i++){ const p=new THREE.Mesh(new THREE.CircleGeometry(rnd(1.5,4.5),10), MAT(irnd(0,1)?0x61544a:0x453b34,1));
+    p.rotation.x=-Math.PI/2; p.position.set(rnd(CAVE.x0+4,CAVE.x1-4),.035+i*.0004,rnd(CAVE.z0+4,CAVE.z1-4)); caveG.add(p); }
+  const ceil=new THREE.Mesh(new THREE.PlaneGeometry(CAVE.x1-CAVE.x0,CAVE.z1-CAVE.z0), MAT(0x241d19,1));
+  ceil.rotation.x=Math.PI/2; ceil.position.set((CAVE.x0+CAVE.x1)/2,11.5,(CAVE.z0+CAVE.z1)/2); caveG.add(ceil);
+  // stalaktiter i taket (instanserat)
+  const stal=new THREE.InstancedMesh(new THREE.ConeGeometry(.55,3.2,6),wallM2,46);
+  { const d=new THREE.Object3D(); for(let i=0;i<46;i++){ d.position.set(rnd(CAVE.x0+3,CAVE.x1-3),9.8,rnd(CAVE.z0+3,CAVE.z1-3)); d.rotation.set(Math.PI,0,rnd(0,3)); d.scale.setScalar(rnd(.6,1.6)); d.updateMatrix(); stal.setMatrixAt(i,d.matrix); } }
+  caveG.add(stal);
+  // ytterväggar
+  const mkWall=(x,z,w,d2,m)=>{ const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,11,d2),m||wallM); mesh.position.set(x,5.5,z); mesh.castShadow=true; mesh.receiveShadow=true; caveG.add(mesh); return mesh; };
+  mkWall((CAVE.x0+CAVE.x1)/2,CAVE.z0-1.5,CAVE.x1-CAVE.x0+6,3); mkWall((CAVE.x0+CAVE.x1)/2,CAVE.z1+1.5,CAVE.x1-CAVE.x0+6,3);
+  mkWall(CAVE.x0-1.5,(CAVE.z0+CAVE.z1)/2,3,CAVE.z1-CAVE.z0+6); mkWall(CAVE.x1+1.5,(CAVE.z0+CAVE.z1)/2,3,CAVE.z1-CAVE.z0+6);
+  // innerväggar som skapar rum & gångar (med öppningar emellan)
+  const innerWalls=[[1050,1018,4,76],[1050,1112,4,66],[1005,1062,50,4],[1105,1062,110,4],[1110,1095,4,66],[1008,1105,56,4]];
+  for(const [x,z,w,d2] of innerWalls){ mkWall(x,z,w,d2,wallM2); caveSolids.push({x,z,box:{w,d:d2}});
+    for(let i=0;i<Math.floor(Math.max(w,d2)/16);i++){ const r=new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(.8,1.5),0),wallM);
+      r.position.set(x+(w>d2?rnd(-w/2+2,w/2-2):rnd(-1,1)),10.6,z+(d2>w?rnd(-d2/2+2,d2/2-2):rnd(-1,1))); caveG.add(r); } }
+  // stalagmiter & stenblock på golvet
+  const pillarAt=(x,z)=>{ const p=new THREE.Mesh(new THREE.ConeGeometry(rnd(1,1.7),rnd(2.6,4.4),7),wallM2); p.position.set(x,1.6,z); p.castShadow=true; caveG.add(p); caveSolids.push({x,z,r:1.25}); };
+  [[1012,995],[1085,1035],[1145,1045],[1035,1085],[1090,1130],[1150,1075],[995,1060],[1068,1000]].forEach(([x,z])=>pillarAt(x,z));
+  for(let i=0;i<26;i++){ const x=rnd(CAVE.x0+5,CAVE.x1-5), z=rnd(CAVE.z0+5,CAVE.z1-5);
+    const r=new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(.35,1),0),wallM2); r.position.set(x,.35,z); r.rotation.set(rnd(0,3),rnd(0,3),0); caveG.add(r); }
+  // underjordisk sjö
+  const cl=CAVE.lake;
+  const lakeM=new THREE.Mesh(new THREE.CircleGeometry(cl.r,30), new THREE.MeshStandardMaterial({color:0x155e8a,roughness:.15,metalness:.2,transparent:true,opacity:.92}));
+  lakeM.rotation.x=-Math.PI/2; lakeM.position.set(cl.x,.07,cl.z); caveG.add(lakeM);
+  const lakeGlow=new THREE.PointLight(0x38bdf8,.85,34); lakeGlow.position.set(cl.x,3.5,cl.z); caveG.add(lakeGlow);
+  // utgångsportaler (glödande ringar mot väggen)
+  const mkPortal=(x,z,rotY)=>{
+    const pg=new THREE.Group(); pg.position.set(x,0,z); pg.rotation.y=rotY;
+    const hole=new THREE.Mesh(new THREE.CircleGeometry(3,24), new THREE.MeshBasicMaterial({color:0xbfd9ff})); hole.position.set(0,3,.4); pg.add(hole);
+    const ring=new THREE.Mesh(new THREE.TorusGeometry(3.15,.28,8,24), new THREE.MeshStandardMaterial({color:0x67e8f9,emissive:0x22d3ee,emissiveIntensity:1.4}));
+    ring.position.set(0,3,.45); pg.add(ring);
+    const lbl=makeLabelSprite('☀️ UT TILL YTAN','#bae6fd'); lbl.scale.set(8.5,1.85,1); lbl.position.set(0,7.6,1); pg.add(lbl);
+    caveG.add(pg); };
+  mkPortal(CAVE.x0+1,1018,Math.PI/2); mkPortal(CAVE.x1-1,1117,-Math.PI/2);
+  // Brock — grottutforskaren
+  const brockMesh=buildMon('brock'); brockMesh.position.set(1018,0,1038); brockMesh.rotation.y=.7; caveG.add(brockMesh);
+  caveBrock={name:'🧢 Brock', x:1018,z:1038, mesh:brockMesh};
+  // glödande kristallkluster (samla 3 åt Brock!)
+  const crystalCols=[0x22d3ee,0xc084fc,0xf472b6];
+  [[1138,1008],[1082,1082],[1018,1128]].forEach(([x,z],id)=>{
+    const cg=new THREE.Group(); cg.position.set(x,0,z);
+    const base=new THREE.Mesh(new THREE.DodecahedronGeometry(1.15,0),wallM2); base.position.y=.4; cg.add(base);
+    const cm=new THREE.MeshStandardMaterial({color:crystalCols[id],emissive:crystalCols[id],emissiveIntensity:1.5,roughness:.15});
+    [[0,1.5,0,1.15],[-.65,1.05,.3,.75],[.6,1.1,-.25,.85]].forEach(([px,py,pz,s])=>{ const cry=new THREE.Mesh(new THREE.OctahedronGeometry(.62),cm);
+      cry.position.set(px,py,pz); cry.scale.set(.7,s,0.7); cry.rotation.y=px*3; cg.add(cry); });
+    const li=new THREE.PointLight(crystalCols[id],.75,26); li.position.set(0,2.6,0); cg.add(li);
+    caveG.add(cg); caveCrystals.push({id,x,z,mesh:cg,collected:false});
+  });
+  // skattkista
+  const chestG=new THREE.Group(); chestG.position.set(998,0,1128); chestG.rotation.y=.6;
+  const cBase=new THREE.Mesh(new THREE.BoxGeometry(2.4,1.3,1.6),MAT(0x8a5a22,.8)); cBase.position.y=.65; chestG.add(cBase);
+  const gold=new THREE.Mesh(new THREE.SphereGeometry(.62,12,8), new THREE.MeshStandardMaterial({color:0xfde047,emissive:0xf59e0b,emissiveIntensity:.7,roughness:.25}));
+  gold.scale.set(1.5,.5,1); gold.position.y=1.32; chestG.add(gold);
+  caveChestLid=new THREE.Group(); caveChestLid.position.set(0,1.3,-.8);
+  const lidMesh=new THREE.Mesh(new THREE.BoxGeometry(2.4,.55,1.6),MAT(0x6d451a,.8)); lidMesh.position.set(0,.27,.8); caveChestLid.add(lidMesh); chestG.add(caveChestLid);
+  const lock=new THREE.Mesh(new THREE.BoxGeometry(.4,.5,.2),MAT(0xfde047,.3)); lock.position.set(0,1.1,.85); chestG.add(lock);
+  shadowed(chestG); caveG.add(chestG); caveSolids.push({x:998,z:1128,r:1.7});
+  // läkande glödsvampar
+  const mushAt=(x,z)=>{ const mg=new THREE.Group(); mg.position.set(x,0,z);
+    const stem=new THREE.Mesh(new THREE.CylinderGeometry(.13,.2,.6,7),MAT(0xfef3c7,.8)); stem.position.y=.3; mg.add(stem);
+    const cap=new THREE.Mesh(new THREE.SphereGeometry(.48,12,8,0,Math.PI*2,0,Math.PI/2), new THREE.MeshStandardMaterial({color:0x2dd4bf,emissive:0x14b8a6,emissiveIntensity:.9,roughness:.4}));
+    cap.position.y=.55; mg.add(cap); caveG.add(mg); caveMushrooms.push({x,z,mesh:mg,collected:false}); };
+  [[1005,1005],[1072,1025],[1125,1052],[1042,1108],[1098,1118],[1148,1132],[1028,1048],[1102,995]].forEach(([x,z])=>mushAt(x,z));
+}
+const CAVE_WILD_TYPES=[
+  {kind:'zubat', name:'Zubat', hp:28, dmg:7, xp:26, speed:6.4},
+  {kind:'geodude', name:'Geodude', hp:40, dmg:8, xp:32, speed:4.2},
+  {kind:'zubat', name:'Zubat', hp:28, dmg:7, xp:26, speed:6.4},
+];
+function spawnCaveWild(){
+  const pts=[[1100,1012],[1138,1088],[1028,1088],[1082,1128],[1002,1002],[1120,1028]];
+  const [x,z]=pts[irnd(0,pts.length-1)], t=CAVE_WILD_TYPES[irnd(0,CAVE_WILD_TYPES.length-1)];
+  const mesh=buildMon(t.kind); mesh.position.set(x,0,z); scene.add(mesh);
+  const c=document.createElement('canvas'); c.width=128; c.height=40;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
+  sp.scale.set(3.4,1.05,1); sp.position.y=2.6; mesh.add(sp);
+  const w={...t,maxhp:t.hp,x,z,mesh,label:sp,labelCanvas:c,ph:rnd(0,6),state:'idle',t:0,hurtT:0,atkCd:0,vx:0,vz:0,angle:0,cave:true};
+  drawWildLabel(w); wilds.push(w);
+}
+function teleportTo(x,z,angle){
+  const f=$('fade'); f.style.opacity='1';
+  setTimeout(()=>{ P.x=x; P.z=z; P.y=0; P.vy=0; P.onGround=true; P.angle=angle; camYaw=angle+Math.PI; camPitch=.38;
+    camera.position.set(P.x-Math.sin(camYaw)*camDist,7,P.z-Math.cos(camYaw)*camDist);
+    setTimeout(()=>f.style.opacity='0',60); },230);
+}
+function enterCave(e){ teleportTo(e.inX,e.inZ,e.inAngle); P.inCave=true; sfx.dash(); setTimeout(()=>toast('🕳️ Du gick in i '+e.name+'... det är mörkt här nere!'),350); }
+function exitCave(e){ teleportTo(e.outX,e.outZ,e.outAngle); P.inCave=false; sfx.level(); setTimeout(()=>toast('☀️ Tillbaka ute i friska luften!'),350); }
+
 /* ---------- Bärbuskar ---------- */
 const bushes=[];
 for(let i=0;i<26;i++){ let x=rng()*W.w, z=rng()*W.h; if(inLake(x,z)){ i--; continue; }
@@ -550,6 +707,7 @@ function drawWildLabel(w){
   w.label.material.map.needsUpdate=true;
 }
 for(let i=0;i<9;i++) spawnWild();
+for(let i=0;i<5;i++) spawnCaveWild();
 
 /* ---------- Moln, stjärnor, eldflugor, partiklar, blixtar ---------- */
 const clouds=[];
@@ -614,6 +772,16 @@ function showEnd(){ $('endStats').innerHTML=`Du nådde <b>level ${P.level}</b>, 
 let nearTarget=null;
 function checkNear(){
   nearTarget=null;
+  if(P.inCave){
+    if(caveBrock&&dist2(P.x,P.z,caveBrock.x,caveBrock.z)<6.5){ nearTarget={type:'caveNpc',o:caveBrock,label:'Prata med 🧢 Brock'}; return; }
+    for(const e of caveEntrances){ const ix=e===caveEntrances[0]?CAVE.x0+7:CAVE.x1-7, iz=e===caveEntrances[0]?1018:1117;
+      if(dist2(P.x,P.z,ix,iz)<7){ nearTarget={type:'caveExit',o:e,label:'Gå ut ur grottan ☀️'}; return; } }
+    for(const c of caveCrystals) if(!c.collected&&dist2(P.x,P.z,c.x,c.z)<5.5){ nearTarget={type:'crystal',o:c,label:'Ta glödande kristall 💎'}; return; }
+    if(!chestOpened&&dist2(P.x,P.z,998,1128)<6){ nearTarget={type:'chest',o:null,label:'Öppna skattkistan 🗝️'}; return; }
+    for(const m of caveMushrooms) if(!m.collected&&dist2(P.x,P.z,m.x,m.z)<4.5){ nearTarget={type:'mushroom',o:m,label:'Ät glödsvamp 🍄 (+HP)'}; return; }
+    return;
+  }
+  for(const e of caveEntrances) if(dist2(P.x,P.z,e.x,e.z)<8){ nearTarget={type:'caveEnter',o:e,label:'Gå in i '+e.name+' 🕳️'}; return; }
   for(const n of NPCS){ if(n.kind==='togepi'&&togepiFollowing) continue; if(dist2(P.x,P.z,n.x,n.z)<6.5){ nearTarget={type:'npc',o:n,label:'Prata med '+n.name}; return; } }
   for(const b of bushes) if(b.berries>0&&dist2(P.x,P.z,b.x,b.z)<5.5){ nearTarget={type:'bush',o:b,label:'Plocka bär 🫐'}; return; }
   for(const s of signs) if(dist2(P.x,P.z,s.x,s.z)<5.5){ nearTarget={type:'sign',o:s,label:'Läs skylt 🪧'}; return; }
@@ -623,6 +791,20 @@ function interact(){
   if(dialogQueue){ nextDialog(); return; }
   if(!nearTarget) return;
   const t=nearTarget;
+  if(t.type==='caveEnter'){ enterCave(t.o); return; }
+  if(t.type==='caveExit'){ exitCave(t.o); return; }
+  if(t.type==='crystal'){ const c=t.o; c.collected=true; c.mesh.visible=false; const n=caveCrystals.filter(x=>x.collected).length;
+    P.coins+=15; sfx.quest(); floater(P.x,3.6,P.z,'💎 Kristall '+n+'/3! +15 🪙','#67e8f9'); burst(c.x,2,c.z,0x67e8f9,16); gainXP(20);
+    toast(n>=3?'💎 Alla 3 kristaller! Gå till Brock!':`💎 Kristall ${n} av 3 funnen!`); updateHUD(); return; }
+  if(t.type==='chest'){ chestOpened=true; if(caveChestLid)caveChestLid.rotation.x=-.85; P.coins+=60; sfx.win();
+    floater(P.x,3.8,P.z,'🗝️ Skatt! +60 🪙','#fde047'); burst(998,2,1128,0xfde047,22); gainXP(30); toast('🎉 Du öppnade grottskatten! +60 mynt!'); updateHUD(); return; }
+  if(t.type==='mushroom'){ const m=t.o; m.collected=true; m.mesh.visible=false; P.hp=Math.min(P.maxhp,P.hp+30); sfx.berry();
+    floater(P.x,3.6,P.z,'🍄 +30 HP!','#2dd4bf'); setTimeout(()=>{ m.collected=false; m.mesh.visible=true; },75000); updateHUD(); return; }
+  if(t.type==='caveNpc'){ const n=caveCrystals.filter(x=>x.collected).length;
+    if(caveReward) say('🧢 Brock',['Snyggt utforskat, kompis! 🔦','Zubat gillar mörkret — zap:a dem om de jagar dig!','Glödsvamparna läker dig, och sjön där borta går att simma i.']);
+    else if(n>=3) say('🧢 Brock',['DU HITTADE ALLA 3 KRISTALLERNA! 💎💎💎','Otroligt! Här är din belöning, lille utforskare!'],()=>{ caveReward=true; P.coins+=75; sfx.win(); toast('🏆 Brock gav dig 75 mynt!'); gainXP(50); updateHUD(); });
+    else say('🧢 Brock',['Hejsan! Jag är Brock, grottutforskare! 🔦','Jag tappade 3 glödande kristaller här nere...','En i kristallgrottan i nordöst, en vid mittgången — och en nära skattkistan i sydväst!',`Du har hittat ${n} av 3. Ta dem åt mig så får du en belöning!`]);
+    return; }
   if(t.type==='bush'){ t.o.berries--; refreshBush(t.o); P.berries++; if(Math.random()<.4)P.coins+=irnd(1,3); sfx.berry(); floater(P.x,3.4,P.z,'+1 Bär 🫐','#fda4af'); burst(t.o.x,1.6,t.o.z,0xf472b6,8);
     if(questStage===1&&P.berries>=8){ questStage=2; sfx.quest(); toast('🎉 Uppdrag klart! Besegra 5 vilda Pokémon!'); } updateHUD(); return; }
   if(t.type==='sign'){ say('🪧 Skylt', t.o.text.split('\n')); return; }
@@ -669,7 +851,7 @@ function defeatWild(w){ w.dead=true; scene.remove(w.mesh); P.wins++; const coins
   floater(w.x,3,w.z,`Besegrad! +${w.xp} XP`,'#7dd3fc'); floater(w.x,2.2,w.z,`+${coins} 🪙`,'#fde047');
   burst(w.x,1.4,w.z,0xfde047,18); gainXP(w.xp);
   if(questStage===2&&P.wins>=5){ questStage=3; sfx.quest(); toast('🎉 Uppdrag klart! Hitta Togepi i nordväst!'); }
-  setTimeout(spawnWild,2600); updateHUD(); }
+  setTimeout(()=>w.cave?spawnCaveWild():spawnWild(),2600); updateHUD(); }
 function gainXP(n){ P.xp+=n; while(P.xp>=P.xpNext){ P.xp-=P.xpNext; P.level++; P.xpNext=Math.floor(P.xpNext*1.45); P.maxhp+=12; P.hp=P.maxhp; sfx.level(); toast(`⭐ LEVEL UP! Level ${P.level}!`); burst(P.x,2,P.z,0x7dd3fc,24); } }
 function doDash(){
   if(P.dashCd>0||paused||!gameStarted)return; P.dashCd=52; sfx.dash();
@@ -679,19 +861,38 @@ function doDash(){
 function doJump(){ if(!P.onGround||paused||!gameStarted)return; P.vy=8.6; P.onGround=false; sfx.jump(); burst(P.x,.4,P.z,0xffffff,5); }
 
 /* ---------- Spara ---------- */
-function save(silent){ try{ localStorage.setItem('pikachu3dSave',JSON.stringify({P,questStage,togepiFollowing,finished})); if(!silent)toast('💾 Spelet sparat!'); }catch(e){} }
-function load(){ try{ const s=JSON.parse(localStorage.getItem('pikachu3dSave')); if(!s)return false; Object.assign(P,s.P); questStage=s.questStage; togepiFollowing=s.togepiFollowing; finished=s.finished; if(P.evolved)evolveVisual(); return true; }catch(e){ return false; } }
+function save(silent){ try{ localStorage.setItem('pikachu3dSave',JSON.stringify({P,questStage,togepiFollowing,finished,
+  cave:{collected:caveCrystals.filter(c=>c.collected).map(c=>c.id), chestOpened, caveReward}}));
+  if(!silent)toast('💾 Spelet sparat!'); }catch(e){} }
+function load(){ try{ const s=JSON.parse(localStorage.getItem('pikachu3dSave')); if(!s)return false; Object.assign(P,s.P); questStage=s.questStage; togepiFollowing=s.togepiFollowing; finished=s.finished; if(P.evolved)evolveVisual();
+  if(s.cave){ for(const c of caveCrystals) if(s.cave.collected.includes(c.id)){ c.collected=true; c.mesh.visible=false; }
+    chestOpened=!!s.cave.chestOpened; caveReward=!!s.cave.caveReward; if(chestOpened&&caveChestLid) caveChestLid.rotation.x=-.85; }
+  return true; }catch(e){ return false; } }
 
 /* ================================================================
    SPELLOOP
 ================================================================ */
 const mm=$('minimap'), mmx=mm.getContext('2d');
 function drawMinimap(){
+  if(P.inCave){ // grottkarta
+    const sx=150/(CAVE.x1-CAVE.x0), sy=114/(CAVE.z1-CAVE.z0), ox=-CAVE.x0*sx, oz=-CAVE.z0*sy;
+    mmx.clearRect(0,0,150,114); mmx.fillStyle='#17110d'; mmx.fillRect(0,0,150,114);
+    mmx.fillStyle='#4a3f36'; mmx.fillRect(CAVE.x0*sx+ox,CAVE.z0*sy+oz,(CAVE.x1-CAVE.x0)*sx,(CAVE.z1-CAVE.z0)*sy);
+    mmx.fillStyle='#155e8a'; mmx.beginPath(); mmx.arc(CAVE.lake.x*sx+ox,CAVE.lake.z*sy+oz,CAVE.lake.r*sx,0,7); mmx.fill();
+    mmx.fillStyle='#67e8f9'; for(const c of caveCrystals) if(!c.collected){ mmx.beginPath(); mmx.arc(c.x*sx+ox,c.z*sy+oz,3,0,7); mmx.fill(); }
+    mmx.fillStyle='#fde047'; mmx.fillRect(998*sx+ox-2,1128*sy+oz-2,4,4);
+    mmx.fillStyle='#fff'; mmx.fillRect(987*sx+ox-1,1018*sy+oz-2,3,4); mmx.fillRect(1153*sx+ox-1,1117*sy+oz-2,3,4);
+    for(const w of wilds) if(w.cave){ mmx.fillStyle='#f87171'; mmx.fillRect(w.x*sx+ox-1.5,w.z*sy+oz-1.5,3,3); }
+    mmx.fillStyle='#fde047'; mmx.strokeStyle='#000'; mmx.beginPath(); mmx.arc(P.x*sx+ox,P.z*sy+oz,4.2,0,7); mmx.fill(); mmx.stroke();
+    return;
+  }
   const sx=150/W.w, sy=114/W.h; mmx.clearRect(0,0,150,114);
   mmx.fillStyle='#2f7d38'; mmx.fillRect(0,0,150,114);
   mmx.fillStyle='#38a8e0'; mmx.beginPath(); mmx.arc(lake.x*sx,lake.z*sy,lake.r*sx,0,7); mmx.fill();
   mmx.fillStyle='#d9b678'; mmx.fillRect(bridge.x*sx,bridge.z*sy,bridge.w*sx,3);
   for(const h of houses){ mmx.fillStyle='#fff'; mmx.fillRect(h.x*sx-2,(h.z)*sy-2,5,5); }
+  mmx.fillStyle='#111827'; for(const e of caveEntrances){ mmx.beginPath(); mmx.arc(e.x*sx,e.z*sy,3.2,0,7); mmx.fill(); }
+  mmx.strokeStyle='#ffcb05'; for(const e of caveEntrances){ mmx.beginPath(); mmx.arc(e.x*sx,e.z*sy,3.2,0,7); mmx.stroke(); }
   const tog=NPCS.find(n=>n.kind==='togepi');
   mmx.fillStyle='#fda4af'; mmx.beginPath(); mmx.arc(tog.x*sx,tog.z*sy,3.4,0,7); mmx.fill();
   mmx.fillStyle='#fff'; mmx.beginPath(); mmx.arc(NPCS[0].x*sx,NPCS[0].z*sy,3,0,7); mmx.fill();
@@ -717,7 +918,7 @@ function loop(now){
     if(keys.KeyW||keys.ArrowUp)iz-=1; if(keys.KeyS||keys.ArrowDown)iz+=1; if(keys.KeyA||keys.ArrowLeft)ix-=1; if(keys.KeyD||keys.ArrowRight)ix+=1;
     const mag=Math.hypot(ix,iz); if(mag>1){ix/=mag;iz/=mag;}
     P.moving=mag>.14;
-    const swimming=inLake(P.x,P.z)&&!onBridge(P.x,P.z); P.swim=swimming;
+    const swimming=P.inCave ? dist2(P.x,P.z,CAVE.lake.x,CAVE.lake.z)<CAVE.lake.r-1.5 : (inLake(P.x,P.z)&&!onBridge(P.x,P.z)); P.swim=swimming;
     const run=(keys.ShiftLeft||keys.ShiftRight)?1.55:1;
     const speed=(P.evolved?11.5:10.5)*run*(swimming?.55:1);
     if(P.moving){
@@ -777,8 +978,8 @@ function loop(now){
     if(time%12===0) updateHUD();
   }
 
-  /* --- dag/natt --- */
-  dayT=(dayT+dt*0.0042)%1;
+  /* --- dag/natt: ett helt dygn tar 20 minuter (10 min dag / 10 min natt) --- */
+  dayT=(dayT+dt/1200)%1;
   const sunA=dayT*Math.PI*2-Math.PI/2; // solens vinkel
   const elev=Math.sin(sunA);
   const dayF=clamp(elev*1.6+.35,0,1); // 1 = dag
@@ -792,7 +993,23 @@ function loop(now){
   starMat.opacity=clamp(1-dayF*1.7,0,1);
   fireMat.opacity=clamp(.75-dayF,0,.8);
   pikaLight.intensity=clamp(.7-dayF,0,.65); pikaLight.position.set(P.x,2.5,P.z);
-  $('clock').textContent= dayT<.2||dayT>.84?'🌙 Natt':dayT<.3?'🌅 Morgon':dayT<.68?'☀️ Dag':'🌇 Kväll';
+  rimLight.position.set(P.x-38,26,P.z-42); rimLight.target.position.set(P.x,1.5,P.z);
+  { const phase=elev<-.12?'natt':elev<.1?(dayT<.5?'morgon':'kvall'):'dag';
+    if(gameStarted&&!P.inCave&&window._lastPhase&&window._lastPhase!==phase){
+      if(phase==='dag') toast('🌅 Solen går upp över Pallet Meadow...');
+      if(phase==='natt') toast('🌙 Natten faller... eldflugorna tänds!');
+      if(phase==='kvall') toast('🌇 Solen börjar gå ner...');
+    }
+    window._lastPhase=phase; }
+  if(P.inCave){ // i grottan är det alltid mörkt — Pikachus ljus lyser upp vägen
+    scene.background=CAVE_SKY; scene.fog.color.copy(CAVE_SKY); scene.fog.near=16; scene.fog.far=82;
+    hemi.intensity=.16; sun.intensity=0; rimLight.intensity=.05; starMat.opacity=0; fireMat.opacity=.25;
+    pikaLight.intensity=.95; pikaLight.distance=22; pikaLight.color.setHex(0xffc46b);
+  } else { rimLight.intensity=.38; pikaLight.distance=16; pikaLight.color.setHex(0xffd34d); }
+  { const mins=Math.floor(dayT*1440), hh=String(Math.floor(mins/60)).padStart(2,'0'), mm2=String(mins%60).padStart(2,'0');
+    const icon=P.inCave?'🕳️ Grotta':(elev<-.05?'🌙':elev<.18?(dayT<.5?'🌅':'🌇'):'☀️');
+    const txt=`${icon} ${hh}:${mm2}`;
+    if(window._clockTxt!==txt){ window._clockTxt=txt; $('clock').textContent=txt; } }
   // eldflugor svävar
   if(fireMat.opacity>0.03){ const pos=fireMat.userData.geo.attributes.position; for(let i=0;i<80;i++){ pos.array[i*3]+=Math.sin(time*.02+i)*.015; pos.array[i*3+1]+=Math.cos(time*.03+i*2)*.008; } pos.needsUpdate=true; }
   for(const c of clouds){ c.position.x+=dt*1.1; if(c.position.x>W.w+25)c.position.x=-25; c.traverse(o=>{ if(o.isMesh)o.material.opacity=1; }); }
@@ -854,10 +1071,14 @@ function loop(now){
 
   /* --- kamera (3:e person, snurrbar) --- */
   const camTarget=new THREE.Vector3(P.x, 2+P.y, P.z);
-  const cx=P.x-Math.sin(camYaw)*Math.cos(camPitch)*camDist;
-  const cz=P.z-Math.cos(camYaw)*Math.cos(camPitch)*camDist;
-  const cy=2+P.y+Math.sin(camPitch)*camDist;
+  const effDist=P.inCave?Math.min(camDist,7.5):camDist; // närmare kamera i grottan
+  const cx=P.x-Math.sin(camYaw)*Math.cos(camPitch)*effDist;
+  const cz=P.z-Math.cos(camYaw)*Math.cos(camPitch)*effDist;
+  const cy=2+P.y+Math.sin(camPitch)*effDist;
   camera.position.lerp(new THREE.Vector3(cx,Math.max(cy,1.2),cz), gameStarted?Math.min(1,dt*7):1);
+  if(P.inCave){ camera.position.x=clamp(camera.position.x,CAVE.x0+2,CAVE.x1-2);
+    camera.position.z=clamp(camera.position.z,CAVE.z0+2,CAVE.z1-2);
+    camera.position.y=clamp(camera.position.y,1.2,9.8); }
   camera.lookAt(camTarget);
 
   if(gameStarted&&time%5===0) drawMinimap();
@@ -932,6 +1153,25 @@ $('btnSound').addEventListener('click',()=>{ soundOn=!soundOn; $('btnSound').tex
 $('btnSave').addEventListener('click',()=>save(false));
 $('btnReset').addEventListener('click',()=>{ if(confirm('Börja om från början? Din sparning raderas.')){ localStorage.removeItem('pikachu3dSave'); location.reload(); } });
 if(localStorage.getItem('pikachu3dSave')) $('btnContinue').style.display='block';
+setInterval(()=>{ if(gameStarted)save(true); },20000);
+</script>
+</body>
+</html>
+
+pt>
+</body>
+</html>
+;
+if(localStorage.getItem('pikachu3dSave')) $('btnContinue').style.display='block';
+setInterval(()=>{ if(gameStarted)save(true); },20000);
+</script>
+</body>
+</html>
+
+pt>
+</body>
+</html>
+ocalStorage.getItem('pikachu3dSave')) $('btnContinue').style.display='block';
 setInterval(()=>{ if(gameStarted)save(true); },20000);
 </script>
 </body>

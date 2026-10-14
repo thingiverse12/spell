@@ -58,7 +58,12 @@ telefoner, stöd för notch/safe areas, och förhindrar scroll/zoom av sidan.
 - 🐭 Pikachu byggd i 3D med tecknad outline, stora glansiga ögon (som blinkar!), rosiga glödande kinder, riktig blixtsvans, röd utforskar-scarf som fladdrar — och full gång-/hopp-/idle-animation med öron som släpar efter rörelsen
 - 📷 Tredjepersonskamera som följer dig — snurra, luta och zooma fritt
 - ⚔️ Strider i realtid, XP, level ups, HP/energi och 3D-blixtar med ljuseffekter
-- 🌙 Dag/natt-cykel med rörlig sol, stjärnor och eldflugor
+- 🕐 Dag/natt-cykel där ett helt dygn tar **20 minuter** (10 min dag / 10 min natt), med klocka i HUD:en och meddelanden vid soluppgång/solnedgång
+- 🕳️ **Grottor att utforska:** två ingångar (Skogsgråttan i nordväst, Bergsgrottan i öster) leder ner till ett och samma underjordiska grottsystem — så du kan gå in på ett ställe och komma ut på ett annat! Där nere finns:
+  - 💎 3 glödande kristaller att samla åt grottutforskaren **Brock** (belöning väntar!)
+  - 🗝️ En skattkista med 60 mynt, 🍄 läkande glödsvampar och en underjordisk sjö att simma i
+  - 🦇 Vilda Zubat och Geodude, stalaktiter, och en egen grottkarta på minikartan
+  - 🔦 Det är alltid mörkt i grottan — Pikachus kindljus lyser upp vägen, och kameran zoomar automatiskt närmare
 - 🏊 Simning, hopp, dash och en sovande Snorlax vid bron
 - 🗺️ Live-minikarta, uppdragslogg, autosave (localStorage)
 - 🔊 Ljud genererat med WebAudio — inga ljudfiler behövs
