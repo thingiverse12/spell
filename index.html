@@ -23,7 +23,7 @@
   #toast.show{opacity:1;transform:translateX(-50%) scale(1)}
   #blockLabel{position:absolute;left:50%;bottom:118px;transform:translateX(-50%);background:rgba(0,0,0,.55);padding:5px 13px;border-radius:99px;font-weight:900;font-size:13px;text-shadow:1px 1px 0 #000;white-space:nowrap}
   #hotbar{position:absolute;left:50%;bottom:calc(8px + env(safe-area-inset-bottom,0));transform:translateX(-50%);display:flex;gap:4px;pointer-events:auto;background:rgba(0,0,0,.45);padding:4px;border:2px solid rgba(255,255,255,.5);border-radius:8px;z-index:8}
-  .slot{width:clamp(38px,9.2vw,54px);height:clamp(38px,9.2vw,54px);border:3px solid #4b4b4b;background:#8b8b8b;position:relative;border-radius:4px;box-shadow:inset 2px 2px 0 rgba(255,255,255,.45),inset -2px -2px 0 rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:clamp(19px,5vw,27px)}
+  .slot{width:clamp(32px,8.3vw,52px);height:clamp(32px,8.3vw,52px);border:3px solid #4b4b4b;background:#8b8b8b;position:relative;border-radius:4px;box-shadow:inset 2px 2px 0 rgba(255,255,255,.45),inset -2px -2px 0 rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;font-size:clamp(19px,5vw,27px)}
   .slot.sel{border-color:#fff;box-shadow:0 0 0 2px #000,0 0 16px #fff,inset 2px 2px 0 rgba(255,255,255,.5);z-index:1}
   .slot .count{position:absolute;right:2px;bottom:0;font-size:11px;font-weight:900;text-shadow:1px 1px 0 #000}
   .slot .key{position:absolute;left:3px;top:1px;font-size:9px;font-weight:900;opacity:.85;text-shadow:1px 1px 0 #000}
@@ -40,6 +40,15 @@
   .tbtn.big{width:76px;height:76px;font-size:31px;background:rgba(90,50,10,.65)}
   .tbtn.small{width:50px;height:50px;font-size:18px}
   #lookHint{position:absolute;right:12px;top:44%;background:rgba(0,0,0,.42);padding:6px 9px;border-radius:99px;font-size:10px;font-weight:900}
+  /* ---------- Slöjd / död / inställningar ---------- */
+  #craftScreen,#deathScreen{display:none;background:rgba(0,0,0,.7);backdrop-filter:blur(3px)}
+  .recipe{position:relative;width:min(480px,92vw);display:flex;justify-content:space-between;align-items:center;gap:10px;background:rgba(30,30,30,.85);border:2px solid #888;border-radius:10px;padding:10px 12px;margin-top:8px;text-align:left}
+  .recipe b{font-size:15px}.recipe small{display:block;opacity:.85;font-weight:700;margin-top:2px}
+  .recipe button{background:linear-gradient(#71bd45,#4c8c26);color:#fff;border:2px solid #000;border-radius:7px;padding:9px 13px;font-weight:900;white-space:nowrap;cursor:pointer}
+  .recipe button:disabled{filter:grayscale(1);opacity:.45;cursor:not-allowed}
+  .settings{position:relative;width:min(430px,88vw);background:rgba(0,0,0,.5);border:2px solid rgba(255,255,255,.4);border-radius:10px;padding:12px;margin-top:12px;text-align:left;font-weight:800;font-size:13px}
+  .settings label{display:block;margin:8px 0 3px}
+  .settings input[type=range]{width:100%}
   /* ---------- Menyer ---------- */
   .screen{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px;overflow:auto;color:#fff;background:
     linear-gradient(rgba(20,40,80,.22),rgba(0,0,0,.42)),
@@ -76,6 +85,7 @@
       <div id="hearts">❤️❤️❤️❤️❤️❤️❤️❤️❤️❤️</div>
       <div id="hunger">🍗🍗🍗🍗🍗🍗🍗🍗🍗🍗</div>
       <small id="statusLine">☀️ 08:00 • Överlevnad</small>
+      <small id="toolLine">✋ Hand • ⭐ Lv.1</small>
     </div>
     <div id="topButtons">
       <button class="iconbtn" id="btnMode">🎮 Överlevnad</button>
@@ -105,7 +115,7 @@
   <div class="screen" id="startScreen">
     <div class="logo">MIN<span>KRAFT</span></div>
     <div class="splash">100% block! Utforska! Bygg! Överlev natten!</div>
-    <p class="sub">En oändlig... nåja, stor blockvärld att gräva, bygga och utforska i — ensam eller som kreativ byggare. Generera en värld, hugga träd, gräv efter diamanter djupt nere i grottorna och bygg vad du vill!</p>
+    <p class="sub">En stor blockvärld att gräva, bygga och utforska i! Hugg träd, slöjda hackor och facklor, gräv efter diamanter i mörka grottor, överlev zombie-nätterna — och bygg vad du vill!</p>
     <button class="mcbtn green" id="btnPlay">▶ &nbsp;SPELA</button>
     <button class="mcbtn" id="btnContinue" style="display:none">↪ &nbsp;FORTSÄTT VÄRLD</button>
     <div class="seedrow">
@@ -120,10 +130,32 @@
     <p class="tiny">Ett Minecraft-inspirerat fanspel byggt med Three.js. Allt genereras av kod — ingen nedladdning behövs.</p>
   </div>
 
+  <!-- SLÖJD -->
+  <div class="screen" id="craftScreen">
+    <div class="logo" style="font-size:clamp(30px,7vw,50px)">SLÖJD 🔨</div>
+    <p class="sub" id="craftInv" style="margin-top:10px"></p>
+    <div id="recipeList"></div>
+    <button class="mcbtn green" id="btnCloseCraft">✔ &nbsp;STÄNG</button>
+  </div>
+
+  <!-- DÖD -->
+  <div class="screen" id="deathScreen">
+    <div class="logo" style="font-size:clamp(36px,9vw,64px);color:#ff6b6b">DU DOG! 💀</div>
+    <p class="sub" id="deathStats" style="margin-top:12px"></p>
+    <button class="mcbtn green" id="btnRespawn">↪ &nbsp;ÅTERSKAPA</button>
+  </div>
+
   <!-- PAUS -->
   <div class="screen" id="pauseScreen">
     <div class="logo" style="font-size:clamp(34px,8vw,58px)">PAUS</div>
     <p class="sub" id="pauseStats" style="margin-top:12px"></p>
+    <div class="settings">
+      <div>⚙️ INSTÄLLNINGAR</div>
+      <label for="sensRange">🎯 Känslighet (titta): <span id="sensVal">100%</span></label>
+      <input type="range" id="sensRange" min="40" max="180" value="100">
+      <label><input type="checkbox" id="autoJumpChk" checked> ⤒ Auto-hopp (kliv upp för 1-blockskanter — skönt på mobil)</label>
+      <label><input type="checkbox" id="qualityChk" checked> ✨ Hög grafik (av = snabbare på svag telefon)</label>
+    </div>
     <button class="mcbtn green" id="btnResume">▶ &nbsp;FORTSÄTT</button>
     <button class="mcbtn" id="btnSave2">💾 &nbsp;SPARA VÄRLDEN</button>
     <button class="mcbtn" id="btnNewWorld">🌍 &nbsp;NY VÄRLD (raderar sparad)</button>
@@ -142,7 +174,7 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), irnd=(a,b)=>Math.floor(a+Math.ra
 const IS_TOUCH=matchMedia('(pointer:coarse)').matches||'ontouchstart' in window;
 
 /* ---------------- Block ---------------- */
-const B={AIR:0,GRASS:1,DIRT:2,STONE:3,LOG:4,LEAVES:5,PLANKS:6,SAND:7,GLASS:8,BRICK:9,COBBLE:10,COAL:11,DIAMOND:12,WATER:13,BEDROCK:14,SNOW:15};
+const B={AIR:0,GRASS:1,DIRT:2,STONE:3,LOG:4,LEAVES:5,PLANKS:6,SAND:7,GLASS:8,BRICK:9,COBBLE:10,COAL:11,DIAMOND:12,WATER:13,BEDROCK:14,SNOW:15,TORCH:16,FLOWER:17,TALLGRASS:18};
 const BLOCK_INFO={
   [B.GRASS]:{name:'Gräsblock',emoji:'🟩',color:0x69b73a,hard:.45},
   [B.DIRT]:{name:'Jord',emoji:'🟫',color:0x8a5a2b,hard:.35},
@@ -159,8 +191,11 @@ const BLOCK_INFO={
   [B.WATER]:{name:'Vatten',emoji:'💧',color:0x2f6fe4,hard:99},
   [B.BEDROCK]:{name:'Berggrund',emoji:'⬛',color:0x333333,hard:999},
   [B.SNOW]:{name:'Snögräs',emoji:'⬜',color:0xffffff,hard:.45},
+  [B.TORCH]:{name:'Fackla',emoji:'🔦',color:0xffb340,hard:.08},
+  [B.FLOWER]:{name:'Blomma',emoji:'🌼',color:0xffd93d,hard:.05},
+  [B.TALLGRASS]:{name:'Högt gräs',emoji:'🌿',color:0x55aa35,hard:.05},
 };
-const HOTBAR=[B.GRASS,B.DIRT,B.STONE,B.LOG,B.PLANKS,B.SAND,B.GLASS,B.BRICK,B.COBBLE];
+const HOTBAR=[B.GRASS,B.DIRT,B.STONE,B.LOG,B.PLANKS,B.SAND,B.GLASS,B.BRICK,B.COBBLE,B.TORCH];
 const OPAQUE=new Set([B.GRASS,B.DIRT,B.STONE,B.LOG,B.PLANKS,B.SAND,B.BRICK,B.COBBLE,B.COAL,B.DIAMOND,B.BEDROCK,B.SNOW]);
 const SOLID=new Set([...OPAQUE,B.LEAVES,B.GLASS]);
 
@@ -189,6 +224,11 @@ function vnoise3(x,y,z){ const xi=Math.floor(x),yi=Math.floor(y),zi=Math.floor(z
   return (x00+(x10-x00)*yf)+((x01+(x11-x01)*yf)-(x00+(x10-x00)*yf))*zf; }
 
 const heights=new Int16Array(SX*SZ);
+const topY=new Int16Array(SX*SZ); // högsta solida block per kolumn (för himmelsljus)
+const torchSet=new Set(); // "x,y,z" för alla placerade facklor (för ljusberäkning)
+function computeTop(){ for(let x=0;x<SX;x++)for(let z=0;z<SZ;z++){ let t=0; for(let y=SY-1;y>=0;y--)if(SOLID.has(getBlock(x,y,z))){ t=y; break; } topY[z*SX+x]=t; } }
+function refreshTop(x,z){ if(x<0||x>=SX||z<0||z>=SZ)return; let t=0; for(let y=SY-1;y>=0;y--)if(SOLID.has(getBlock(x,y,z))){ t=y; break; } topY[z*SX+x]=t; }
+function skyLightAt(x,y,z){ if(x<0||x>=SX||z<0||z>=SZ)return 1; const t=topY[z*SX+x]; if(y>=t)return 1; return clamp(1-(t-y)*.055,.26,.94); }
 function generateWorld(){
   world=new Uint8Array(SX*SY*SZ);
   for(let x=0;x<SX;x++)for(let z=0;z<SZ;z++){
@@ -227,7 +267,17 @@ function generateWorld(){
     }
     setBlockRaw(x,h+th+1,z,B.LEAVES);
   }
+  // blommor & högt gräs på ängarna
+  for(let x=2;x<SX-2;x++)for(let z=2;z<SZ-2;z++){
+    const h=heights[z*SX+x];
+    if(getBlock(x,h,z)!==B.GRASS||getBlock(x,h+1,z)!==B.AIR)continue;
+    const r=hash2(x*13+7,z*13+29);
+    if(r<.035)setBlockRaw(x,h+1,z,B.FLOWER); else if(r<.11)setBlockRaw(x,h+1,z,B.TALLGRASS);
+  }
   for(const k in edits) setBlockRaw(...k.split(',').map(Number),edits[k]);
+  computeTop();
+  torchSet.clear();
+  for(let x=0;x<SX;x++)for(let z=0;z<SZ;z++)for(let y=0;y<SY;y++)if(getBlock(x,y,z)===B.TORCH)torchSet.add(x+','+y+','+z);
 }
 function surfaceY(x,z){ x=clamp(Math.floor(x),0,SX-1); z=clamp(Math.floor(z),0,SZ-1);
   for(let y=SY-1;y>0;y--){ const id=getBlock(x,y,z); if(SOLID.has(id))return y+1; } return SEA+2; }
@@ -246,7 +296,7 @@ addEventListener('resize',()=>{ camera.aspect=innerWidth/innerHeight; camera.upd
 
 /* texturatlas — ritad i kod, 16 texturer i ett 4x4-rutnät */
 function makeAtlas(){
-  const c=document.createElement('canvas'); c.width=c.height=256; const g=c.getContext('2d');
+  const c=document.createElement('canvas'); c.width=256; c.height=512; const g=c.getContext('2d');
   let s=99; const rnd=()=>{ s=(s*16807)%2147483647; return s/2147483647; };
   const tile=(t,fn)=>{ const ox=(t%4)*64,oy=Math.floor(t/4)*64; g.save(); g.translate(ox,oy); fn(); g.restore(); };
   const pix=(base,vary,blocky)=>{ for(let y=0;y<16;y++)for(let x=0;x<16;x++){ const v=(rnd()-.5)*vary; g.fillStyle=shade(base,v); g.fillRect(x*4,y*4,4,4); } };
@@ -267,6 +317,11 @@ function makeAtlas(){
   tile(13,()=>{ pix(0x8d8d8d,16); g.fillStyle='#67e8f9'; for(let i=0;i<5;i++){ g.save(); g.translate(10+rnd()*44,10+rnd()*44); g.rotate(.78); g.fillRect(-5,-5,10,10); g.restore(); } }); // diamant
   tile(14,()=>{ pix(0x2f6fe4,18); g.fillStyle='rgba(255,255,255,.22)'; for(let i=0;i<5;i++)g.fillRect(4+rnd()*44,6+i*12,18,3); }); // vatten
   tile(15,()=>{ pix(0x3a3a3a,44); });                             // berggrund
+  tile(16,()=>{ g.clearRect(0,0,64,64); g.fillStyle='#7c4a12'; g.fillRect(27,22,10,42); g.fillStyle='#ffb340'; g.beginPath(); g.arc(32,15,11,0,7); g.fill(); g.fillStyle='#ff7b1c'; g.beginPath(); g.arc(32,18,6,0,7); g.fill(); }); // fackla-sida
+  tile(17,()=>{ pix(0xffb340,20); g.fillStyle='#ff7b1c'; g.fillRect(18,18,28,28); }); // fackla-topp/låga
+  tile(18,()=>{ g.clearRect(0,0,64,64); g.strokeStyle='#3f8f2f'; g.lineWidth=4; g.beginPath(); g.moveTo(32,64); g.lineTo(32,30); g.stroke();
+    g.fillStyle='#ffd93d'; for(const [fx,fy] of[[32,16],[20,26],[44,26],[25,12],[39,12]]){ g.beginPath(); g.arc(fx,fy,7,0,7); g.fill(); } g.fillStyle='#ff9f1c'; g.beginPath(); g.arc(32,19,4,0,7); g.fill(); }); // blomma
+  tile(19,()=>{ g.clearRect(0,0,64,64); g.strokeStyle='#4da332'; g.lineWidth=4; for(let i=0;i<6;i++){ const bx=8+i*10; g.beginPath(); g.moveTo(bx,64); g.quadraticCurveTo(bx+5,34,bx+(i%2?10:-3),8+((i*13)%18)); g.stroke(); } }); // högt gräs-dekoration
   const tex=new THREE.CanvasTexture(c); tex.magFilter=THREE.NearestFilter; tex.minFilter=THREE.LinearMipmapLinearFilter; return tex;
 }
 const atlasTex=makeAtlas();
@@ -278,6 +333,7 @@ function tileFor(id,face){ // face: 0-3 sida, 4 topp, 5 botten
     case B.LEAVES:return 6; case B.PLANKS:return 7; case B.SAND:return 8; case B.GLASS:return 9;
     case B.BRICK:return 10; case B.COBBLE:return 11; case B.COAL:return 12; case B.DIAMOND:return 13;
     case B.WATER:return 14; case B.BEDROCK:return 15; case B.SNOW:return face===4?8:face===5?2:1;
+    case B.TORCH:return face===4?17:16; case B.FLOWER:return 18; case B.TALLGRASS:return 19;
     default:return 3;
   }
 }
@@ -295,25 +351,82 @@ const FACES=[
   {dir:[0,0,1], corners:[[0,0,1],[1,0,1],[0,1,1],[1,1,1]],shade:.86},
 ];
 const chunkMeshes=new Map();
+const AO_LEVELS=[.4,.64,.83,1];
 function buildChunk(cx,cz){
   const key=cx+','+cz, old=chunkMeshes.get(key);
   if(old){ for(const m of old){ scene.remove(m); m.geometry.dispose(); } }
   const data={opaque:{p:[],n:[],u:[],c:[],i:[]},cutout:{p:[],n:[],u:[],c:[],i:[]},water:{p:[],n:[],u:[],c:[],i:[]}};
+  // facklor i närheten (för varmt ljus i grottor/hus)
+  const torches=[];
+  for(const k of torchSet){ const [tx,ty,tz]=k.split(',').map(Number);
+    if(tx>=cx*CH-9&&tx<(cx+1)*CH+9&&tz>=cz*CH-9&&tz<(cz+1)*CH+9)torches.push([tx+.5,ty+.6,tz+.5]); }
+  const lightRGB=(vx,vy,vz,sky)=>{
+    let tr=0,tg=0,tb=0;
+    for(const [tx,ty,tz] of torches){ const dd=(vx-tx)*(vx-tx)+(vy-ty)*(vy-ty)+(vz-tz)*(vz-tz);
+      if(dd<81){ const f=1-Math.sqrt(dd)/9; if(f>tr){ tr=f; tg=f*.82; tb=f*.55; } } }
+    const base=Math.max(sky,tr);
+    return [base,Math.max(sky*.98,tg+(base-tr)*.9),Math.max(sky*.96,tb+(base-tr)*.85)];
+  };
+  const pushQuad=(d,pts,normal,tile,rgb,flip)=>{
+    const tu=(tile%4)/4, tvT=1-Math.floor(tile/4)/8, inset=.002;
+    const uvs=[[tu+inset,tvT-inset],[tu+inset,tvT-1/8+inset],[tu+1/4-inset,tvT-inset],[tu+1/4-inset,tvT-1/8+inset]];
+    const base=d.p.length/3;
+    for(let ci=0;ci<4;ci++){ d.p.push(pts[ci][0],pts[ci][1],pts[ci][2]); d.n.push(...normal); d.u.push(uvs[ci][0],uvs[ci][1]); d.c.push(rgb[ci][0],rgb[ci][1],rgb[ci][2]); }
+    if(flip)d.i.push(base,base+1,base+3,base,base+3,base+2);
+    else d.i.push(base,base+1,base+2,base+2,base+1,base+3);
+  };
   for(let x=cx*CH;x<(cx+1)*CH;x++)for(let z=cz*CH;z<(cz+1)*CH;z++)for(let y=0;y<SY;y++){
     const id=getBlock(x,y,z); if(id===B.AIR)continue;
+    /* --- dekorationer: korsformade quads --- */
+    if(id===B.FLOWER||id===B.TALLGRASS){
+      const d=data.cutout, tile=tileFor(id,0), sky=skyLightAt(x,y+1,z), rgb=lightRGB(x+.5,y+1,z+.5,sky);
+      const R=[rgb,rgb,rgb,rgb];
+      pushQuad(d,[[x+.13,y+1,z+.13],[x+.13,y,z+.13],[x+.87,y+1,z+.87],[x+.87,y,z+.87]],[0,1,0],tile,R,false);
+      pushQuad(d,[[x+.87,y+1,z+.13],[x+.87,y,z+.13],[x+.13,y+1,z+.87],[x+.13,y,z+.87]],[0,1,0],tile,R,false);
+      continue;
+    }
+    /* --- fackla: liten pinne + låga --- */
+    if(id===B.TORCH){
+      const d=data.opaque;
+      const parts=[[.4,.6,0,.58,16],[.33,.67,.58,.88,17]];
+      for(const [lo,hi,y0,y1,tile] of parts){
+        for(let f=0;f<6;f++){ const F=FACES[f];
+          const pts=F.corners.map(cc=>[x+(cc[0]?hi:lo), y+(cc[1]?y1:y0), z+(cc[2]?hi:lo)]);
+          const rgb=pts.map(p=>lightRGB(p[0],p[1],p[2],1).map(v=>Math.min(1.15,v)));
+          pushQuad(d,pts,F.dir,tile,rgb,false);
+        }
+      }
+      continue;
+    }
     const bucket=id===B.WATER?'water':(id===B.LEAVES||id===B.GLASS)?'cutout':'opaque';
     const d=data[bucket];
     for(let f=0;f<6;f++){ const F=FACES[f], nx=x+F.dir[0],ny=y+F.dir[1],nz=z+F.dir[2], nb=getBlock(nx,ny,nz);
       if(nb===id&&bucket!=='opaque')continue;
       if(OPAQUE.has(nb))continue;
-      if(id!==B.WATER&&nb===B.WATER&&f!==3){ /* sida mot vatten ritas */ }
       const tile=tileFor(id,f===3?4:f===2?5:0);
-      const tu=(tile%4)/4, tv=1-Math.floor(tile/4)/4, ts=1/4, inset=.002;
-      const uvs=[[tu+inset,tv-inset],[tu+inset,tv-ts+inset],[tu+ts-inset,tv-inset],[tu+ts-inset,tv-ts+inset]];
-      const base=d.p.length/3, shadeV=F.shade*(0.92+hash3(x,y,z)*0.08);
+      const baseShade=F.shade*(0.92+hash3(x,y,z)*0.08);
+      /* ambient occlusion: grannblock runt varje hörn mörkar hörnet */
+      const axis=F.dir[0]!==0?0:F.dir[1]!==0?1:2, t1=(axis+1)%3, t2=(axis+2)%3;
+      const aos=[], rgbs=[];
       for(let ci=0;ci<4;ci++){ const cc=F.corners[ci];
-        d.p.push(x+cc[0],y+cc[1],z+cc[2]); d.n.push(...F.dir); d.u.push(uvs[ci][0],uvs[ci][1]); d.c.push(shadeV,shadeV,shadeV); }
-      d.i.push(base,base+1,base+2,base+2,base+1,base+3);
+        const px=x+cc[0],py=y+cc[1],pz=z+cc[2];
+        let ao=3;
+        if(bucket==='opaque'){
+          const s1=cc[t1]?1:-1, s2=cc[t2]?1:-1;
+          const cell=[x+F.dir[0],y+F.dir[1],z+F.dir[2]];
+          const c1=[...cell],c2=[...cell],c3=[...cell];
+          c1[t1]+=s1; c2[t2]+=s2; c3[t1]+=s1; c3[t2]+=s2;
+          const o1=OPAQUE.has(getBlock(c1[0],c1[1],c1[2]))?1:0, o2=OPAQUE.has(getBlock(c2[0],c2[1],c2[2]))?1:0, o3=OPAQUE.has(getBlock(c3[0],c3[1],c3[2]))?1:0;
+          ao=(o1&&o2)?0:3-(o1+o2+o3);
+        }
+        aos.push(ao);
+        const sky=skyLightAt(px,py,pz);
+        const L=lightRGB(px,py,pz,sky);
+        const m=baseShade*AO_LEVELS[ao];
+        rgbs.push([L[0]*m,L[1]*m,L[2]*m]);
+      }
+      const pts=F.corners.map(cc=>[x+cc[0],y+cc[1],z+cc[2]]);
+      pushQuad(d,pts,F.dir,tile,rgbs, aos[0]+aos[3]>aos[1]+aos[2]);
     }
   }
   const meshes=[];
@@ -335,10 +448,34 @@ function rebuildBlockChunks(x,z){ const cx=Math.floor(x/CH),cz=Math.floor(z/CH);
 function buildAllChunks(){ for(let cx=0;cx<SX/CH;cx++)for(let cz=0;cz<SZ/CH;cz++)buildChunk(cx,cz); }
 function setBlock(x,y,z,id,record=true){
   if(!inWorld(x,y,z))return;
+  const old=getBlock(x,y,z), key3=x+','+y+','+z;
   setBlockRaw(x,y,z,id);
-  if(record){ const k=x+','+y+','+z; if(id===B.AIR)edits[k]=B.AIR; else edits[k]=id; }
-  rebuildBlockChunks(x,z);
+  if(old===B.TORCH)torchSet.delete(key3);
+  if(id===B.TORCH)torchSet.add(key3);
+  refreshTop(x,z);
+  if(record){ if(id===B.AIR)edits[key3]=B.AIR; else edits[key3]=id; }
+  if(old===B.TORCH||id===B.TORCH){ // ljuset når grann-chunks — bygg om 3x3
+    const cx=Math.floor(x/CH),cz=Math.floor(z/CH);
+    for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)
+      if(cx+dx>=0&&cx+dx<SX/CH&&cz+dz>=0&&cz+dz<SZ/CH)buildChunk(cx+dx,cz+dz);
+  } else rebuildBlockChunks(x,z);
+  scheduleSandCheck(x,y,z); scheduleSandCheck(x,y+1,z); scheduleSandCheck(x,y+2,z);
 }
+/* fallande sand, som i riktiga Minecraft! */
+const sandQueue=[];
+function scheduleSandCheck(x,y,z){ if(getBlock(x,y,z)===B.SAND)sandQueue.push([x,y,z]); }
+setInterval(()=>{ if(!started)return;
+  const seen=new Set();
+  for(const [x,y,z] of sandQueue.splice(0)){
+    const k=x+','+y+','+z; if(seen.has(k))continue; seen.add(k);
+    if(getBlock(x,y,z)!==B.SAND)continue;
+    const below=getBlock(x,y-1,z);
+    if(below===B.AIR||below===B.WATER||below===B.TORCH||below===B.FLOWER||below===B.TALLGRASS){
+      setBlock(x,y,z,B.AIR); setBlock(x,y-1,z,B.SAND);
+      scheduleSandCheck(x,y-1,z); scheduleSandCheck(x,y+1,z);
+    }
+  }
+},140);
 
 /* moln, himmelobjekt, hand */
 const clouds=new THREE.Group(); scene.add(clouds);
@@ -350,6 +487,9 @@ let skyStars;
 { const pts=[]; for(let i=0;i<420;i++){ const a=Math.random()*Math.PI*2,e=Math.random()*1.3+.1,r=260; pts.push(Math.cos(a)*Math.cos(e)*r,Math.sin(e)*r,Math.sin(a)*Math.cos(e)*r); }
   const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(pts,3));
   skyStars=new THREE.Points(geo,new THREE.PointsMaterial({color:0xffffff,size:1.4,transparent:true,opacity:0,fog:false})); scene.add(skyStars); }
+const sunCube=new THREE.Mesh(new THREE.BoxGeometry(16,16,16),new THREE.MeshBasicMaterial({color:0xffdf4d,fog:false}));
+const moonCube=new THREE.Mesh(new THREE.BoxGeometry(11,11,11),new THREE.MeshBasicMaterial({color:0xe8edf5,fog:false}));
+scene.add(sunCube,moonCube);
 const handGroup=new THREE.Group(); handGroup.position.set(.58,-.55,-.9); handGroup.rotation.set(.15,-.25,0); camera.add(handGroup);
 const handBlock=new THREE.Mesh(new THREE.BoxGeometry(.32,.32,.32),new THREE.MeshLambertMaterial({color:0x69b73a})); handBlock.position.set(.05,-.05,-.1); handGroup.add(handBlock);
 const handArm=new THREE.Mesh(new THREE.BoxGeometry(.17,.42,.17),new THREE.MeshLambertMaterial({color:0x3b6ea5})); handArm.position.set(-.13,-.3,.08); handArm.rotation.x=.5; handGroup.add(handArm);
@@ -372,11 +512,20 @@ const sfx={ dig(){blip(120+Math.random()*60,.07,'square',.06,-40);}, brk(){blip(
   level(){[523,659,784].forEach((f,i)=>setTimeout(()=>blip(f,.12,'square',.07),i*80));}, mob(){blip(140,.12,'sawtooth',.07,-40);} };
 
 /* ---------------- Spelare ---------------- */
-const player={pos:new THREE.Vector3(SX/2,30,SZ/2),vel:new THREE.Vector3(),yaw:Math.PI,pitch:-.1,onGround:false,fly:false,hp:20,hunger:20,food:0,diamonds:0,dead:false};
+const player={pos:new THREE.Vector3(SX/2,30,SZ/2),vel:new THREE.Vector3(),yaw:Math.PI,pitch:-.1,onGround:false,fly:false,hp:20,hunger:20,food:0,diamonds:0,xp:0,level:1,dead:false};
+let items={stick:0,coal:0}; let tools={woodPick:false,stonePick:false};
+let sensitivity=1, autoJump=true, craftingOpen=false;
+function toolTier(){ return tools.stonePick?2:tools.woodPick?1:0; }
+function toolName(){ return tools.stonePick?'🪨 Stenhacka':tools.woodPick?'🪵 Trähacka':'✋ Hand'; }
+function gainXP(n){ if(mode==='creative')return; player.xp+=n;
+  let need=player.level*18;
+  while(player.xp>=need){ player.xp-=need; player.level++; need=player.level*18; sfx.level(); toast(`⭐ LEVEL ${player.level}!`); burst(player.pos.x,player.pos.y+2,player.pos.z,0x7dff6a,18); }
+  updateVitals(); }
 let inventory={}; HOTBAR.forEach(id=>inventory[id]=0);
 let selected=0, started=false, pausedMenu=false, dayT=.34, hurtCd=0, hungerTimer=0, placeCd=0, mineProgress=0, mineKey='', swingT=0;
 const keys={}; let joy={x:0,y:0};
 let mining=false, placing=false, jumpHeld=false, flyUpHeld=false, flyDownHeld=false;
+let stepAcc=0, wasInWater=false;
 
 function isSolidAt(x,y,z){ if(y<0)return true; if(x<0||x>=SX||z<0||z>=SZ)return true; if(y>=SY)return false; return SOLID.has(getBlock(x,y,z)); }
 function collideBox(px,py,pz){
@@ -408,14 +557,27 @@ function movePlayer(dt){
     player.vel.y-=27*dt;
     if(jumpHeld&&player.onGround){ player.vel.y=9.3; player.onGround=false; }
   }
-  // rörelse axel för axel med kollision
+  // rörelse axel för axel med kollision (+ auto-hopp uppför 1 block)
   const stepAxis=(axis,amt)=>{ if(!amt)return;
+    const oy=player.pos.y;
     player.pos[axis]+=amt;
-    if(collideBox(player.pos.x,player.pos.y,player.pos.z)){ player.pos[axis]-=amt;
+    if(collideBox(player.pos.x,player.pos.y,player.pos.z)){
+      // försök kliva upp ett block (som auto-jump på mobil-Minecraft)
+      if(axis!=='y'&&autoJump&&!player.fly&&player.vel.y<=0.5){
+        player.pos.y=oy+1.02;
+        if(!collideBox(player.pos.x,player.pos.y,player.pos.z)){ player.vel.y=0; return true; }
+        player.pos.y=oy;
+      }
+      player.pos[axis]-=amt;
       if(axis==='y'){ if(amt<0){ if(!player.fly&&player.vel.y<-19&&mode==='survival')damage(Math.floor((-player.vel.y-19)*.7)); player.onGround=true; } player.vel.y=0; }
       if(axis!=='y')player.vel[axis]=0; return false; } return true; };
   stepAxis('x',player.vel.x*dt); stepAxis('z',player.vel.z*dt);
   const wasGround=player.onGround; player.onGround=false; stepAxis('y',player.vel.y*dt);
+  // fotsteg + plask
+  if(inWater&&!wasInWater&&player.vel.y<-2){ blip(300,.16,'sine',.07,-160); burst(player.pos.x,player.pos.y+.6,player.pos.z,0x7dd3fc,10); }
+  wasInWater=inWater;
+  if(player.onGround&&mag>.15&&!inWater){ stepAcc+=Math.hypot(player.vel.x,player.vel.z)*dt;
+    if(stepAcc>2.3){ stepAcc=0; blip(90+Math.random()*40,.05,'square',.028,-25); } }
   if(player.vel.y===0&&!player.fly) { /* landning satt i stepAxis vid kollision nedåt */ }
   if(player.pos.y<2){ player.pos.y=2; player.vel.y=0; }
   // hunger
@@ -449,6 +611,14 @@ const highlight=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeom
 highlight.visible=false; scene.add(highlight);
 const crackBox=new THREE.Mesh(new THREE.BoxGeometry(1.01,1.01,1.01),new THREE.MeshBasicMaterial({color:0x000000,transparent:true,opacity:0,depthWrite:false}));
 crackBox.visible=false; scene.add(crackBox);
+{ // sprick-textur ritad i kod (grenade sprickor)
+  const cc=document.createElement('canvas'); cc.width=cc.height=64; const g=cc.getContext('2d');
+  g.clearRect(0,0,64,64); g.strokeStyle='rgba(10,5,0,.92)'; g.lineWidth=2.4; g.lineCap='round';
+  let rngS=7; const rr=()=>{ rngS=(rngS*16807)%2147483647; return rngS/2147483647; };
+  for(let b=0;b<7;b++){ let x=32,y=32; g.beginPath(); g.moveTo(x,y);
+    for(let s2=0;s2<4;s2++){ x+=(rr()-.5)*30; y+=(rr()-.5)*30; g.lineTo(x,y); } g.stroke(); }
+  const crackTex=new THREE.CanvasTexture(cc); crackBox.material.map=crackTex; crackBox.material.needsUpdate=true;
+}
 
 /* ---------------- Monster/djur ---------------- */
 const mobs=[];
@@ -464,10 +634,17 @@ function makeZombie(){ const g=new THREE.Group();
   box(.18,.62,.2,0x7fae5a,-.42,1.14,.16,g).rotation.x=-1.25; box(.18,.62,.2,0x7fae5a,.42,1.14,.16,g).rotation.x=-1.25;
   box(.2,.78,.22,0x4a3b8c,-.17,.39,0,g); box(.2,.78,.22,0x4a3b8c,.17,.39,0,g);
   box(.09,.07,.05,0x111111,-.13,1.84,.18,g); box(.09,.07,.05,0x111111,.13,1.84,.18,g); return g; }
+function makeCow(){ const g=new THREE.Group(); const hide=0x8a6844;
+  box(1.1,.78,.68,hide,0,.74,0,g); box(.55,.52,.52,hide,0,.84,.6,g); box(.3,.2,.08,0xd9a0a8,0,.76,.9,g);
+  box(.2,.12,.12,0xf5f0e6,-.3,1.14,.48,g); box(.2,.12,.12,0xf5f0e6,.3,1.14,.48,g);
+  box(.3,.26,.04,0xf5f0e6,-.32,.88,.35,g); box(.26,.2,.04,0xf5f0e6,.28,.68,-.35,g);
+  box(.09,.09,.09,0x111111,-.15,.96,.88,g); box(.09,.09,.09,0x111111,.15,.96,.88,g);
+  for(const [lx,lz] of[[-.38,.3],[.38,.3],[-.38,-.3],[.38,-.3]])box(.17,.44,.17,hide,lx,.22,lz,g);
+  box(.1,.34,.1,hide,0,.86,-.42,g); return g; }
 function spawnMob(type,x,z){
-  const mesh=type==='pig'?makePig():makeZombie();
+  const mesh=type==='pig'?makePig():type==='cow'?makeCow():makeZombie();
   const y=surfaceY(x,z); mesh.position.set(x,y,z); scene.add(mesh);
-  const mob={type,mesh,x,z,y,hp:type==='pig'?10:20,yaw:Math.random()*6.28,t:0,atkCd:0,hitT:0,dead:false};
+  const mob={type,mesh,x,z,y,hp:type==='zombie'?20:type==='cow'?12:10,yaw:Math.random()*6.28,t:0,atkCd:0,hitT:0,dead:false};
   mesh.rotation.y=mob.yaw; mobs.push(mob); return mob;
 }
 function nearestMobInSight(){
@@ -482,10 +659,10 @@ function nearestMobInSight(){
 function damageMob(m,dmg){
   m.hp-=dmg; m.hitT=8; sfx.mob();
   const away=Math.atan2(m.x-player.pos.x,m.z-player.pos.z); m.x+=Math.sin(away)*.7; m.z+=Math.cos(away)*.7;
-  burst(m.x,m.y+1.2,m.z,m.type==='pig'?0xf2a0b5:0x7fae5a,10);
+  burst(m.x,m.y+1.2,m.z,m.type==='zombie'?0x7fae5a:m.type==='cow'?0x8a6844:0xf2a0b5,10);
   if(m.hp<=0){ m.dead=true; scene.remove(m.mesh);
-    if(m.type==='pig'){ player.food++; toast('🍖 Du fick fläskkotlett! Tryck 🍖 Ät'); }
-    else toast('🧟 Zombie besegrad!');
+    if(m.type==='pig'||m.type==='cow'){ player.food++; toast(m.type==='cow'?'🥩 Du fick nötkött! Tryck 🍖 Ät':'🍖 Du fick fläskkotlett! Tryck 🍖 Ät'); gainXP(8); }
+    else { toast('🧟 Zombie besegrad! +15 XP'); gainXP(15); }
     burst(m.x,m.y+1,m.z,0xffffff,16); updateVitals(); }
 }
 function updateMobs(dt,isNight){
@@ -516,14 +693,16 @@ function damage(n,ignoreArmor){ if(mode==='creative'||player.dead)return; if(hur
   player.hp-=n; hurtCd=.5; sfx.hurt();
   $('damage').style.opacity='1'; setTimeout(()=>$('damage').style.opacity='0',180);
   updateVitals();
-  if(player.hp<=0){ player.dead=true; toast('💀 Du dog! Återskapar...',2200);
-    setTimeout(()=>{ player.hp=20; player.hunger=20; player.dead=false; respawn(); updateVitals(); },1800); } }
+  if(player.hp<=0){ player.dead=true;
+    $('deathStats').innerHTML=`Du nådde <b>level ${player.level}</b>, hade <b>${player.diamonds} diamanter</b> 💎 och spelade i världen <b>${seedStr}</b>.`;
+    $('deathScreen').style.display='flex'; if(document.pointerLockElement)document.exitPointerLock(); } }
 function respawn(){ const x=SX/2,z=SZ/2; player.pos.set(x+.5,surfaceY(x,z)+.1,z+.5); player.vel.set(0,0,0); player.yaw=Math.PI; }
 function heartsStr(v,full,empty){ let s=''; for(let i=0;i<10;i++)s+=v>=(i+1)*2?full:v===(i*2)+1?'💔':empty; return s; }
 function updateVitals(){
   $('hearts').textContent=mode==='creative'?'❤️ Kreativt läge — odödlig!':heartsStr(player.hp,'❤️','🖤');
   $('hunger').textContent=mode==='creative'?'🍗 Oändlig mat':(heartsStr(player.hunger,'🍗','🤎')+(player.food?`  •  🍖×${player.food}`:''));
   $('btnMode').textContent=mode==='creative'?'🎨 Kreativ':'🎮 Överlevnad';
+  const tl=$('toolLine'); if(tl)tl.textContent=`${toolName()} • ⭐ Lv.${player.level} (${player.xp}/${player.level*18} XP)`+(player.diamonds?` • 💎×${player.diamonds}`:'')+(items.coal?` • ⬛ kol ×${items.coal}`:'');
 }
 
 /* ---------------- Hotbar/UI ---------------- */
@@ -559,21 +738,30 @@ function tryMine(dt){
   if(key!==mineKey){ mineKey=key; mineProgress=0; }
   const info=BLOCK_INFO[hit.id];
   if(hit.id===B.BEDROCK){ crackBox.visible=false; if(Math.random()<dt*3)toast('⛏️ Berggrund går inte att gräva sönder!'); return; }
-  mineProgress+=dt/(mode==='creative'?.12:info.hard);
+  const tierNeeded=(hit.id===B.DIAMOND)?2:[B.STONE,B.COBBLE,B.COAL,B.BRICK].includes(hit.id)?1:0;
+  const tier=toolTier(), hasTool=mode==='creative'||tier>=tierNeeded;
+  const speedMul=mode==='creative'?1:(hasTool?[0.55,1.6,2.5][tier]:0.3);
+  if(!hasTool&&mineProgress===0&&Math.random()<dt*2)toast(tierNeeded===2?'💎 Du behöver en STENHACKA för diamant! Slöjda en! 🔨':'🪨 Du behöver en HACKA för sten! Slöjda en av plankor 🔨');
+  mineProgress+=dt*speedMul/(mode==='creative'?.12:info.hard);
   crackBox.visible=true; crackBox.position.set(hit.x+.5,hit.y+.5,hit.z+.5);
-  crackBox.material.opacity=clamp(mineProgress,0,1)*.45;
+  crackBox.material.opacity=clamp(mineProgress,0,1)*.5; crackBox.material.map.offset.set(0,0);
+  crackBox.scale.setScalar(1.002+clamp(mineProgress,0,1)*.012);
   if(Math.random()<dt*9){ sfx.dig(); burst(hit.x+.5,hit.y+.5,hit.z+.5,info.color,2); }
   if(mineProgress>=1){
     mineProgress=0; sfx.brk(); burst(hit.x+.5,hit.y+.5,hit.z+.5,info.color,18);
+    const brokenId=hit.id;
     setBlock(hit.x,hit.y,hit.z,B.AIR);
     if(mode==='survival'){
-      let drop=hit.id===B.GRASS||hit.id===B.SNOW?B.DIRT:hit.id;
-      if(hit.id===B.STONE)drop=B.COBBLE;
-      if(HOTBAR.includes(drop)){ inventory[drop]++; }
-      else if(hit.id===B.DIAMOND){ player.diamonds++; toast(`💎 DIAMANT! Du har nu ${player.diamonds} diamant(er)!`); }
-      else if(hit.id===B.COAL){ toast('⬛ Kol hittat!'); }
-      if(hit.id===B.LEAVES&&Math.random()<.12){ inventory[B.DIRT]++; }
-      updateHotbarCounts();
+      if(!hasTool&&tierNeeded>0){ toast('💨 Blocket gick sönder men gav inget — fel verktyg!'); }
+      else {
+        let drop=brokenId===B.GRASS||brokenId===B.SNOW?B.DIRT:brokenId;
+        if(brokenId===B.STONE)drop=B.COBBLE;
+        if(brokenId===B.COAL){ items.coal++; toast(`⬛ Kol! (har ${items.coal}) — slöjda facklor 🔨`); gainXP(6); }
+        else if(brokenId===B.DIAMOND){ player.diamonds++; toast(`💎 DIAMANT! Du har nu ${player.diamonds}!`); gainXP(25); }
+        else if(HOTBAR.includes(drop)){ inventory[drop]++; gainXP(drop===B.LOG?2:1); }
+        if(brokenId===B.LEAVES&&Math.random()<.1){ inventory[B.DIRT]++; }
+      }
+      updateHotbarCounts(); updateVitals();
     }
   }
 }
@@ -592,9 +780,37 @@ function collideBoxAtBlock(bx,by,bz){
   return bx+1>player.pos.x-hw&&bx<player.pos.x+hw&&bz+1>player.pos.z-hw&&bz<player.pos.z+hw&&by+1>player.pos.y&&by<player.pos.y+1.8;
 }
 
+/* ---------------- Slöjd (crafting) ---------------- */
+const RECIPES=[
+  {name:'Plankor ×4',emoji:'🟨',need:()=>[[B.LOG,1,'vedträ']],can:()=>inventory[B.LOG]>=1,make:()=>{ inventory[B.LOG]--; inventory[B.PLANKS]+=4; }},
+  {name:'Pinnar ×4',emoji:'🥢',need:()=>[[B.PLANKS,2,'plankor']],can:()=>inventory[B.PLANKS]>=2,make:()=>{ inventory[B.PLANKS]-=2; items.stick+=4; }},
+  {name:'Trähacka',emoji:'🪵',need:()=>[[B.PLANKS,3,'plankor'],['stick',2,'pinnar']],can:()=>!tools.woodPick&&inventory[B.PLANKS]>=3&&items.stick>=2,make:()=>{ inventory[B.PLANKS]-=3; items.stick-=2; tools.woodPick=true; }},
+  {name:'Stenhacka',emoji:'🪨',need:()=>[[B.COBBLE,3,'kullersten'],['stick',2,'pinnar']],can:()=>!tools.stonePick&&inventory[B.COBBLE]>=3&&items.stick>=2,make:()=>{ inventory[B.COBBLE]-=3; items.stick-=2; tools.stonePick=true; }},
+  {name:'Facklor ×4',emoji:'🔦',need:()=>[['coal',1,'kol'],['stick',1,'pinne']],can:()=>items.coal>=1&&items.stick>=1,make:()=>{ items.coal--; items.stick--; inventory[B.TORCH]+=4; }},
+];
+function needText(r){ return r.need().map(([k,n,label])=>`${n} ${label} (har ${k==='stick'?items.stick:k==='coal'?items.coal:inventory[k]||0})`).join(' + '); }
+function renderCraft(){
+  $('craftInv').innerHTML=`🎒 Pinnar: <b>${items.stick}</b> • Kol: <b>${items.coal}</b> • Verktyg: <b>${toolName()}</b>${mode==='creative'?'<br>🎨 Kreativt läge: verktyg behövs inte, block är oändliga!':''}`;
+  const list=$('recipeList'); list.innerHTML='';
+  for(const r of RECIPES){
+    const owned=(r.name==='Trähacka'&&tools.woodPick)||(r.name==='Stenhacka'&&tools.stonePick);
+    const row=document.createElement('div'); row.className='recipe';
+    row.innerHTML=`<div><b>${r.emoji} ${r.name}</b><small>${owned?'✅ Redan tillverkad!':'Kräver: '+needText(r)}</small></div>`;
+    const b=document.createElement('button'); b.textContent=owned?'✔ Ägd':'Slöjda';
+    b.disabled=owned||(mode!=='creative'&&!r.can());
+    if(mode==='creative')b.disabled=owned;
+    b.addEventListener('click',()=>{ if(mode==='creative'){ // kreativ: ge ändå föremålet/verktyget
+        if(r.name==='Plankor ×4')inventory[B.PLANKS]+=0; r.make&&null; }
+      r.make(); sfx.level(); buildHotbar(); updateVitals(); renderCraft(); toast('🔨 Du slöjdade '+r.name+'!'); });
+    row.appendChild(b); list.appendChild(row);
+  }
+}
+function openCraft(){ if(!started)return; craftingOpen=true; renderCraft(); $('craftScreen').style.display='flex'; if(document.pointerLockElement)document.exitPointerLock(); }
+function closeCraft(){ craftingOpen=false; $('craftScreen').style.display='none'; if(started&&!IS_TOUCH&&!pausedMenu)renderer.domElement.requestPointerLock(); }
+
 /* ---------------- Spara ---------------- */
 function saveGame(silent){
-  try{ const data={v:1,seedStr,mode,edits,inventory,food:player.food,diamonds:player.diamonds,hp:player.hp,hunger:player.hunger,dayT,
+  try{ const data={v:2,seedStr,mode,edits,inventory,items,tools,food:player.food,diamonds:player.diamonds,xp:player.xp,level:player.level,sensitivity,autoJump,hp:player.hp,hunger:player.hunger,dayT,
     player:{x:player.pos.x,y:player.pos.y,z:player.pos.z,yaw:player.yaw,pitch:player.pitch,fly:player.fly}};
     localStorage.setItem('minkraftSaveV1',JSON.stringify(data)); if(!silent)toast('💾 Världen sparad!'); }catch(e){ if(!silent)toast('⚠️ Kunde inte spara'); }
 }
@@ -607,15 +823,16 @@ addEventListener('keydown',e=>{ keys[e.code]=true;
   if(['Space','ArrowUp','ArrowDown'].includes(e.code))e.preventDefault();
   if(e.code==='Space')jumpHeld=true;
   if(!started)return;
-  if(e.code.startsWith('Digit')){ const n=+e.code.slice(5); if(n>=1&&n<=9)selectSlot(n-1); }
+  if(e.code.startsWith('Digit')){ const n=+e.code.slice(5); if(n>=1&&n<=9)selectSlot(n-1); else if(n===0)selectSlot(9); }
   if(e.code==='KeyF')toggleFly();
   if(e.code==='KeyE')tryEat();
+  if(e.code==='KeyR')craftingOpen?closeCraft():openCraft();
 });
 addEventListener('keyup',e=>{ keys[e.code]=false; if(e.code==='Space')jumpHeld=false; });
-addEventListener('wheel',e=>{ if(!started)return; selectSlot((selected+(e.deltaY>0?1:-1)+9)%9); },{passive:true});
+addEventListener('wheel',e=>{ if(!started)return; selectSlot((selected+(e.deltaY>0?1:-1)+HOTBAR.length)%HOTBAR.length); },{passive:true});
 renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
 document.addEventListener('mousemove',e=>{ if(document.pointerLockElement===renderer.domElement&&started){
-  player.yaw-=e.movementX*.0023; player.pitch=clamp(player.pitch-e.movementY*.0023,-1.5,1.5); } });
+  player.yaw-=e.movementX*.0023*sensitivity; player.pitch=clamp(player.pitch-e.movementY*.0023*sensitivity,-1.5,1.5); } });
 renderer.domElement.addEventListener('mousedown',e=>{ if(!started)return;
   if(!IS_TOUCH&&document.pointerLockElement!==renderer.domElement){ renderer.domElement.requestPointerLock(); return; }
   if(e.button===0)mining=true; if(e.button===2)placing=true; });
@@ -633,7 +850,7 @@ stick.addEventListener('pointerup',stickEnd); stick.addEventListener('pointercan
 renderer.domElement.addEventListener('pointerdown',e=>{ if(!started||lookId!==null)return; lookId=e.pointerId; lastLX=e.clientX; lastLY=e.clientY; });
 renderer.domElement.addEventListener('pointermove',e=>{ if(e.pointerId!==lookId)return;
   if(IS_TOUCH||document.pointerLockElement!==renderer.domElement){
-    player.yaw-=(e.clientX-lastLX)*.006; player.pitch=clamp(player.pitch-(e.clientY-lastLY)*.006,-1.5,1.5); }
+    player.yaw-=(e.clientX-lastLX)*.006*sensitivity; player.pitch=clamp(player.pitch-(e.clientY-lastLY)*.006*sensitivity,-1.5,1.5); }
   lastLX=e.clientX; lastLY=e.clientY; });
 const lookEnd=e=>{ if(e.pointerId===lookId)lookId=null; };
 renderer.domElement.addEventListener('pointerup',lookEnd); renderer.domElement.addEventListener('pointercancel',lookEnd);
@@ -651,9 +868,8 @@ function toggleFly(){ player.fly=!player.fly; player.vel.y=0; $('btnFly').textCo
 $('btnFly').addEventListener('click',()=>{ if(started)toggleFly(); });
 $('btnFlyUp').addEventListener('dblclick',()=>toggleFly());
 $('btnMode').addEventListener('click',()=>{ mode=mode==='survival'?'creative':'survival'; updateVitals(); buildHotbar(); toast(mode==='creative'?'🎨 Kreativt läge: oändliga block!':'⛏️ Överlevnadsläge!'); });
-$('btnCraft').addEventListener('click',()=>{ if(mode==='creative'){ toast('🎨 Kreativt: du har redan oändligt med plankor!'); return; }
-  if(inventory[B.LOG]>=1){ inventory[B.LOG]--; inventory[B.PLANKS]+=4; sfx.level(); toast('🔨 Slöjd: 1 vedträ → 4 plankor!'); buildHotbar(); }
-  else toast('🚫 Du behöver vedträ (hugg ett träd!)'); });
+$('btnCraft').addEventListener('click',openCraft);
+$('btnCloseCraft').addEventListener('click',closeCraft);
 function tryEat(){ if(mode==='creative'){ toast('🎨 Kreativt läge behöver ingen mat'); return; }
   if(player.food<=0){ toast('🚫 Ingen mat! Besegra en gris 🐷'); return; }
   if(player.hunger>=20&&player.hp>=20){ toast('🍗 Du är mätt!'); return; }
@@ -663,6 +879,9 @@ $('btnSound').addEventListener('click',()=>{ soundOn=!soundOn; $('btnSound').tex
 $('btnSave').addEventListener('click',()=>saveGame(false));
 $('btnSave2').addEventListener('click',()=>saveGame(false));
 $('btnPause').addEventListener('click',openPause);
+$('sensRange').addEventListener('input',e=>{ sensitivity=e.target.value/100; $('sensVal').textContent=e.target.value+'%'; });
+$('autoJumpChk').addEventListener('change',e=>{ autoJump=e.target.checked; toast(autoJump?'⤒ Auto-hopp på':'⤒ Auto-hopp av'); });
+$('qualityChk').addEventListener('change',e=>{ renderer.setPixelRatio(e.target.checked?Math.min(devicePixelRatio||1,IS_TOUCH?1.8:2):1); toast(e.target.checked?'✨ Hög grafik':'⚡ Snabb grafik'); });
 document.querySelectorAll('.modebtn').forEach(b=>b.addEventListener('click',()=>{ document.querySelectorAll('.modebtn').forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); mode=b.dataset.mode; }));
 
 function openPause(){ if(!started)return; pausedMenu=true; saveGame(true);
@@ -670,9 +889,12 @@ function openPause(){ if(!started)return; pausedMenu=true; saveGame(true);
   $('pauseScreen').style.display='flex'; if(document.pointerLockElement)document.exitPointerLock(); }
 $('btnResume').addEventListener('click',()=>{ $('pauseScreen').style.display='none'; pausedMenu=false;
   if(!IS_TOUCH)renderer.domElement.requestPointerLock(); });
+$('btnRespawn').addEventListener('click',()=>{ player.hp=20; player.hunger=Math.max(player.hunger,12); player.dead=false;
+  $('deathScreen').style.display='none'; respawn(); updateVitals(); saveGame(true);
+  if(!IS_TOUCH)renderer.domElement.requestPointerLock(); toast('↪ Du återskapades!'); });
 $('btnMenu').addEventListener('click',()=>location.reload());
 $('btnNewWorld').addEventListener('click',()=>{ if(confirm('Skapa en helt ny värld? Den sparade världen raderas.')){ localStorage.removeItem('minkraftSaveV1'); location.reload(); } });
-document.addEventListener('pointerlockchange',()=>{ if(started&&!IS_TOUCH&&document.pointerLockElement!==renderer.domElement&&!pausedMenu)openPause(); });
+document.addEventListener('pointerlockchange',()=>{ if(started&&!IS_TOUCH&&document.pointerLockElement!==renderer.domElement&&!pausedMenu&&!craftingOpen&&!player.dead)openPause(); });
 
 /* ---------------- Start ---------------- */
 $('btnPlay').addEventListener('click',()=>begin(false));
@@ -686,9 +908,13 @@ async function begin(useSave){
   seedStr=save?save.seedStr:($('seedInput').value.trim()||'MINKRAFT');
   seedNum=strSeed(seedStr);
   if(save){ mode=save.mode; edits=save.edits||{}; inventory={}; HOTBAR.forEach(id=>inventory[id]=0); Object.assign(inventory,save.inventory||{});
-    player.food=save.food||0; player.diamonds=save.diamonds||0; player.hp=save.hp??20; player.hunger=save.hunger??20; dayT=save.dayT??.34; }
+    player.food=save.food||0; player.diamonds=save.diamonds||0; player.xp=save.xp||0; player.level=save.level||1;
+    items=Object.assign({stick:0,coal:0},save.items||{}); tools=Object.assign({woodPick:false,stonePick:false},save.tools||{});
+    sensitivity=save.sensitivity||1; autoJump=save.autoJump!==false;
+    player.hp=save.hp??20; player.hunger=save.hunger??20; dayT=save.dayT??.34; }
   else { edits={}; HOTBAR.forEach(id=>inventory[id]=0); }
   document.querySelectorAll('.modebtn').forEach(x=>x.classList.toggle('sel',x.dataset.mode===mode));
+  $('sensRange').value=Math.round(sensitivity*100); $('sensVal').textContent=Math.round(sensitivity*100)+'%'; $('autoJumpChk').checked=autoJump;
   $('btnPlay').disabled=true; $('btnContinue').disabled=true;
   $('loadingWrap').style.display='block';
   const setP=(p,t)=>{ $('loadingBar').style.width=(p*100)+'%'; $('loadingText').textContent=t; };
@@ -704,7 +930,7 @@ async function begin(useSave){
   setP(.97,'🐷 Släpper ut djuren...');
   if(save&&save.player){ player.pos.set(save.player.x,save.player.y,save.player.z); player.yaw=save.player.yaw; player.pitch=save.player.pitch; player.fly=!!save.player.fly; }
   else respawn();
-  for(let i=0;i<8;i++){ const x=irnd(12,SX-12),z=irnd(12,SZ-12); if(getBlock(x,heights[z*SX+x],z)===B.GRASS)spawnMob('pig',x,z); }
+  for(let i=0;i<9;i++){ const x=irnd(12,SX-12),z=irnd(12,SZ-12); if(getBlock(x,heights[z*SX+x],z)===B.GRASS)spawnMob(i%3===2?'cow':'pig',x,z); }
   setP(1,'✅ Klar!');
   $('startScreen').style.display='none';
   $('hud').classList.add('on'); if(IS_TOUCH)$('touchUI').classList.add('on');
@@ -734,8 +960,11 @@ function loop(now){
   hemi.intensity=.18+dayF*.7; sunLight.intensity=Math.max(0,elev)*1.05+.03;
   skyStars.material.opacity=clamp(1-dayF*1.8,0,1);
   skyStars.position.set(player.pos.x,0,player.pos.z);
+  sunCube.position.set(player.pos.x+Math.cos(sunA)*190,Math.sin(sunA)*150,player.pos.z-60); sunCube.rotation.y=now*.00005;
+  moonCube.position.set(player.pos.x-Math.cos(sunA)*190,-Math.sin(sunA)*150,player.pos.z-60); moonCube.rotation.y=-now*.00005;
+  sunCube.visible=elev>-.25; moonCube.visible=elev<.25;
 
-  if(started&&!pausedMenu&&!player.dead){
+  if(started&&!pausedMenu&&!craftingOpen&&!player.dead){
     movePlayer(dt);
     if(hurtCd>0)hurtCd-=dt;
     if(placeCd>0)placeCd-=dt;

@@ -36,19 +36,35 @@ python3 -m http.server 8000
 
 ## 🌍 Världen
 
-- Proce­durgenererad voxelvärld (96×96) med berg, sjöar, stränder, snötoppar och träd
-- **Grottor** under jorden med kol- och **diamantmalm** djupt nere 💎
+- Procedurgenererad voxelvärld (96×96) med berg, sjöar, stränder, snötoppar,
+  träd, blommor och högt gräs
+- **Grottor** under jorden med kol- och **diamantmalm** djupt nere 💎 — och nu är
+  det faktiskt **mörkt** där nere tack vare himmelsljus per block!
 - Valbart **frö** — samma frö ger samma värld
-- Dag/natt-cykel på **20 minuter** (precis som Minecraft!): på natten kommer zombies 🧟
-- Grisar 🐷 vandrar omkring på dagen — besegra dem för mat
-- Bara synliga blockytor renderas (chunk-meshing) och upplösningen anpassas
-  automatiskt, så det flyter även på telefoner
+- Dag/natt-cykel på **20 minuter** (precis som Minecraft!): synlig sol och måne
+  vandrar över himlen, och på natten kommer zombies 🧟
+- Grisar 🐷 och kor 🐮 vandrar omkring på dagen — besegra dem för mat och XP
+- Bara synliga blockytor renderas (chunk-meshing med **ambient occlusion** i
+  blockhörnen) och upplösningen anpassas automatiskt för telefoner
+
+## 🔨 Slöjd & verktyg
+
+Öppna slöjden med **🔨-knappen** eller **R**:
+
+- 1 vedträ → 4 plankor • 2 plankor → 4 pinnar
+- **Trähacka** (plankor + pinnar) — krävs för att få drop från sten/kol!
+- **Stenhacka** (kullersten + pinnar) — krävs för **diamant** 💎
+- **Facklor ×4** (kol + pinne) — placera dem så lyser de upp grottor och hus
+  med varmt ljus, precis som på riktigt
+
+Grävning har sprick-animation, fel verktyg ger inget drop, sand **faller**
+när blocket under försvinner, och du samlar **XP och levlar** av malm och monster.
 
 ## 🎮 Lägen
 
-- **⛏️ Överlevnad:** hjärtan och hunger, fallskada, grävda block hamnar i din
-  hotbar, slöjd (1 vedträ → 4 plankor med 🔨-knappen), ät för att läka
+- **⛏️ Överlevnad:** hjärtan, hunger, fallskada, verktyg, XP, dödsskärm
 - **🎨 Kreativ:** odödlig och oändligt med alla block + flygläge
 
-Världen, dina blockändringar, ryggsäcken och positionen **sparas automatiskt**
-i webbläsaren (localStorage).
+I pausmenyn finns inställningar för **känslighet**, **auto-hopp** och
+**grafikkvalitet**. Världen, ryggsäcken, verktygen och positionen **sparas
+automatiskt** i webbläsaren (localStorage).
