@@ -55,7 +55,7 @@ telefoner, stöd för notch/safe areas, och förhindrar scroll/zoom av sidan.
 ## ✨ Funktioner
 
 - 🌍 Riktig 3D-värld (Three.js/WebGL): träd, berg, moln, sjö med bro, hus och stigar
-- 🐭 Pikachu byggd i 3D med viftande öron, blixtsvans och gång-animation
+- 🐭 Pikachu byggd i 3D med tecknad outline, stora glansiga ögon (som blinkar!), rosiga glödande kinder, riktig blixtsvans, röd utforskar-scarf som fladdrar — och full gång-/hopp-/idle-animation med öron som släpar efter rörelsen
 - 📷 Tredjepersonskamera som följer dig — snurra, luta och zooma fritt
 - ⚔️ Strider i realtid, XP, level ups, HP/energi och 3D-blixtar med ljuseffekter
 - 🌙 Dag/natt-cykel med rörlig sol, stjärnor och eldflugor

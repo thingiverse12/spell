@@ -352,37 +352,108 @@ function collide(x,z,r){
 /* ---------- Pikachu i 3D! ---------- */
 function buildPikachu(){
   const g=new THREE.Group();
-  const yellow=MAT(P.evolved?0xfb923c:0xffd93d,.65), dark=MAT(0x7c4a03,.8), black=MAT(0x1f2937,.5), red=MAT(0xef4444,.55);
-  const body=new THREE.Mesh(new THREE.SphereGeometry(1,18,14), yellow); body.scale.set(1,.92,.88); body.position.y=.95; g.add(body);
-  const belly=new THREE.Mesh(new THREE.SphereGeometry(.72,14,10), MAT(0xfff3b0,.7)); belly.scale.set(.85,.8,.6); belly.position.set(0,.85,.48); g.add(belly);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.82,20,16), yellow); head.position.set(0,2.05,.18); g.add(head);
-  const parts={yellow,head};
-  // öron
-  parts.ears=[];
+  const ev=P.evolved;
+  /* --- material: mjuk, glansig "leksaks-look" med tydliga färger --- */
+  const yellow=MAT(ev?0xff8c2e:0xffcf1f,.48); yellow.emissive=new THREE.Color(0x000000);
+  const lightMat=MAT(ev?0xfff1cf:0xffdf4d,.55);
+  const creamMat=MAT(0xfff3cf,.6);
+  const dark=MAT(0x7c4a12,.75), blackMat=MAT(0x201612,.55);
+  const eyeMat=new THREE.MeshStandardMaterial({color:0x191919,roughness:.16,metalness:.05});
+  const whiteMat=MAT(0xffffff,.25);
+  const cheekCol=ev?0xffb703:0xf43f3e;
+  const cheekMat=new THREE.MeshStandardMaterial({color:cheekCol,roughness:.4,emissive:cheekCol,emissiveIntensity:.35});
+  const scarfMat=MAT(ev?0x2563eb:0xe63946,.65), scarfDark=MAT(ev?0x1d4ed8:0xb91c1c,.7);
+  const outlineMat=new THREE.MeshBasicMaterial({color:0x40260a,side:THREE.BackSide});
+  const outline=(mesh,s=1.055)=>{ const o=new THREE.Mesh(mesh.geometry,outlineMat); o.scale.setScalar(s); o.userData.outline=true; mesh.add(o); return o; };
+  const S=(r,w=26,h=20)=>new THREE.SphereGeometry(r,w,h);
+
+  /* --- kropp: rund och knubbig, med mjuk skuggad form --- */
+  const body=new THREE.Mesh(S(1,30,22), yellow);
+  body.scale.set(.98,.96,.88); body.position.y=.94; outline(body,1.045); g.add(body);
+  if(ev){ const belly=new THREE.Mesh(S(.7,22,16), creamMat); belly.scale.set(.82,.88,.55); belly.position.set(0,.82,.5); g.add(belly); }
+  // bruna ryggränder (rundade, följer ryggen)
+  for(let i=0;i<2;i++){ const st=new THREE.Mesh(new THREE.CapsuleGeometry(.075,.52,4,10), dark);
+    st.rotation.z=Math.PI/2; st.rotation.y=.12; st.position.set(0,1.34-i*.42,-.79+i*.05); st.scale.set(1,1-i*.18,1); g.add(st); }
+
+  /* --- huvud (egen grupp = kan nicka/tilta) --- */
+  const headGroup=new THREE.Group(); headGroup.position.set(0,1.58,.1); g.add(headGroup);
+  const head=new THREE.Mesh(S(.88,32,24), yellow);
+  head.scale.set(1.1,.9,.96); head.position.set(0,.4,0); outline(head,1.04); headGroup.add(head);
+  const muzzle=new THREE.Mesh(S(.46,22,16), lightMat);
+  muzzle.scale.set(1.18,.68,.72); muzzle.position.set(0,.2,.6); headGroup.add(muzzle);
+
+  /* --- öron: spetsiga med lathe-form + svarta toppar --- */
+  const earProfile=[[0.001,0],[0.17,0.02],[0.2,0.22],[0.165,0.55],[0.12,0.9],[0.07,1.18],[0.001,1.36]].map(p=>new THREE.Vector2(p[0],p[1]));
+  const earGeo=new THREE.LatheGeometry(earProfile,16);
+  const tipProfile=[[0.125,0.78],[0.105,0.98],[0.075,1.18],[0.001,1.37]].map(p=>new THREE.Vector2(p[0],p[1]));
+  const tipGeo=new THREE.LatheGeometry(tipProfile,16);
+  const ears=[];
   for(const s of[-1,1]){
     const ear=new THREE.Group();
-    const e1=new THREE.Mesh(new THREE.CylinderGeometry(.09,.2,.95,8), yellow); e1.position.y=.42; ear.add(e1);
-    const tip=new THREE.Mesh(new THREE.CylinderGeometry(.015,.09,.45,8), black); tip.position.y=1.05; ear.add(tip);
-    ear.position.set(s*.42,2.7,.1); ear.rotation.z=s*-.48; ear.rotation.x=-.12; g.add(ear); parts.ears.push(ear);
+    const e1=new THREE.Mesh(earGeo,yellow); outline(e1,1.05); ear.add(e1);
+    const tip=new THREE.Mesh(tipGeo,blackMat); tip.scale.set(1.05,1,1.05); ear.add(tip);
+    ear.position.set(s*.48,.88,-.03);
+    ear.rotation.z=-s*(ev?.72:.5); ear.rotation.x=ev?-.34:-.13;
+    ear.userData.baseZ=ear.rotation.z; ear.userData.baseX=ear.rotation.x; ear.userData.side=s;
+    headGroup.add(ear); ears.push(ear);
   }
-  // kinder, ögon, näsa, mun
-  for(const s of[-1,1]){ const ch=new THREE.Mesh(new THREE.SphereGeometry(.21,10,8), red); ch.scale.set(1,1,.45); ch.position.set(s*.68,1.88,.78); g.add(ch); }
-  for(const s of[-1,1]){ const eye=new THREE.Mesh(new THREE.SphereGeometry(.11,10,8), black); eye.position.set(s*.3,2.22,.92); g.add(eye);
-    const hl=new THREE.Mesh(new THREE.SphereGeometry(.04,6,5), MAT(0xffffff,.3)); hl.position.set(s*.3+.03,2.28,1.0); g.add(hl); }
-  const nose=new THREE.Mesh(new THREE.SphereGeometry(.045,6,5), black); nose.position.set(0,2.02,1.0); g.add(nose);
-  // armar & fötter
-  parts.arms=[]; parts.feet=[];
-  for(const s of[-1,1]){ const arm=new THREE.Mesh(new THREE.SphereGeometry(.3,10,8), yellow); arm.scale.set(.6,1,.6); arm.position.set(s*.88,1.0,.35); g.add(arm); parts.arms.push(arm);
-    const foot=new THREE.Mesh(new THREE.SphereGeometry(.34,10,8), yellow); foot.scale.set(.75,.4,1.25); foot.position.set(s*.42,.16,.55); g.add(foot); parts.feet.push(foot); }
-  // ryggränder
-  for(let i=0;i<2;i++){ const st=new THREE.Mesh(new THREE.BoxGeometry(.75,.16,.1), dark); st.position.set(0,1.35-i*.4,-.82+i*.08); st.rotation.x=.3; g.add(st); }
-  // blixtsvans
+
+  /* --- ansikte: stora glansiga ögon, kindrosor, liten mun --- */
+  const eyes=[];
+  for(const s of[-1,1]){
+    const eye=new THREE.Mesh(S(.115,18,14), eyeMat);
+    eye.scale.set(.88,1.3,.55); eye.position.set(s*.31,.53,.76); headGroup.add(eye); eyes.push(eye);
+    const hl=new THREE.Mesh(S(.045,10,8), whiteMat); hl.position.set(s*.31+.035,.61,.85); headGroup.add(hl);
+    const hl2=new THREE.Mesh(S(.02,8,6), whiteMat); hl2.position.set(s*.31-.025,.45,.86); headGroup.add(hl2);
+    const cheek=new THREE.Mesh(S(.235,20,14), cheekMat);
+    cheek.scale.set(1,1,.38); cheek.position.set(s*.7,.18,.6); cheek.rotation.y=s*.55; headGroup.add(cheek);
+    const chHi=new THREE.Mesh(S(.07,10,8), MAT(0xffb1ab,.35)); chHi.scale.set(1,1,.4); chHi.position.set(s*.76,.27,.76); headGroup.add(chHi);
+  }
+  const nose=new THREE.Mesh(S(.042,10,8), blackMat); nose.scale.set(1.35,.7,.5); nose.position.set(0,.31,.95); headGroup.add(nose);
+  const mouthMat=MAT(0x7c2d12,.6);
+  for(const s of[-1,1]){ const arc=new THREE.Mesh(new THREE.TorusGeometry(.085,.021,8,20,Math.PI), mouthMat);
+    arc.position.set(s*.085,.17,.9); arc.rotation.z=Math.PI; arc.rotation.x=-.15; headGroup.add(arc); }
+  const tongue=new THREE.Mesh(S(.07,12,8), MAT(0xfb7185,.5)); tongue.scale.set(1.15,.55,.45); tongue.position.set(0,.075,.86); headGroup.add(tongue);
+
+  /* --- utforskar-scarf (viftar när du springer!) --- */
+  const scarf=new THREE.Mesh(new THREE.TorusGeometry(.58,.17,12,26), scarfMat);
+  scarf.rotation.x=Math.PI/2; scarf.position.set(0,1.62,.12); scarf.scale.set(1,1.08,1.25); outline(scarf,1.06); g.add(scarf);
+  const knot=new THREE.Mesh(S(.21,14,10), scarfDark); knot.position.set(.4,1.5,.52); g.add(knot);
+  const scarfTails=[];
+  for(let i=0;i<2;i++){ const tailEnd=new THREE.Group(); tailEnd.position.set(.32-i*.17,1.52,-.42);
+    const cloth=new THREE.Mesh(new THREE.CapsuleGeometry(.13,.34,4,10), i?scarfDark:scarfMat);
+    cloth.scale.set(1,1,.45); cloth.position.y=-.3; tailEnd.add(cloth);
+    tailEnd.rotation.x=.5; g.add(tailEnd); scarfTails.push(tailEnd); }
+
+  /* --- armar & fötter med led-pivot (riktig gånganimation) --- */
+  const arms=[], feet=[];
+  for(const s of[-1,1]){
+    const arm=new THREE.Group(); arm.position.set(s*.82,1.24,.3);
+    const am=new THREE.Mesh(new THREE.CapsuleGeometry(.17,.3,6,12), yellow); am.position.y=-.26; outline(am,1.06); arm.add(am);
+    for(let f=-1;f<=1;f++){ const fin=new THREE.Mesh(S(.055,8,6), yellow); fin.position.set(f*.075,-.52,.06); arm.add(fin); }
+    arm.rotation.z=s*.22; g.add(arm); arms.push(arm);
+    const foot=new THREE.Group(); foot.position.set(s*.42,.3,.16);
+    const fm=new THREE.Mesh(S(.35,20,14), yellow); fm.scale.set(.82,.38,1.5); fm.position.set(0,-.1,.3); outline(fm,1.05); foot.add(fm);
+    for(const tx of[-.11,.11]){ const toe=new THREE.Mesh(new THREE.BoxGeometry(.032,.035,.24), dark); toe.position.set(tx,.03,.66); toe.rotation.x=.25; foot.add(toe); }
+    g.add(foot); feet.push(foot);
+  }
+
+  /* --- blixtsvans: riktig blixt-form (extruderad) --- */
   const tail=new THREE.Group();
-  const base=new THREE.Mesh(new THREE.BoxGeometry(.34,.5,.16), dark); base.position.y=.2; tail.add(base);
-  const seg=[[0.42,0.62,.34,.95],[-0.05,1.25,.28,.95],[0.5,1.75,.4,1.1]].map(([px,py,w2,l])=>{ const m=new THREE.Mesh(new THREE.BoxGeometry(w2,l,.15), yellow); m.position.set(px,py,0); m.rotation.z=-.5; tail.add(m); return m; });
-  tail.position.set(-.75,1.0,-.75); tail.rotation.y=.5; tail.rotation.x=-.25; g.add(tail); parts.tail=tail;
+  const bolt=new THREE.Shape();
+  bolt.moveTo(-.3,0); bolt.lineTo(.06,0); bolt.lineTo(-.04,.36); bolt.lineTo(.34,.34); bolt.lineTo(.02,.74);
+  bolt.lineTo(.48,.72); bolt.lineTo(-.08,1.5); bolt.lineTo(-.14,.86); bolt.lineTo(-.5,.86); bolt.lineTo(-.2,.44); bolt.lineTo(-.48,.44); bolt.closePath();
+  const boltGeo=new THREE.ExtrudeGeometry(bolt,{depth:.17,bevelEnabled:true,bevelThickness:.025,bevelSize:.025,bevelSegments:1});
+  boltGeo.translate(0,0,-.085);
+  const boltMesh=new THREE.Mesh(boltGeo,yellow); outline(boltMesh,1.045); tail.add(boltMesh);
+  const tBase=new THREE.Mesh(new THREE.BoxGeometry(.4,.42,.22), dark); tBase.position.set(-.12,.1,-.02); tail.add(tBase);
+  tail.position.set(-.58,.78,-.6); tail.rotation.set(-.12,.48,-.16);
+  if(ev) tail.scale.set(1.12,1.32,1);
+  g.add(tail);
+
   shadowed(g);
-  return {group:g,parts};
+  g.traverse(o=>{ if(o.userData.outline){ o.castShadow=false; o.receiveShadow=false; } });
+  return {group:g,parts:{yellow,cheekMat,headGroup,head,body,ears,eyes,arms,feet,tail,scarfTails}};
 }
 let pik=buildPikachu(); scene.add(pik.group);
 function evolveVisual(){ scene.remove(pik.group); pik=buildPikachu(); pik.group.scale.setScalar(1.22); scene.add(pik.group); }
@@ -726,19 +797,44 @@ function loop(now){
   if(fireMat.opacity>0.03){ const pos=fireMat.userData.geo.attributes.position; for(let i=0;i<80;i++){ pos.array[i*3]+=Math.sin(time*.02+i)*.015; pos.array[i*3+1]+=Math.cos(time*.03+i*2)*.008; } pos.needsUpdate=true; }
   for(const c of clouds){ c.position.x+=dt*1.1; if(c.position.x>W.w+25)c.position.x=-25; c.traverse(o=>{ if(o.isMesh)o.material.opacity=1; }); }
 
-  /* --- animera Pikachu --- */
+  /* --- animera Pikachu: gång, blinkningar, andning, scarf & öron-fysik --- */
   {
+    const pt=pik.parts;
     const swimSink=P.swim?-.55:0;
-    const bob=P.moving?Math.abs(Math.sin(P.walkPh))*.32:Math.sin(time*.07)*.07;
+    const runKeys=(keys.ShiftLeft||keys.ShiftRight);
+    const bob=P.moving?Math.abs(Math.sin(P.walkPh))*.3:Math.sin(time*.07)*.06;
     pik.group.position.set(P.x, P.y+bob+swimSink, P.z);
     pik.group.rotation.y=P.angle;
-    pik.group.rotation.x=P.swim?-.25:0;
-    const wob=P.moving?Math.sin(P.walkPh):Math.sin(time*.07)*.4;
-    pik.parts.ears.forEach((e,i)=>{ e.rotation.z=(i===0?1:-1)*-.48 + wob*.1*(i?1:-1); });
-    pik.parts.tail.rotation.z=wob*.22;
-    pik.parts.arms.forEach((a,i)=>{ a.position.y=1.0+wob*(i?.18:-.18); });
-    pik.parts.feet.forEach((f,i)=>{ f.position.z=.55+wob*(i?.3:-.3)*(P.moving?1:.2); });
-    if(P.hurtT>0) pik.group.traverse(o=>{ if(o.isMesh&&o.material===pik.parts.yellow) o.material.emissive=new THREE.Color(Math.floor(time/3)%2?0x661111:0x000000); });
+    pik.group.rotation.x=P.swim?-.28:(P.moving?(runKeys?.13:.07):0);
+    pik.group.rotation.z=P.moving?Math.sin(P.walkPh)*.045:Math.sin(time*.05)*.012;
+    const wob=P.moving?Math.sin(P.walkPh):0;
+    // kropp: squash & stretch + andning i vila
+    const sq=P.moving?Math.sin(P.walkPh*2)*.035:Math.sin(time*.07)*.018;
+    pt.body.scale.set(.98+sq,.96-sq,.88+sq);
+    // huvud nickar och tittar lite i farten
+    pt.headGroup.position.y=1.58+(P.moving?Math.abs(Math.sin(P.walkPh))*.07:Math.sin(time*.07)*.03);
+    pt.headGroup.rotation.x=(P.moving?.1:Math.sin(time*.045)*.045)+(P.onGround?0:.22);
+    pt.headGroup.rotation.z=P.moving?Math.sin(P.walkPh)*.05:Math.sin(time*.04)*.03;
+    // öronen släpar efter rörelsen (mjuk "fysik")
+    pt.ears.forEach((e,i)=>{ const lag=P.moving?Math.sin(P.walkPh-0.7)*.13:Math.sin(time*.06+i*2)*.045;
+      e.rotation.z=e.userData.baseZ+lag*e.userData.side;
+      e.rotation.x=e.userData.baseX+(P.moving?-.14:0)+(P.onGround?0:.5)+Math.sin(time*.09+i)*.03; });
+    // blinkningar var ~3,5:e sekund
+    const blink=((time%205)<7)?.1:1;
+    pt.eyes.forEach(e=>{ e.scale.y=1.3*blink; });
+    // kinderna glöder när åskan laddas / precis avfyrats
+    pt.cheekMat.emissiveIntensity=(P.zapCd>10)?1.6:.32+Math.sin(time*.08)*.08;
+    // armar & fötter pendlar på riktigt
+    pt.arms.forEach((a,i)=>{ const ph=P.moving?wob*(i?1:-1):Math.sin(time*.07+i*Math.PI)*.12;
+      a.rotation.x=P.onGround?(P.moving?ph*.85:-.05-Math.max(0,-P.vy)*.02):-2.4; // armarna upp i hoppet!
+      if(!P.onGround) a.rotation.x=-2.3; });
+    pt.feet.forEach((f,i)=>{ f.rotation.x=P.moving?wob*(i?-0.75:0.75):0; });
+    // svansen viftar, scarfen fladdrar i vinden
+    pt.tail.rotation.z=-.16+wob*.16+Math.sin(time*.06)*.05;
+    pt.tail.rotation.y=.48+Math.sin(time*.05)*.08;
+    pt.scarfTails.forEach((t2,i)=>{ t2.rotation.x=.5+(P.moving?.55+Math.sin(time*.3+i*1.4)*.22:Math.sin(time*.08+i)*.09); t2.rotation.z=Math.sin(time*.11+i*2)*.12; });
+    // rodnad/blink vid skada
+    pt.yellow.emissive.setHex(P.hurtT>0&&Math.floor(time/3)%2?0x771111:0x000000);
   }
   for(const b of bushes){ b.mesh.rotation.y=Math.sin(time*.03+b.ph)*.05; const s=1+Math.sin(time*.05+b.ph)*.02; b.mesh.scale.set(s,s,s); }
   for(const n of NPCS){ if(n.kind==='snorlax'&&n.sleeping&&time%100===0) floater(n.x,5,n.z,'Z z z 💤','rgba(255,255,255,.85)'); }
@@ -838,5 +934,9 @@ $('btnReset').addEventListener('click',()=>{ if(confirm('Börja om från början
 if(localStorage.getItem('pikachu3dSave')) $('btnContinue').style.display='block';
 setInterval(()=>{ if(gameStarted)save(true); },20000);
 </script>
+</body>
+</html>
+
+pt>
 </body>
 </html>
