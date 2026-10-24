@@ -1,114 +1,124 @@
-// Dev-only: renders real frames of the canvas to PNG so the art can be reviewed
-// without a browser. Requires @napi-rs/canvas (not a runtime dependency).
+// Dev-only: renders real game frames to PNG (needs @napi-rs/canvas).
 import { createCanvas } from '@napi-rs/canvas';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 const W = 1440;
-const H = 860;
+const H = 810;
 const OUT = process.argv[2] || './shots';
 
 const screen = createCanvas(W, H);
 screen.getBoundingClientRect = () => ({ width: W, height: H, left: 0, top: 0 });
-globalThis.document = {
-  createElement: () => createCanvas(128, 128),
-};
+globalThis.document = { createElement: () => createCanvas(64, 64), getElementById: () => null };
 globalThis.window = { devicePixelRatio: 1 };
-const store = new Map();
-globalThis.localStorage = {
-  getItem: (k) => (store.has(k) ? store.get(k) : null),
-  setItem: (k, v) => store.set(k, String(v)),
-};
+globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 
 mkdirSync(OUT, { recursive: true });
 
 const { Game } = await import('../src/game.js');
 
-const input = {
-  pointer: { x: W * 0.7, y: H * 0.45, inside: true },
-  mouse: { down: true, pressed: false },
-  aimHold: false,
-  stick: { active: false, dx: 0, dy: 0 },
-  pressed: new Set(),
-  down: () => false,
-  hit(code) {
-    return this.pressed.has(code);
-  },
+class FakeInput {
+  constructor() {
+    this.held = new Set();
+    this.edges = new Set();
+    this.stick = { active: false, dx: 0, dy: 0 };
+  }
+  down(a) {
+    return this.held.has(a);
+  }
+  hit(a) {
+    return this.edges.has(a);
+  }
+  get axis() {
+    let a = 0;
+    if (this.held.has('left')) a -= 1;
+    if (this.held.has('right')) a += 1;
+    return a;
+  }
+  press(a) {
+    this.held.add(a);
+    this.edges.add(a);
+  }
+  release(a) {
+    this.held.delete(a);
+  }
   endFrame() {
-    this.pressed.clear();
-  },
-};
+    this.edges.clear();
+  }
+  clear() {
+    this.held.clear();
+    this.edges.clear();
+  }
+}
 
-const game = new Game(screen, input, {
-  onWaveClear: () => {},
-  onDeath: () => {},
-});
+const input = new FakeInput();
+const game = new Game(screen, input, {});
 game.start();
 
-const DT = 1 / 60;
-function step(frames, { auto = true } = {}) {
-  for (let i = 0; i < frames; i++) {
-    if (auto) {
-      const alive = game.enemies.filter((e) => e.hp > 0);
-      if (alive.length && game.player) {
-        let best = alive[0];
-        let bd = Infinity;
-        for (const e of alive) {
-          const d = (e.x - game.player.x) ** 2 + (e.y - game.player.y) ** 2;
-          if (d < bd) {
-            bd = d;
-            best = e;
-          }
-        }
-        input.pointer.x = best.x;
-        input.pointer.y = best.y;
-      }
-      if (i % 50 === 0) input.pressed.add('KeyE');
-      if (i % 42 === 0) input.pressed.add('KeyR');
-      if (i % 24 === 0) input.pressed.add('MouseRight');
-      if (i % 210 === 0) input.pressed.add('Space');
-      input.mouse.down = i % 4 !== 0;
-      if (game.player) {
-        // Gentle kiting so the player does not get cornered.
-        const t = i * DT;
-        game.player.x += Math.cos(t * 0.9) * 1.4;
-        game.player.y += Math.sin(t * 1.3) * 1.1;
-      }
-    }
-    game.update(DT);
+function place(x, feetY) {
+  const b = game.player.body;
+  b.x = x;
+  b.y = feetY - b.h - 2;
+  b.vx = 0;
+  b.vy = 0;
+  b.onGround = true;
+  game.cam.x = x - W / 2;
+  game.cam.y = feetY - H * 0.6;
+}
+
+function step(n) {
+  for (let i = 0; i < n; i++) {
+    game.update(1 / 60);
     input.endFrame();
   }
 }
 
-async function shot(name) {
+async function shot(name, x, feetY) {
+  game.resize();
+  if (x !== undefined) place(x, feetY);
   game.draw();
-  const png = await screen.encode('png');
-  writeFileSync(`${OUT}/${name}.png`, png);
-  console.log('wrote', name, game.wave, game.enemies.length);
+  writeFileSync(`${OUT}/${name}.png`, await screen.encode('png'));
+  console.log('wrote', name);
 }
 
-mkdirSync(OUT, { recursive: true });
+// 1. Spawn: the sunken well, the first bench.
+place(430, 1900);
+step(30);
+await shot('01-spawn');
 
-// 1. Opening wave.
-step(150);
-await shot('01-opening');
-
-// 2. Mid combat with a busy screen.
-game.beginWave(4);
-game.enemies.length = 0;
-step(420);
+// 2. Combat with a crawler, mid-swing.
+place(900, 1900);
+step(6);
+input.press('right');
+input.press('attack');
+step(4);
+input.release('attack');
 await shot('02-combat');
+input.clear();
 
-// 3. Boss wave.
-game.beginWave(5);
-game.enemies.length = 0;
-step(300);
-await shot('03-boss');
+// 3. Area two: platforms, lamps, flyers.
+place(2600, 1200);
+step(40);
+await shot('03-vault');
 
-// 4. Heavy effects: fireball + nova + lightning all at once.
-game.player.mana = 999;
-game.player.maxMana = 999;
-game.cast('fire');
-game.cast('frost');
-game.cast('chain');
-step(9);
-await shot('04-effects');
+// 4. The guardian hall.
+place(4200, 1540);
+step(30);
+await shot('04-hall');
+
+// 5. Soul blast in flight.
+place(900, 1900);
+game.soul = 99;
+game.player.facing = 1;
+input.press('spell');
+step(2);
+input.release('spell');
+step(6);
+await shot('05-spell');
+input.clear();
+
+// 6. The charm at the end of the hall.
+place(5050, 900);
+game.charm.taken = false;
+step(4);
+game.mode = 'play';
+await shot('06-charm');

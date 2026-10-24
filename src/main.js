@@ -1,297 +1,359 @@
 import { Game } from './game.js';
 import { Input } from './input.js';
 import { Sound } from './audio.js';
-import { SPELLS } from './spells.js';
 
 const canvas = document.getElementById('game');
 const sound = new Sound();
 const input = new Input(canvas);
-
 const $ = (id) => document.getElementById(id);
+
 const ui = {
   hud: $('hud'),
-  hpFill: $('hpFill'),
-  hpText: $('hpText'),
-  manaFill: $('manaFill'),
-  manaText: $('manaText'),
-  waveNum: $('waveNum'),
-  scoreText: $('scoreText'),
-  bestText: $('bestText'),
-  muteBtn: $('muteBtn'),
-  abilities: $('abilities'),
+  masks: $('masks'),
+  soulFill: $('soulFill'),
+  geoCount: $('geoCount'),
+  prompt: $('prompt'),
   banner: $('banner'),
   bannerTitle: $('bannerTitle'),
   bannerSub: $('bannerSub'),
+  hintBar: $('hintBar'),
+  muteBtn: $('muteBtn'),
+  pauseBtn: $('pauseBtn'),
   titleScreen: $('screen-title'),
-  upgradeScreen: $('screen-upgrade'),
   pauseScreen: $('screen-pause'),
+  benchScreen: $('screen-bench'),
   deadScreen: $('screen-dead'),
-  cards: $('cards'),
-  upgradeWave: $('upgradeWave'),
+  winScreen: $('screen-win'),
   titleBest: $('titleBest'),
-  finalWave: $('finalWave'),
-  finalScore: $('finalScore'),
-  finalBest: $('finalBest'),
+  deadStone: $('deadStone'),
+  deadDeaths: $('deadDeaths'),
+  winStone: $('winStone'),
+  winDeaths: $('winDeaths'),
+  winTime: $('winTime'),
+  touch: $('touch'),
+  touchStick: $('touchStick'),
 };
 
+const AREAS = [
+  { id: 'well', from: -Infinity, to: 2250, title: 'Den sjunkna brunnen', sub: 'Djupt under berget' },
+  { id: 'vault', from: 2250, to: 3560, title: 'Valvet med lyktorna', sub: 'Ljus som ingen tänt' },
+  { id: 'hall', from: 3560, to: Infinity, title: 'Väktarens hall', sub: 'Något vakar här' },
+];
+const seenAreas = new Set();
+
 const game = new Game(canvas, input, {
-  onWaveStart: (n) => {
-    const isBoss = n % 5 === 0;
-    showBanner(`VÅG ${n}`, isBoss ? 'En väktare vaknar' : 'Fienderna anländer');
-    sound.wave();
-    ui.waveNum.textContent = String(n);
+  onStart: () => {
+    document.body.classList.add('is-playing');
+    ui.hud.classList.add('is-live');
+    seenAreas.clear();
+    ui.hintBar.style.opacity = '1';
+    setTimeout(() => (ui.hintBar.style.opacity = '0'), 14000);
+    sound.ready();
+    sound.click();
+    showArea();
+    buildMasks();
   },
-  onWaveClear: (n, picks) => {
-    openUpgrades(n, picks);
+  onMode: (mode) => handleMode(mode),
+  onJump: () => sound.jump(),
+  onDoubleJump: () => sound.doubleJump(),
+  onLand: () => sound.land(),
+  onDash: () => sound.dash(),
+  onSwing: () => sound.swing(),
+  onHit: () => sound.hit(),
+  onKill: () => sound.kill(),
+  onHurt: () => {
+    sound.hurt();
+    pulseMask();
   },
-  onDeath: ({ wave, score, best }) => {
-    ui.finalWave.textContent = String(wave);
-    ui.finalScore.textContent = String(score);
-    ui.finalBest.textContent = String(best);
-    ui.bestText.textContent = String(best);
-    ui.titleBest.textContent = String(best);
+  onSpit: () => sound.spit(),
+  onGuardian: () => sound.roar(),
+  onBench: () => sound.bench(),
+  onDeath: () => {
+    sound.death();
+    ui.deadStone.textContent = String(game.stone);
+    ui.deadDeaths.textContent = String(game.stats.deaths);
     hideScreens();
     ui.deadScreen.classList.add('is-open');
     ui.hud.classList.remove('is-live');
     document.body.classList.remove('is-playing');
-    sound.death();
   },
-  onHurt: () => sound.hurt(),
-  onPickup: () => sound.pickup(),
-  onNoMana: () => sound.noMana(),
+  onFocus: () => sound.bench(),
+  onSpell: () => sound.spell(),
+  onSpellHit: () => sound.spellHit(),
+  onNoSoul: () => sound.noSoul(),
+  onRespawn: () => sound.click(),
+  onWin: ({ stone, time }) => {
+    ui.winStone.textContent = String(stone);
+    ui.winDeaths.textContent = String(game.stats.deaths);
+    ui.winTime.textContent = formatTime(time);
+    ui.titleBest.textContent = String(game.best);
+    sound.win();
+  },
 });
 
-/* ----------------------------------------------------------- abilities */
+/* -------------------------------------------------------------------- HUD */
 
-const abilityEls = new Map();
-for (const spell of SPELLS) {
-  const el = document.createElement('div');
-  el.className = 'ability is-ready';
-  el.style.setProperty('--accent', spell.accent);
-  el.innerHTML = `
-    <span class="key">${spell.key}</span>
-    <span class="glyph">${spell.glyph}</span>
-    <span class="label">${spell.name}</span>
-    <span class="cost">${spell.cost > 0 ? spell.cost : ''}</span>
-    <div class="cd"></div>
-  `;
-  el.title = `${spell.name} — ${spell.hint}${spell.cost ? ` (${spell.cost} mana)` : ''}`;
-  // Tappable on touch devices, where there is no right mouse button.
-  el.addEventListener('pointerdown', (e) => {
-    e.preventDefault();
-    if (ui.upgradeScreen.classList.contains('is-open') || ui.pauseScreen.classList.contains('is-open')) return;
-    game.cast(spell.id);
-  });
-  ui.abilities.appendChild(el);
-  abilityEls.set(spell.id, { el, cd: el.querySelector('.cd'), cost: spell.cost });
+let prevHp = 5;
+
+function buildMasks() {
+  ui.masks.innerHTML = '';
+  for (let i = 0; i < game.player.maxHp; i++) {
+    const el = document.createElement('span');
+    el.className = 'mask';
+    ui.masks.appendChild(el);
+  }
+  prevHp = game.player.hp;
 }
 
-/* -------------------------------------------------------------- banner */
-
-let bannerTimer = 0;
-function showBanner(title, sub) {
-  ui.bannerTitle.textContent = title;
-  ui.bannerSub.textContent = sub || '';
-  ui.banner.classList.add('is-on');
-  clearTimeout(bannerTimer);
-  bannerTimer = setTimeout(() => ui.banner.classList.remove('is-on'), 1900);
-}
-
-/* ------------------------------------------------------------- screens */
-
-function hideScreens() {
-  for (const s of [ui.titleScreen, ui.upgradeScreen, ui.pauseScreen, ui.deadScreen]) {
-    s.classList.remove('is-open');
+function pulseMask() {
+  const idx = Math.max(0, Math.floor(game.player.hp));
+  const el = ui.masks.children[idx];
+  if (el) {
+    el.classList.remove('pulse');
+    void el.offsetWidth;
+    el.classList.add('pulse');
   }
 }
-
-let offeredUpgrades = [];
-let pausedFrom = null;
-
-function openUpgrades(wave, picks) {
-  offeredUpgrades = picks;
-  ui.upgradeWave.textContent = `Våg ${wave} klar`;
-  ui.cards.innerHTML = '';
-  picks.forEach((u, i) => {
-    const level = game.levels[u.id] || 0;
-    const pips = Array.from({ length: u.max }, (_, k) => `<i class="${k < level ? 'on' : ''}"></i>`).join('');
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = 'card';
-    card.style.setProperty('--accent', u.accent);
-    card.innerHTML = `
-      <span class="card-key">${i + 1}</span>
-      <span class="card-icon">${u.icon}</span>
-      <h3>${u.name}</h3>
-      <p>${u.desc}</p>
-      <span class="card-foot">Nivå ${level + 1} / ${u.max}<span class="pips">${pips}</span></span>
-    `;
-    card.addEventListener('click', () => chooseUpgrade(u));
-    ui.cards.appendChild(card);
-  });
-  hideScreens();
-  ui.upgradeScreen.classList.add('is-open');
-  sound.upgrade();
-}
-
-function chooseUpgrade(u) {
-  if (!ui.upgradeScreen.classList.contains('is-open')) return;
-  game.applyUpgrade(u.id);
-  sound.click();
-  hideScreens();
-  game.beginWave(game.wave + 1);
-}
-
-function startRun() {
-  sound.ready();
-  sound.click();
-  hideScreens();
-  input.pressed.clear();
-  document.body.classList.add('is-playing');
-  ui.hud.classList.add('is-live');
-  game.start();
-}
-
-function togglePause(force) {
-  const paused = game.phase === 'paused';
-  const shouldPause = force !== undefined ? force : !paused;
-
-  if (shouldPause && (game.phase === 'combat' || game.phase === 'clear')) {
-    pausedFrom = game.phase;
-    game.phase = 'paused';
-    ui.pauseScreen.classList.add('is-open');
-    document.body.classList.remove('is-playing');
-    sound.click();
-  } else if (!shouldPause && paused) {
-    game.phase = pausedFrom || 'combat';
-    pausedFrom = null;
-    ui.pauseScreen.classList.remove('is-open');
-    document.body.classList.add('is-playing');
-    sound.click();
-  }
-}
-
-$('startBtn').addEventListener('click', startRun);
-$('pauseBtn').addEventListener('click', () => togglePause());
-$('againBtn').addEventListener('click', startRun);
-$('resumeBtn').addEventListener('click', () => togglePause(false));
-$('quitBtn').addEventListener('click', () => {
-  game.phase = 'idle';
-  game.player = null;
-  game.enemies.length = 0;
-  game.projectiles.length = 0;
-  game.hazards.length = 0;
-  game.particles.length = 0;
-  game.pickups.length = 0;
-  game.texts.length = 0;
-  game.effects.length = 0;
-  hideScreens();
-  ui.pauseScreen.classList.remove('is-open');
-  ui.titleScreen.classList.add('is-open');
-  ui.hud.classList.remove('is-live');
-  document.body.classList.remove('is-playing');
-  const best = game.saveBest();
-  ui.titleBest.textContent = String(best);
-  ui.bestText.textContent = String(best);
-  sound.click();
-});
-
-function syncMuteUI() {
-  ui.muteBtn.classList.toggle('is-muted', sound.muted);
-  ui.muteBtn.textContent = sound.muted ? '♪' : '♪';
-  ui.muteBtn.title = sound.muted ? 'Ljud på (M)' : 'Ljud av (M)';
-}
-ui.muteBtn.addEventListener('click', () => {
-  sound.toggle();
-  sound.click();
-  syncMuteUI();
-});
-syncMuteUI();
-
-ui.titleBest.textContent = String(game.best);
-ui.bestText.textContent = String(game.best);
-ui.titleScreen.classList.add('is-open');
-
-/* ------------------------------------------------------------ keyboard */
-
-window.addEventListener('keydown', (e) => {
-  if (e.code === 'KeyM') {
-    sound.toggle();
-    sound.click();
-    syncMuteUI();
-    return;
-  }
-
-  if (ui.upgradeScreen.classList.contains('is-open')) {
-    const idx = { Digit1: 0, Digit2: 1, Digit3: 2, Numpad1: 0, Numpad2: 1, Numpad3: 2 }[e.code];
-    if (idx !== undefined && offeredUpgrades[idx]) {
-      e.preventDefault();
-      chooseUpgrade(offeredUpgrades[idx]);
-    }
-    return;
-  }
-
-  if (e.code === 'Escape') {
-    e.preventDefault();
-    if (game.phase === 'combat' || game.phase === 'clear' || game.phase === 'paused') {
-      togglePause();
-    }
-    return;
-  }
-
-  if (ui.deadScreen.classList.contains('is-open') && (e.code === 'KeyR' || e.code === 'Enter' || e.code === 'Space')) {
-    e.preventDefault();
-    startRun();
-    return;
-  }
-
-  if (ui.titleScreen.classList.contains('is-open') && (e.code === 'Enter' || e.code === 'Space')) {
-    e.preventDefault();
-    startRun();
-  }
-});
-
-/* ---------------------------------------------------------------- loop */
-
-let last = performance.now();
-let raf = 0;
 
 function updateHud() {
   const p = game.player;
   if (!p) return;
-  const hpPct = Math.max(0, (p.hp / p.maxHp) * 100);
-  const manaPct = Math.max(0, (p.mana / p.maxMana) * 100);
-  ui.hpFill.style.width = `${hpPct}%`;
-  ui.manaFill.style.width = `${manaPct}%`;
-  ui.hpText.textContent = `${Math.ceil(p.hp)} / ${Math.round(p.maxHp)}`;
-  ui.manaText.textContent = `${Math.floor(p.mana)} / ${Math.round(p.maxMana)}`;
-  ui.scoreText.textContent = String(game.score);
-  ui.bestText.textContent = String(Math.max(game.best, game.score));
-
-  for (const spell of SPELLS) {
-    const entry = abilityEls.get(spell.id);
-    const remain = game.cooldowns[spell.id] || 0;
-    const total = spell.cooldown * game.stats.haste;
-    const ratio = total > 0 ? Math.min(1, remain / total) : 0;
-    entry.cd.style.height = `${ratio * 100}%`;
-    const noMana = p.mana < spell.cost;
-    entry.el.classList.toggle('no-mana', noMana);
-    entry.el.classList.toggle('is-ready', ratio === 0 && !noMana);
+  const masks = ui.masks.children;
+  for (let i = 0; i < masks.length; i++) masks[i].classList.toggle('empty', i >= p.hp);
+  if (p.hp !== prevHp) {
+    if (p.hp < prevHp) pulseMask();
+    prevHp = p.hp;
+  }
+  ui.soulFill.style.height = `${Math.round((game.soul / 99) * 100)}%`;
+  ui.geoCount.textContent = String(game.stone);
+  const showPrompt = !!game.prompt && game.mode === 'play';
+  ui.prompt.textContent = game.prompt;
+  ui.prompt.classList.toggle('is-on', showPrompt);
+  if (input.stick.active) {
+    ui.touchStick.style.transform = `translate(${input.stick.dx * 22}px, ${input.stick.dy * 22}px)`;
+    const knob = ui.touchStick.firstElementChild;
+    if (knob) knob.style.transform = `translate(${input.stick.dx * 16}px, ${input.stick.dy * 16}px)`;
   }
 }
 
-function frame(ts) {
-  const dt = Math.min(0.034, Math.max(0, (ts - last) / 1000));
-  last = ts;
+function showArea() {
+  const x = game.player.body.cx;
+  const area = AREAS.find((a) => x >= a.from && x < a.to);
+  if (!area || seenAreas.has(area.id)) return;
+  seenAreas.add(area.id);
+  ui.bannerTitle.textContent = area.title;
+  ui.bannerSub.textContent = area.sub;
+  ui.banner.classList.add('is-on');
+  clearTimeout(showArea.timer);
+  showArea.timer = setTimeout(() => ui.banner.classList.remove('is-on'), 3200);
+}
 
-  if (game.phase === 'combat' || game.phase === 'clear' || game.phase === 'dead' || game.phase === 'idle') {
-    game.update(dt);
+let lastAreaCheck = 0;
+function checkArea(dt) {
+  lastAreaCheck += dt;
+  if (lastAreaCheck < 0.4) return;
+  lastAreaCheck = 0;
+  showArea();
+}
+
+function formatTime(t) {
+  const m = Math.floor(t / 60);
+  const s = Math.floor(t % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/* ---------------------------------------------------------------- screens */
+
+function hideScreens() {
+  for (const s of [ui.titleScreen, ui.pauseScreen, ui.benchScreen, ui.deadScreen, ui.winScreen]) {
+    s.classList.remove('is-open');
+  }
+}
+
+let pausedFrom = 'play';
+
+function handleMode(mode) {
+  if (mode === 'bench') {
+    hideScreens();
+    ui.benchScreen.classList.add('is-open');
+  } else if (mode === 'won') {
+    hideScreens();
+    ui.winScreen.classList.add('is-open');
+    ui.hud.classList.remove('is-live');
+    document.body.classList.remove('is-playing');
+  } else if (mode === 'dead') {
+    hideScreens();
+    ui.deadStone.textContent = String(game.stone);
+    ui.deadDeaths.textContent = String(game.stats.deaths);
+    ui.deadScreen.classList.add('is-open');
+    ui.hud.classList.remove('is-live');
+    document.body.classList.remove('is-playing');
+  }
+}
+
+function togglePause(force) {
+  const isPaused = game.mode === 'paused';
+  const shouldPause = force !== undefined ? force : !isPaused;
+  if (shouldPause && (game.mode === 'play' || game.mode === 'bench')) {
+    pausedFrom = game.mode;
+    game.mode = 'paused';
+    hideScreens();
+    ui.pauseScreen.classList.add('is-open');
+    document.body.classList.remove('is-playing');
+    sound.click();
+  } else if (!shouldPause && isPaused) {
+    game.mode = pausedFrom;
+    ui.pauseScreen.classList.remove('is-open');
+    if (game.mode === 'bench') {
+      ui.benchScreen.classList.add('is-open');
+    } else {
+      document.body.classList.add('is-playing');
+    }
+    sound.click();
+  }
+}
+
+function startRun(fresh) {
+  sound.ready();
+  hideScreens();
+  ui.winStone.textContent = '0';
+  game.reset(fresh);
+  game.start();
+  buildMasks();
+  prevHp = game.player.hp;
+  updateHud();
+  revealTouch();
+}
+
+function respawn() {
+  hideScreens();
+  ui.hud.classList.add('is-live');
+  document.body.classList.add('is-playing');
+  game.respawn();
+  prevHp = game.player.hp;
+}
+
+function closeBench() {
+  if (game.mode !== 'bench') return;
+  hideScreens();
+  ui.hud.classList.add('is-live');
+  document.body.classList.add('is-playing');
+  game.mode = 'play';
+  sound.click();
+}
+
+function revealTouch() {
+  if (window.matchMedia('(pointer: coarse)').matches) ui.touch.classList.add('is-on');
+}
+
+$('startBtn').addEventListener('click', () => startRun(true));
+$('againBtn').addEventListener('click', () => startRun(true));
+$('respawnBtn').addEventListener('click', respawn);
+$('benchBtn').addEventListener('click', closeBench);
+$('resumeBtn').addEventListener('click', () => togglePause(false));
+$('restartBtn').addEventListener('click', () => startRun(true));
+$('pauseBtn').addEventListener('click', () => togglePause());
+$('muteBtn').addEventListener('click', () => {
+  const muted = sound.toggle();
+  sound.click();
+  syncMute(muted);
+});
+
+function syncMute(muted) {
+  ui.muteBtn.classList.toggle('is-muted', muted);
+  ui.muteBtn.title = muted ? 'Ljud på (M)' : 'Ljud av (M)';
+}
+syncMute(sound.muted);
+
+/* ------------------------------------------------------------ touch input */
+
+for (const btn of document.querySelectorAll('.touch-btn')) {
+  const action = btn.dataset.action;
+  const press = (e) => {
+    e.preventDefault();
+    input.virtualDown(action);
+  };
+  const release = (e) => {
+    e.preventDefault();
+    input.virtualUp(action);
+  };
+  btn.addEventListener('pointerdown', press);
+  btn.addEventListener('pointerup', release);
+  btn.addEventListener('pointercancel', release);
+  btn.addEventListener('pointerleave', release);
+}
+
+/* ---------------------------------------------------------------- keyboard */
+
+window.addEventListener('keydown', (e) => {
+  const key = e.code;
+
+  if (key === 'KeyM') {
+    syncMute(sound.toggle());
+    return;
   }
 
+  if (ui.deadScreen.classList.contains('is-open')) {
+    if (key === 'KeyJ' || key === 'Space' || key === 'Enter') {
+      e.preventDefault();
+      respawn();
+    }
+    return;
+  }
+
+  if (ui.winScreen.classList.contains('is-open')) {
+    if (key === 'Space' || key === 'Enter' || key === 'KeyJ') {
+      e.preventDefault();
+      startRun(true);
+    }
+    return;
+  }
+
+  if (ui.benchScreen.classList.contains('is-open')) {
+    if (key === 'KeyE' || key === 'Space' || key === 'Enter') {
+      e.preventDefault();
+      closeBench();
+    }
+    return;
+  }
+
+  if (ui.titleScreen.classList.contains('is-open')) {
+    if (key === 'Enter' || key === 'Space') {
+      e.preventDefault();
+      startRun(true);
+    }
+    return;
+  }
+
+  if (key === 'Escape') {
+    e.preventDefault();
+    if (game.mode === 'play' || game.mode === 'bench' || game.mode === 'paused') togglePause();
+    return;
+  }
+
+  if (key === 'KeyR' && game.mode !== 'play') {
+    startRun(true);
+  }
+});
+
+/* -------------------------------------------------------------------- loop */
+
+let last = performance.now();
+let elapsed = 0;
+
+function frame(ts) {
+  const dt = Math.min(0.033, Math.max(0, (ts - last) / 1000));
+  last = ts;
+
+  if (game.mode !== 'paused') {
+    game.update(dt);
+    elapsed += dt;
+    checkArea(dt);
+  }
   game.draw();
   updateHud();
   input.endFrame();
-  raf = requestAnimationFrame(frame);
+  requestAnimationFrame(frame);
 }
 
 let resizeTimer = 0;
@@ -300,8 +362,9 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(() => game.resize(), 120);
 });
 
-raf = requestAnimationFrame(frame);
-window.addEventListener('beforeunload', () => cancelAnimationFrame(raf));
+ui.titleBest.textContent = String(game.best);
+ui.titleScreen.classList.add('is-open');
+requestAnimationFrame(frame);
 
-// Expose for quick debugging in the console.
+// Handy for poking at the game from the console.
 window.__spell = { game, sound };

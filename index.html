@@ -3,107 +3,124 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <meta name="theme-color" content="#07060f" />
-  <meta name="description" content="SPELL – ett 2D-arenaspel där du besegrar vågor av varelser med arkan magi." />
-  <title>SPELL — Arkan arena</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237ef7ff'/%3E%3Cstop offset='1' stop-color='%23b79bff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='100' height='100' rx='22' fill='%230b0818'/%3E%3Cpath d='M50 14l9 27 27 9-27 9-9 27-9-27-27-9 27-9z' fill='url(%23g)'/%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#05070f" />
+  <meta name="description" content="SPELL — ett stämningsfullt 2D-plattformsspel i en sjunken grotta. Nål, dash och själ i stil med Hollow Knight." />
+  <title>SPELL — Ett eko i djupet</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2305070f'/%3E%3Cpath d='M50 18c14 0 24 9 24 22 0 15-12 24-24 40-12-16-24-25-24-40 0-13 10-22 24-22z' fill='%23dff4ff'/%3E%3Cellipse cx='41' cy='42' rx='4.5' ry='7' fill='%2305070f'/%3E%3Cellipse cx='59' cy='42' rx='4.5' ry='7' fill='%2305070f'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
   <div id="app">
     <canvas id="game" aria-label="Spelplan"></canvas>
 
-    <div id="hud" class="hud" aria-live="off">
-      <header class="hud-top">
-        <div class="vitals">
-          <div class="bar bar-hp">
-            <div class="bar-fill" id="hpFill"></div>
-            <span class="bar-label"><span class="bar-tag">LIV</span><span id="hpText">100 / 100</span></span>
-          </div>
-          <div class="bar bar-mana">
-            <div class="bar-fill" id="manaFill"></div>
-            <span class="bar-label"><span class="bar-tag">MANA</span><span id="manaText">100 / 100</span></span>
+    <div class="hud" id="hud">
+      <div class="vitals">
+        <div class="masks" id="masks" aria-label="Liv"></div>
+        <div class="soul">
+          <div class="soul-orb">
+            <div class="soul-fill" id="soulFill"></div>
+            <span class="soul-glyph">◇</span>
           </div>
         </div>
+      </div>
 
-        <div class="wave-badge">
-          <span class="wave-label">VÅG</span>
-          <strong class="wave-num" id="waveNum">1</strong>
+      <div class="top-right">
+        <div class="geo">
+          <span class="geo-gem"></span>
+          <b id="geoCount">0</b>
         </div>
-
-        <div class="meta">
-          <div class="meta-row"><span>POÄNG</span><b id="scoreText">0</b></div>
-          <div class="meta-row dim"><span>REKORD</span><b id="bestText">0</b></div>
-          <div class="icon-row">
-            <button class="icon-btn" id="pauseBtn" type="button" title="Paus (ESC)" aria-label="Pausa spelet">❚❚</button>
-            <button class="icon-btn" id="muteBtn" type="button" title="Ljud av/på (M)" aria-label="Ljud av eller på">♪</button>
-          </div>
+        <div class="icon-row">
+          <button class="icon-btn" id="pauseBtn" type="button" title="Paus (Esc)" aria-label="Pausa">❚❚</button>
+          <button class="icon-btn" id="muteBtn" type="button" title="Ljud av/på (M)" aria-label="Ljud av eller på">♪</button>
         </div>
-      </header>
+      </div>
 
-      <div class="banner" id="banner">
+      <div class="prompt" id="prompt"></div>
+
+      <div class="area-banner" id="banner">
         <strong id="bannerTitle"></strong>
         <span id="bannerSub"></span>
       </div>
 
-      <footer class="hud-bottom">
-        <div class="abilities" id="abilities"></div>
-        <p class="hint">WASD för att röra dig · musen för att sikta · <kbd>SPACE</kbd> blink</p>
-      </footer>
+      <div class="hint-bar" id="hintBar">A/D gå · SPACE hoppa (×2) · J slå · SHIFT dash · Q besvärjelse · F fokusera · E vila</div>
+    </div>
+
+    <div class="touch" id="touch">
+      <div class="touch-stick" id="touchStick"><i></i></div>
+      <div class="touch-buttons">
+        <button class="touch-btn spell" type="button" data-action="spell">✦</button>
+        <button class="touch-btn dash" type="button" data-action="dash">➤</button>
+        <button class="touch-btn attack" type="button" data-action="attack">✧</button>
+        <button class="touch-btn jump" type="button" data-action="jump">⤒</button>
+      </div>
     </div>
 
     <section class="screen" id="screen-title">
       <div class="panel title-panel">
-        <p class="eyebrow">Arkan arena</p>
+        <p class="eyebrow">Ett eko i djupet</p>
         <h1 class="logo">SPELL</h1>
-        <p class="tagline">Överlev vågorna. Bemästra magin.</p>
-        <button class="btn primary" id="startBtn" type="button">Börja spela</button>
+        <p class="tagline">En liten vandrare. En sjunken grotta. Ett minne av ljus.</p>
+        <button class="btn primary" id="startBtn" type="button">Vandra in</button>
         <div class="controls">
-          <div><kbd>WASD</kbd><span>Rör dig</span></div>
-          <div><kbd>Vänster mus</kbd><span>Arkan bult</span></div>
-          <div><kbd>Höger mus</kbd><span>Eldklot</span></div>
-          <div><kbd>E</kbd><span>Frostnova</span></div>
-          <div><kbd>R</kbd><span>Kedjeblixt</span></div>
-          <div><kbd>SPACE</kbd><span>Blink</span></div>
+          <div><kbd>A</kbd><kbd>D</kbd><span>Gå</span></div>
+          <div><kbd>SPACE</kbd><span>Hoppa (två gånger i luften)</span></div>
+          <div><kbd>J</kbd><span>Slå med nålen</span></div>
+          <div><kbd>W</kbd>/<kbd>S</kbd> + <kbd>J</kbd><span>Slå uppåt / nedåt</span></div>
+          <div><kbd>SHIFT</kbd><span>Dash</span></div>
+          <div><kbd>Q</kbd><span>Besvärjelse (kostar själ)</span></div>
+          <div><kbd>E</kbd><span>Vila vid en bänk</span></div>
+          <div><kbd>F</kbd><span>Fokusera själ</span></div>
           <div><kbd>ESC</kbd><span>Paus</span></div>
-          <div><kbd>M</kbd><span>Ljud av/på</span></div>
         </div>
-        <p class="best-line">Rekord: <b id="titleBest">0</b></p>
-      </div>
-    </section>
-
-    <section class="screen" id="screen-upgrade">
-      <div class="upgrade-wrap">
-        <header class="upgrade-head">
-          <p class="eyebrow" id="upgradeWave">Våg 2 klar</p>
-          <h2>Välj en belöning</h2>
-          <p class="sub">Tryck <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> eller klicka</p>
-        </header>
-        <div class="cards" id="cards"></div>
+        <p class="best-line">Insamlad själsten: <b id="titleBest">0</b></p>
       </div>
     </section>
 
     <section class="screen" id="screen-pause">
       <div class="panel small">
         <p class="eyebrow">Paus</p>
-        <h2>Andas ut</h2>
+        <h2>Stilla vatten</h2>
         <button class="btn primary" id="resumeBtn" type="button">Fortsätt</button>
-        <button class="btn ghost" id="quitBtn" type="button">Avsluta rundan</button>
+        <button class="btn ghost" id="restartBtn" type="button">Börja om</button>
         <p class="sub">Tryck <kbd>ESC</kbd> för att fortsätta</p>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-bench">
+      <div class="panel small">
+        <p class="eyebrow">Bänken</p>
+        <h2>Vila en stund</h2>
+        <p class="sub" id="benchText">Maskerna är hela igen. Själens ljus samlas.</p>
+        <button class="btn primary" id="benchBtn" type="button">Res dig upp</button>
+        <p class="sub">Tryck <kbd>E</kbd> för att gå vidare</p>
       </div>
     </section>
 
     <section class="screen" id="screen-dead">
       <div class="panel small">
         <p class="eyebrow">Du föll</p>
-        <h2>Rundan är över</h2>
+        <h2>Men djupet minns</h2>
+        <p class="sub">Du vaknar vid den sista bänken.</p>
         <div class="stats">
-          <div><span>VÅG</span><b id="finalWave">1</b></div>
-          <div><span>POÄNG</span><b id="finalScore">0</b></div>
-          <div><span>REKORD</span><b id="finalBest">0</b></div>
+          <div><span>SJÄLSTEN</span><b id="deadStone">0</b></div>
+          <div><span>FALL</span><b id="deadDeaths">1</b></div>
         </div>
-        <button class="btn primary" id="againBtn" type="button">Spela igen</button>
-        <p class="sub">Tryck <kbd>R</kbd> för att starta om</p>
+        <button class="btn primary" id="respawnBtn" type="button">Res dig</button>
+        <p class="sub">Tryck <kbd>J</kbd> eller <kbd>SPACE</kbd></p>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-win">
+      <div class="panel small win-panel">
+        <p class="eyebrow">Amuletten</p>
+        <h2>Ljuset hittar hem</h2>
+        <p class="sub" id="winText">Du bar amuletten ut ur mörkret.</p>
+        <div class="stats">
+          <div><span>SJÄLSTEN</span><b id="winStone">0</b></div>
+          <div><span>FALL</span><b id="winDeaths">0</b></div>
+          <div><span>TID</span><b id="winTime">0:00</b></div>
+        </div>
+        <button class="btn primary" id="againBtn" type="button">Vandra igen</button>
       </div>
     </section>
   </div>

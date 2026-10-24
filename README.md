@@ -1,9 +1,11 @@
-# SPELL — Arkan arena
+# SPELL — Ett eko i djupet
 
-Ett 2D-arenaspel som körs i webbläsaren. Ingen motor, inga beroenden — bara
-canvas, HTML och JavaScript. Du är en magiker i en mörk arena och överlever
-våg efter våg av varelser med fem besvärjelser och permanenta uppgraderingar
-mellan vågorna.
+Ett stämningsfullt 2D-plattformsspel i stil med Hollow Knight, byggt i ren
+HTML, CSS och JavaScript (canvas). Ingen motor, inga beroenden, inga bild- eller
+ljudfiler — all grafik ritas i kod och allt ljud syntetiseras.
+
+Du är en liten vandrare i en sjunken grotta. Ta dig genom tre valv med nålen i
+hand, besegra det som vakar i djupet och bär amuletten ut i ljuset.
 
 ## Starta
 
@@ -17,64 +19,67 @@ eller vilken statisk server som helst:
 python3 -m http.server 4173
 ```
 
-> Öppna `index.html` via en server, inte som `file://` — spelet använder
-> ES-moduler som webbläsare blockerar på `file://`.
+> Öppna via server, inte som `file://` — spelet använder ES-moduler.
 
 ## Spela
 
-| Styrning        | Gör                                        |
-| --------------- | ------------------------------------------ |
-| `WASD` / piltangenter | Rör dig                              |
-| Musen           | Sikta                                      |
-| Vänster mus     | Arkan bult (gratis, snabb)                 |
-| Höger mus       | Eldklot — explosion + brinnskada           |
-| `E`             | Frostnova — fryser allt nära dig           |
-| `R`             | Kedjeblixt — hoppar mellan fiender         |
-| `Space`         | Blink — kasta dig framåt och bli kort osårbar |
-| `1` `2` `3`     | Välj belöning mellan vågor                 |
-| `Esc`           | Paus                                       |
-| `M`             | Ljud av/på                                 |
+| Styrning | Gör |
+| --- | --- |
+| `A` `D` / piltangenter | Gå |
+| `SPACE` / `Z` | Hoppa (en gång till i luften = dubbelhopp) |
+| `J` / `X` / vänster mus | Slå med nålen |
+| `W` + `J` | Slå uppåt |
+| `S` + `J` (i luften) | Slå nedåt — studsar på fiender |
+| `SHIFT` / `C` | Dash (kort osårbarhet) |
+| `Q` / `I` | Besvärjelse: självisp som går genom fiender (kostar 33 själ) |
+| `F` | Fokusera: byt 33 själ mot en mask (stå still) |
+| `E` / `Enter` | Sätt dig vid en bänk |
+| `ESC` | Paus · `M` ljud av/på |
 
-På touch: vänster halva av skärmen är en rörelsespak, höger halva siktar och
-skjuter.
+På touch: vänster halva är en rörelsespak, höger halva har hopp, slag, dash och
+besvärjelse.
 
 ### Regler
 
-- Var femte våg kommer en **väktare** (boss) med ringformade projektilskurar.
-- Mellan vågorna får du välja 1 av 3 belöningar — 15 olika uppgraderingar med
-  flera nivåer (skada, fler projektiler, kritchans, mana, liv, kedjehopp …).
-- Källor droppar kristaller som ger liv eller mana.
-- Poängen sparas lokalt som rekord.
+- **Masker** är ditt liv. Att vila vid en bänk fyller alla masker, tömer själen
+  och blir din återuppståndelsepunkt.
+- **Själ** fylls när du träffar fiender. Använd den till besvärjelsen eller för
+  att fokusera fram en ny mask.
+- **Själsten** droppar från allt du dödar och sparas som rekord.
+- Fiender vaknar när du kommer nära; dör du återställs de.
+- Amuletten ligger högst upp i Väktarens hall — når du den är rundan vunnen.
 
-## Fiender
+## Världen
 
-| Fiende  | Beteende                                             |
-| ------- | ---------------------------------------------------- |
-| Kryp    | Jagar rakt på dig, snabb att omringa                 |
-| Skärva  | Snabb, rör sig i vågor                               |
-| Orb     | Håller avstånd och skjuter projektilskurar            |
-| Råskinn | Långsam, mycket liv, hård kontakt                    |
-| Väktare | Boss: 8-kanoners salva, stor livpool                 |
+| Område | Innehåll |
+| --- | --- |
+| Den sjunkna brunnen | Startbänk, krypande skalbaggar, svävande ögon, första klättringen |
+| Valvet med lyktorna | Avsatser, glödande svampar, spottare som skjuter, grunda spikgropar |
+| Väktarens hall | Spikgolv, en väktare med klor och språng, amulettsavsatsen |
+
+Fiender: **krypare** (markbunden, klättrar inte av avsatser), **svävare**
+(jagar i luften), **husk** (långsam, mycket liv), **spottare** (skjuter
+projektiler som du kan slå sönder) och **väktaren** (boss med hopp och klor).
 
 ## Struktur
 
 ```
-index.html        Markup för canvas + alla skärmar (titel, uppgradering, paus, game over)
-css/style.css     HUD, menyer och animationer
-src/main.js       Bootstrap, spelloop, HUD-synk, skärmlogik
-src/game.js       Spellogik, fiender, projektiler, uppgraderingar och rendering
-src/spells.js     Besvärjelsedefinitioner (delas av logik och HUD)
-src/input.js      Tangentbord, mus och touch
-src/audio.js      Syntetiserat ljud via WebAudio (inga ljudfiler)
-src/gfx.js        Glow-sprites och enkla former
+index.html        Canvas + HUD (masker, själ, själsten), alla skärmar
+css/style.css     HUD, menyer, touch-kontroller
+src/main.js       Bootstrap, spelloop, HUD-synk, skärm- och tangentlogik
+src/game.js       Spellogik: rörelse, nålen, fiender, besvärjelser, all rendering
+src/world.js      Banans geometri, fiendeplacering, ljus och amulett
+src/physics.js    AABB-kollision, gravitation, coyote time
+src/input.js      Tangentbord, mus och touch → spelaktioner
+src/audio.js      Syntetiserat ljud via WebAudio
 server.mjs        Minimal statisk server utan beroenden
-tests/smoke.mjs   Headless speltest: 6 minuters simulering av riktig spellogik
-tests/render.mjs  Renderar PNG-frames utan webbläsare (kräver @napi-rs/canvas)
+tests/smoke.mjs   Headless speltest (mekanik + bot som spelar banan)
+tests/render.mjs  Renderar PNG-frames utan webbläsare (valfritt)
 ```
 
 ## Testa
 
 ```bash
-npm test                             # headless genomspelning, inga beroenden
-npx --yes @napi-rs/canvas npm run shots   # valfritt: skriv ut bilder till ./shots
+npm test                                   # mekanik + bot-genomspelning
+npx --yes @napi-rs/canvas npm run shots    # skriv ut bilder till ./shots
 ```
