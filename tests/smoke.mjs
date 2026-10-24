@@ -247,13 +247,17 @@ assert.ok(!stones.gates[0].open, 'the stone gate starts closed');
   place(stones.crates[0].body.x + 70, 780);
   input.press('left');
   let frames = 0;
+  let maxPush = 0;
   while (!stones.plates[0].pressed && frames < 600) {
     game.update(DT);
     input.endFrame();
+    maxPush = Math.max(maxPush, game.player.pushAmt);
     frames++;
   }
+  assert.ok(maxPush > 0.85, `the hands come up while shoving a stone (${maxPush.toFixed(2)})`);
   input.release('left');
   step(20);
+  assert.equal(game.player.pushAmt, 0, 'the hands drop again when the shove ends');
   assert.ok(stones.plates[0].pressed, 'walking pushes a stone onto the left hollow');
 
   // Cross the divider, then shove the second stone onto the far hollow.

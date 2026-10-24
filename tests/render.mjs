@@ -127,6 +127,16 @@ stand(560, 828);
 step(20);
 await shot('05-stones');
 
+// 5b. Mid-push: hands braced against the stone.
+game.loadRoom('stones', { x: 700, y: 828 });
+input.press('left');
+for (let i = 0; i < 90; i++) {
+  game.update(1 / 60);
+  input.endFrame();
+}
+await shot('05b-push');
+input.release('left');
+
 // 6. Ekokammaren with a live echo.
 game.loadRoom('hall', { x: 400, y: 828 });
 const hall = game.world.hall;

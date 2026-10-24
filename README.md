@@ -36,6 +36,14 @@ npm start          # http://localhost:4173
 | Ett andetag (0,3–0,9 s) | **Stråle** — bränner rankor, tänder lyktor och skär genom mygg |
 | Ett helt andetag (> 0,9 s) | **Bomb** — ljus i en radie, knuffar allt och ger rekyl (hoppa med `S` i luften) |
 
+### Knuffa stenar
+
+Gå in i en runsten och håll riktningen. Lykttändaren sänker farten, tar upp
+båda händerna och skjuter stenen framför sig i jämn takt, med damm vid
+foten. Lyktan hänger kvar på bältet medan händerna är upptagna. Stenar
+sjunker ner i en håla när de kommer över den, så du behöver inte stanna på
+millimetern.
+
 ### Världen — sex rum
 
 ```

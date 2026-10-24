@@ -128,6 +128,9 @@ export class Game {
       land: 0,
       airJump: true,
       coyote: 0,
+      pushAmt: 0, // 0..1, how hard the hands are braced against a stone
+      pushDir: 1,
+      pushHold: false,
     };
   }
 
@@ -340,8 +343,10 @@ export class Game {
     p.castCd = Math.max(0, p.castCd - dt);
     p.invuln = Math.max(0, p.invuln - dt);
     p.land = Math.max(0, p.land - dt * 5);
+    p.pushAmt = clamp(p.pushAmt + (p.pushHold ? 1 : -1) * dt * (p.pushHold ? 9 : 12), 0, 1);
 
     this.stuck += dt;
+    p.pushHold = false;
     this.updatePlayer(dt);
     this.updateCasting(dt);
     this.updateCrates(dt);
@@ -591,7 +596,18 @@ export class Game {
       const probe = { x: b.x + dir * 4, y: b.y, w: b.w, h: b.h };
       if (!rectsOverlap(probe, c.body)) continue;
 
+      // Braced against the stone — the hands come up.
+      this.player.pushHold = true;
+      this.player.pushDir = dir;
+
       const moved = this.shove(c, dir * SPEED * dt, this.staticSolids(), new Set());
+
+      if (moved && Math.random() < 0.35) {
+        const edge = dir > 0 ? c.body.x : c.body.x + c.body.w;
+        this.particles.push(
+          this.particle(edge + rand(-6, 6), c.body.bottom - 2, -dir * rand(10, 60), -rand(10, 50), rand(0.25, 0.5), rand(1.2, 2.4), this.mood.rim, 120),
+        );
+      }
       if (moved) {
         c.glow = Math.max(c.glow, 0.35);
         this.stuck = Math.min(this.stuck, 3);
@@ -602,8 +618,9 @@ export class Game {
           this.whisper('Glim: Stenen sitter fast. Prova en ljusstöt — eller flytta den andra först.');
         }
       }
-      // Keep the walk pace matched to the stone so it feels like one weight.
-      if (moved && Math.abs(b.vx) > SPEED) b.vx = dir * SPEED;
+      // Move at exactly the stone's pace, so contact never breaks and the
+      // shove feels like one continuous weight instead of a stutter.
+      if (moved) b.vx = dir * SPEED;
     }
   }
 
@@ -1981,6 +1998,13 @@ export class Game {
     const squash = p.land * 0.1;
     ctx.scale(f * (1 + squash * 0.4), 1 - squash);
 
+    // Pushing: lean into the stone and stretch a hand forward.
+    const push = p.pushAmt;
+    if (push > 0.001) {
+      ctx.translate(push * 3.2, 0);
+      ctx.rotate(push * 0.05);
+    }
+
     // cloak
     ctx.beginPath();
     ctx.moveTo(-1, -46);
@@ -2044,28 +2068,48 @@ export class Game {
     ctx.stroke();
     ctx.restore();
 
-    // staff + lantern in the leading hand
-    const staffX = 12;
-    ctx.strokeStyle = '#2b3d46';
-    ctx.lineWidth = 2.4;
-    ctx.beginPath();
-    ctx.moveTo(staffX - 3, -34);
-    ctx.lineTo(staffX + 4, 0);
-    ctx.stroke();
+    // Staff + lantern in the leading hand. While shoving, the lantern is
+    // hung on the belt behind so both little hands are free.
+    const pt = p.pushAmt;
+    if (pt < 0.35) {
+      const staffX = 12;
+      ctx.strokeStyle = '#2b3d46';
+      ctx.lineWidth = 2.4;
+      ctx.beginPath();
+      ctx.moveTo(staffX - 3, -34);
+      ctx.lineTo(staffX + 4, 0);
+      ctx.stroke();
 
-    const lx = staffX + 4;
-    const ly = -40;
-    ctx.fillStyle = '#0f1a20';
-    ctx.fillRect(lx - 6, ly - 2, 12, 14);
-    ctx.strokeStyle = this.alpha(this.mood.accent, 0.85);
-    ctx.lineWidth = 1.4;
-    ctx.strokeRect(lx - 6, ly - 2, 12, 14);
-    const flick = 0.8 + Math.sin(this.time * 9) * 0.2;
-    ctx.fillStyle = `rgba(255, 226, 160, ${0.7 + flick * 0.3})`;
-    ctx.fillRect(lx - 4, ly, 8, 10);
+      const lx = staffX + 4;
+      const ly = -40;
+      ctx.fillStyle = '#0f1a20';
+      ctx.fillRect(lx - 6, ly - 2, 12, 14);
+      ctx.strokeStyle = this.alpha(this.mood.accent, 0.85);
+      ctx.lineWidth = 1.4;
+      ctx.strokeRect(lx - 6, ly - 2, 12, 14);
+      const flick = 0.8 + Math.sin(this.time * 9) * 0.2;
+      ctx.fillStyle = `rgba(255, 226, 160, ${0.7 + flick * 0.3})`;
+      ctx.fillRect(lx - 4, ly, 8, 10);
+      this.handLantern = { x: lx, y: ly };
+    } else {
+      // Belt lantern, tucked behind the hip.
+      const bx = -15;
+      const by = -20;
+      const flick = 0.8 + Math.sin(this.time * 9) * 0.2;
+      ctx.fillStyle = '#0f1a20';
+      ctx.roundRect(bx - 4.5, by - 1, 9, 11, 2);
+      ctx.fill();
+      ctx.strokeStyle = this.alpha(this.mood.accent, 0.6);
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+      ctx.fillStyle = `rgba(255, 226, 160, ${0.55 + flick * 0.3})`;
+      ctx.fillRect(bx - 2.5, by + 0.8, 5, 7);
+      this.handLantern = { x: bx, y: by };
+    }
 
     // charge ring
     if (p.charging) {
+      const { x: lx, y: ly } = this.handLantern || { x: 16, y: -40 };
       const t = p.chargeT / CHARGE.max;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -2086,10 +2130,67 @@ export class Game {
       ctx.restore();
     }
 
+    if (push > 0.001) this.drawPushHands(ctx, push);
+
     ctx.restore();
 
     // Companion firefly.
     this.drawGlim(ctx);
+  }
+
+  /** Two small mitts braced against the stone, drawn over everything. */
+  drawPushHands(ctx, push) {
+    {
+      const p = this.player;
+      const strain = 0.5 + 0.5 * Math.sin(p.anim * 9);
+      const wobble = Math.sin(p.anim * 21) * 0.9 * push;
+      const reach = lerp(9, 21 + strain * 3, push);
+      const sleeve = '#3b5b69';
+
+      ctx.lineCap = 'round';
+      // Shoulders, so the arms grow out of the cloak.
+      ctx.fillStyle = '#3b5b69';
+      ctx.beginPath();
+      ctx.ellipse(1, -32, 5, 6.5, -0.2, 0, TAU);
+      ctx.fill();
+      // Upper arm: shoulder -> elbow, elbow -> hand.
+      ctx.strokeStyle = sleeve;
+      ctx.lineWidth = 5.4;
+      ctx.beginPath();
+      ctx.moveTo(1, -34);
+      ctx.lineTo(reach * 0.55, -31 - wobble);
+      ctx.moveTo(0, -22);
+      ctx.lineTo(reach * 0.5, -21 + wobble);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#4d7182';
+      ctx.lineWidth = 4.4;
+      ctx.beginPath();
+      ctx.moveTo(reach * 0.55, -31 - wobble);
+      ctx.lineTo(reach, -30 - wobble);
+      ctx.moveTo(reach * 0.5, -21 + wobble);
+      ctx.lineTo(reach - 2, -20 + wobble);
+      ctx.stroke();
+
+      // Hands: small pale mitts, flat against the stone.
+      ctx.fillStyle = '#eaf7ff';
+      ctx.beginPath();
+      ctx.ellipse(reach + 1, -30 - wobble, 4.2, 3.6, 0.25, 0, TAU);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(reach - 1, -20 + wobble, 4, 3.4, 0.25, 0, TAU);
+      ctx.fill();
+
+      // Warm rim so the hands read against a dark stone.
+      ctx.strokeStyle = `rgba(255, 226, 168, ${0.5 * push})`;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(reach + 1, -30 - wobble, 4.6, -1.1, 1.2);
+      ctx.moveTo(reach + 3.2, -20 + wobble);
+      ctx.arc(reach - 1, -20 + wobble, 4.4, -1.1, 1.2);
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
   }
 
   drawGlim(ctx) {
@@ -2297,9 +2398,9 @@ export class Game {
     for (const c of this.state.crates) {
       const x = (c.body.cx - camX) * z;
       const y = (c.body.cy - camY) * z;
-      const r = 70 * z;
+      const r = 46 * z;
       const gg = ctx.createRadialGradient(x, y, 2, x, y, r);
-      gg.addColorStop(0, `rgba(255, 228, 170, ${0.16 + c.glow * 0.2})`);
+      gg.addColorStop(0, `rgba(255, 228, 170, ${0.05 + c.glow * 0.12})`);
       gg.addColorStop(1, 'rgba(255, 228, 170, 0)');
       ctx.fillStyle = gg;
       ctx.beginPath();
