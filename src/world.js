@@ -53,8 +53,8 @@ export const ROOMS = {
     shard: null,
     altar: { x: 700, y: FLOOR - 120, w: 110, h: 120 },
     exits: [
-      { x: 1580, y: 700, w: 70, h: 128, to: 'garden', spawn: { x: 140, y: 780 } },
-      { x: 1400, y: 190, w: 90, h: 110, to: 'grove', spawn: { x: 140, y: 780 } },
+      { x: 1580, y: 700, w: 70, h: 128, to: 'garden', spawn: { x: 140, y: 780 }, label: 'Törngården', labelAt: { x: 1600, y: 660 } },
+      { x: 1400, y: 190, w: 90, h: 110, to: 'grove', spawn: { x: 140, y: 780 }, label: 'Spegellunden', labelAt: { x: 1445, y: 150 } },
     ],
     hints: [
       'Glim: Lyktan sover. Sätt dig vid den när du behöver vila.',
@@ -106,8 +106,8 @@ export const ROOMS = {
     shard: { x: 1706, y: 782 },
     altar: null,
     exits: [
-      { x: 0, y: 700, w: 70, h: 128, to: 'hub', spawn: { x: 1540, y: 780 } },
-      { x: 1692, y: 700, w: 68, h: 128, to: 'grove', spawn: { x: 140, y: 780 } },
+      { x: 0, y: 700, w: 70, h: 128, to: 'hub', spawn: { x: 1540, y: 780 }, label: 'Lykthuset', labelAt: { x: 70, y: 660 } },
+      { x: 1692, y: 700, w: 68, h: 128, to: 'grove', spawn: { x: 140, y: 780 }, label: 'Spegellunden', labelAt: { x: 1706, y: 660 } },
     ],
     hints: [
       'Glim: Rankorna tål inte ljus. Håll in staven och släpp när den glöder.',
@@ -152,8 +152,8 @@ export const ROOMS = {
     shard: { x: 1786, y: 782 },
     altar: null,
     exits: [
-      { x: 0, y: 700, w: 70, h: 128, to: 'garden', spawn: { x: 1640, y: 760 } },
-      { x: 1792, y: 700, w: 68, h: 128, to: 'stones', spawn: { x: 140, y: 780 } },
+      { x: 0, y: 700, w: 70, h: 128, to: 'garden', spawn: { x: 1640, y: 760 }, label: 'Törngården', labelAt: { x: 70, y: 660 } },
+      { x: 1792, y: 700, w: 68, h: 128, to: 'stones', spawn: { x: 140, y: 780 }, label: 'Stenkammaren', labelAt: { x: 1806, y: 660 } },
     ],
     hints: [
       'Glim: Ställ dig vid en spegel och tryck E för att vrida den.',
@@ -200,8 +200,8 @@ export const ROOMS = {
     shard: null,
     altar: null,
     exits: [
-      { x: 0, y: 700, w: 70, h: 128, to: 'grove', spawn: { x: 1740, y: 760 } },
-      { x: 1500, y: 700, w: 68, h: 128, to: 'hall', spawn: { x: 140, y: 780 } },
+      { x: 0, y: 700, w: 70, h: 128, to: 'grove', spawn: { x: 1740, y: 760 }, label: 'Spegellunden', labelAt: { x: 70, y: 660 } },
+      { x: 1500, y: 700, w: 68, h: 128, to: 'hall', spawn: { x: 140, y: 780 }, label: 'Ekokammaren', labelAt: { x: 1514, y: 660 } },
     ],
     hints: [
       'Glim: Stenarna lyssnar på knuffar. Ett lätt tryck räcker.',
@@ -242,8 +242,8 @@ export const ROOMS = {
     shard: { x: 1350, y: 782 },
     altar: null,
     exits: [
-      { x: 0, y: 700, w: 70, h: 128, to: 'stones', spawn: { x: 1460, y: 760 } },
-      { x: 1580, y: 700, w: 70, h: 128, to: 'hub', spawn: { x: 760, y: 700 } },
+      { x: 0, y: 700, w: 70, h: 128, to: 'stones', spawn: { x: 1460, y: 760 }, label: 'Stenkammaren', labelAt: { x: 70, y: 660 } },
+      { x: 1580, y: 700, w: 70, h: 128, to: 'hub', spawn: { x: 760, y: 700 }, label: 'Lykthuset', labelAt: { x: 1600, y: 660 } },
     ],
     hints: [
       'Glim: Ekokristallen minns dina steg. Tryck E för att spela in.',
@@ -275,7 +275,7 @@ export const ROOMS = {
     shard: null,
     altar: null,
     mirror: { x: 1090, y: 770 },
-    exits: [{ x: 0, y: 700, w: 70, h: 128, to: 'hub', spawn: { x: 760, y: 700 } }],
+    exits: [{ x: 0, y: 700, w: 70, h: 128, to: 'hub', spawn: { x: 760, y: 700 }, label: 'Lykthuset', labelAt: { x: 70, y: 660 } }],
     hints: ['Glim: ...jag minns den här platsen. Gör du?'],
   },
 };

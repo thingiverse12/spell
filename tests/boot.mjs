@@ -85,7 +85,7 @@ function makeElement(tag = 'div', id = '') {
 const registry = new Map();
 const ids = [
   'game', 'hud', 'hearts', 'shards', 'charge', 'chargeFill', 'chargeLabel', 'roomTitle', 'roomName', 'roomSub',
-  'whisper', 'whisperText', 'prompt', 'toast', 'pauseBtn', 'muteBtn', 'screen-title', 'screen-memory',
+  'whisper', 'whisperText', 'prompt', 'toast', 'objective', 'objLabel', 'pauseBtn', 'muteBtn', 'screen-title', 'screen-memory',
   'screen-rest', 'screen-pause', 'screen-dead', 'screen-end', 'titleBest', 'memoryCount', 'memoryTitle',
   'memoryText', 'pauseAdapt', 'deadText', 'memoryList', 'endText', 'touch', 'touchStick',
   'startBtn', 'againBtn', 'restartBtn', 'memoryBtn', 'restBtn', 'respawnBtn', 'resumeBtn',

@@ -224,6 +224,81 @@ export class Game {
     return null;
   }
 
+  /** What the player should do next, and where. Used by the HUD + marker. */
+  objective() {
+    const st = this.state;
+    const def = this.roomDef;
+    const p = this.player.body;
+    const nearest = (list, at) => {
+      let best = null;
+      let bd = Infinity;
+      for (const o of list) {
+        const t = at(o);
+        const d = dist(p.cx, p.cy, t.x, t.y);
+        if (d < bd) {
+          bd = d;
+          best = t;
+        }
+      }
+      return best;
+    };
+    const door = (to) => {
+      const ex = def.exits.find((e) => e.to === to) || def.exits[0];
+      return { x: ex.x + ex.w / 2, y: ex.y + ex.h / 2, label: ex.label || 'Vidare', kind: 'door' };
+    };
+
+    if (def.id === 'hub') {
+      if (this.shards.length >= 3) {
+        return { x: def.altar.x + 55, y: def.altar.y + 30, label: 'Minnas vid altaret', kind: 'altar' };
+      }
+      return { ...door('garden'), label: 'Gå till Törngården', sub: `Minnen: ${this.shards.length}/3` };
+    }
+
+    if (def.id === 'garden') {
+      const vines = st.vines.filter((v) => !v.burnt);
+      if (vines.length) {
+        const t = nearest(vines, (v) => ({ x: v.x + v.w / 2, y: v.y + v.h / 2 }));
+        return { ...t, label: `Bränn rankorna (${3 - vines.length}/3)`, kind: 'vine' };
+      }
+      const lamps = st.lamps.filter((l) => !l.lit);
+      if (lamps.length) {
+        const t = nearest(lamps, (l) => ({ x: l.x, y: l.y - 30 }));
+        return { ...t, label: `Tänd eldarna (${3 - lamps.length}/3)`, kind: 'lamp' };
+      }
+      if (st.shard && !st.shard.taken) return { x: st.shard.x, y: st.shard.y - 30, label: 'Ta minnet', kind: 'shard' };
+      return { ...door('grove'), label: 'Vidare till Spegellunden' };
+    }
+
+    if (def.id === 'grove') {
+      if (!st.beamHit) {
+        const t = nearest(st.mirrors, (m) => ({ x: m.x, y: m.y }));
+        return { ...t, label: 'Vrid speglarna (E)', kind: 'mirror' };
+      }
+      if (st.shard && !st.shard.taken) return { x: st.shard.x, y: st.shard.y - 30, label: 'Ta minnet', kind: 'shard' };
+      return { ...door('stones'), label: 'Vidare till Stenkammaren' };
+    }
+
+    if (def.id === 'stones') {
+      const open = st.plates.filter((pl) => !pl.pressed);
+      if (open.length) {
+        const t = nearest(open, (pl) => ({ x: pl.x + pl.w / 2, y: pl.y }));
+        return { ...t, label: `Sten på plattorna (${2 - open.length}/2)`, kind: 'plate' };
+      }
+      return { ...door('hall'), label: 'Vidare till Ekokammaren' };
+    }
+
+    if (def.id === 'hall') {
+      if (!st.gates[0].open) {
+        const e = st.echo;
+        return { x: e.x, y: e.y - 40, label: 'Spela in ditt eko (E)', kind: 'echo' };
+      }
+      if (st.shard && !st.shard.taken) return { x: st.shard.x, y: st.shard.y - 30, label: 'Ta minnet', kind: 'shard' };
+      return { ...door('hub'), label: 'Tillbaka till Lykthuset' };
+    }
+
+    return { x: def.mirror ? def.mirror.x : def.w / 2, y: 700, label: 'Spegeln', kind: 'mirror' };
+  }
+
   /** Context prompt for the HUD. */
   prompt() {
     if (this.mode !== 'play') return '';
@@ -277,6 +352,7 @@ export class Game {
     this.updateMidges(dt);
     this.updateOrbs(dt);
     this.checkPickups();
+    this.contextHints(dt);
     this.checkExits();
     this.updateCamera(dt);
     this.updateHints(dt);
@@ -745,6 +821,17 @@ export class Game {
           o.life = 0;
         }
       }
+      for (const v of st.vines) {
+        if (v.burnt) continue;
+        if (rectsOverlap({ x: o.x - o.r, y: o.y - o.r, w: o.r * 2, h: o.r * 2 }, v)) {
+          v.singed = (v.singed || 0) + 1;
+          o.life = 0;
+          this.burst(o.x, o.y, 8, '#ffcf8a', 120);
+          if (v.singed >= 3) this.burnVine(v);
+          else this.whisper('Glim: Det fräser. Lite till.');
+          break;
+        }
+      }
       for (const c of st.crates) {
         if (rectsOverlap({ x: o.x - o.r, y: o.y - o.r, w: o.r * 2, h: o.r * 2 }, c.body)) {
           c.vx += sign(o.vx) * 300;
@@ -920,6 +1007,58 @@ export class Game {
     this.cb.onWhisper?.(text);
   }
 
+  contextHints(dt) {
+    this.ctxHintCd = Math.max(0, (this.ctxHintCd || 0) - dt);
+    if (this.ctxHintCd > 0) return;
+    const p = this.player.body;
+    const st = this.state;
+
+    // Pressing up against a thorn vine? Say exactly how to burn it.
+    for (const v of st.vines) {
+      if (v.burnt) continue;
+      const nearX = Math.abs(p.cx - (v.x + v.w / 2)) < 110;
+      const nearY = p.cy > v.y - 40;
+      if (nearX && nearY) {
+        this.ctxHintCd = 9;
+        this.whisper('Glim: Rankorna tål inte ljus. Håll in J — släpp när staven glöder.');
+        return;
+      }
+    }
+
+    // Standing by an unlit brazier.
+    for (const l of st.lamps) {
+      if (l.lit) continue;
+      if (dist(p.cx, p.cy, l.x, l.y - 30) < 120) {
+        this.ctxHintCd = 9;
+        this.whisper('Glim: Ett kort tryck räcker för att tända. Rikta ljuset mot elden.');
+        return;
+      }
+    }
+
+    // Near a mirror.
+    for (const m of st.mirrors) {
+      if (dist(p.cx, p.cy, m.x, m.y) < 110) {
+        this.ctxHintCd = 9;
+        this.whisper('Glim: Tryck E för att vrida spegeln ett kvarts varv.');
+        return;
+      }
+    }
+
+    // Near the echo crystal.
+    if (st.echo && dist(p.cx, p.cy, st.echo.x, st.echo.y - 30) < 120) {
+      this.ctxHintCd = 9;
+      this.whisper('Glim: E spelar in dina steg. Spela upp dig själv på en platta.');
+      return;
+    }
+
+    // Lost at the start of a room? Point at the way onward.
+    if (this.stuck > 14) {
+      this.stuck = 0;
+      const target = this.objective();
+      this.whisper(`Glim: ${target.label}. Följ ljuset.`);
+    }
+  }
+
   updateHints(dt) {
     const delay = 7 + (1 - this.adapt) * 16;
     const hints = this.roomDef.hints || [];
@@ -984,6 +1123,7 @@ export class Game {
     ctx.setTransform(this.dpr * z, 0, 0, this.dpr * z, -camX * z * this.dpr, -camY * z * this.dpr);
     this.drawSolids(ctx, camX, camY);
     this.drawDecor(ctx);
+    this.drawDoors(ctx, camX, camY);
     this.drawObjects(ctx);
     this.drawCrates(ctx);
     this.drawEcho(ctx);
@@ -998,6 +1138,7 @@ export class Game {
     this.drawLighting(ctx, camX, camY, z);
     this.drawGlowPass(ctx, camX, camY, z);
     this.drawOverlay(ctx);
+    this.drawObjectiveMarker(ctx, camX, camY, z);
   }
 
   /* ---------------------------------------------------------- background */
@@ -1187,7 +1328,8 @@ export class Game {
     for (const v of st.vines) {
       if (v.burnt) continue;
       const sway = Math.sin(this.time * 1.6 + v.x) * 4;
-      ctx.strokeStyle = this.alpha('#2f6b52', 0.95);
+      const singe = (v.singed || 0) / 3;
+      ctx.strokeStyle = this.alpha(singe > 0 ? '#7a5a3a' : '#2f6b52', 0.95);
       ctx.lineWidth = 5;
       ctx.lineCap = 'round';
       for (let i = 0; i < 4; i++) {
@@ -1198,6 +1340,18 @@ export class Game {
         ctx.stroke();
       }
       ctx.lineCap = 'butt';
+      // The vine itself smoulders faintly: a hint that light undoes it.
+      const ember = 0.35 + 0.25 * Math.sin(this.time * 2.4 + v.x * 0.01);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const vg = ctx.createLinearGradient(v.x, v.y, v.x + v.w, v.y + v.h);
+      vg.addColorStop(0, `rgba(255, 210, 140, ${0.10 * ember})`);
+      vg.addColorStop(0.5, `rgba(255, 180, 110, ${0.20 * ember})`);
+      vg.addColorStop(1, `rgba(255, 210, 140, ${0.10 * ember})`);
+      ctx.fillStyle = vg;
+      ctx.fillRect(v.x - 6, v.y, v.w + 12, v.h);
+      ctx.restore();
+
       // thorns
       ctx.fillStyle = this.alpha('#8fdcb4', 0.8);
       for (let i = 0; i < 7; i++) {
@@ -1412,6 +1566,122 @@ export class Game {
       ctx.fillRect(-16, 14, 32, 20);
       ctx.restore();
     }
+  }
+
+  drawDoors(ctx, camX, camY) {
+    const m = this.mood;
+    const p = this.player.body;
+    for (const ex of this.roomDef.exits) {
+      if (!this.visible(ex.x, ex.y, ex.w, ex.h, camX, camY, 40)) continue;
+      const near = dist(p.cx, p.cy, ex.x + ex.w / 2, ex.y + ex.h / 2) < 240;
+      const pulse = 0.55 + 0.2 * Math.sin(this.time * 2.2);
+      const a = near ? 1 : 0.65;
+
+      // Archway: two pillars and a rounded top.
+      ctx.strokeStyle = this.alpha(m.rim, 0.5 * a);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(ex.x + 2, ex.y + ex.h);
+      ctx.lineTo(ex.x + 2, ex.y + 26);
+      ctx.quadraticCurveTo(ex.x + ex.w / 2, ex.y - 18, ex.x + ex.w - 2, ex.y + 26);
+      ctx.lineTo(ex.x + ex.w - 2, ex.y + ex.h);
+      ctx.stroke();
+
+      // Inside glow.
+      const g = ctx.createLinearGradient(0, ex.y, 0, ex.y + ex.h);
+      g.addColorStop(0, this.alpha(m.accent, 0.03 + (near ? 0.1 : 0.05) * pulse));
+      g.addColorStop(1, this.alpha(m.accent, 0.16 + (near ? 0.16 : 0.08) * pulse));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(ex.x + 4, ex.y + ex.h);
+      ctx.lineTo(ex.x + 4, ex.y + 26);
+      ctx.quadraticCurveTo(ex.x + ex.w / 2, ex.y - 14, ex.x + ex.w - 4, ex.y + 26);
+      ctx.lineTo(ex.x + ex.w - 4, ex.y + ex.h);
+      ctx.closePath();
+      ctx.fill();
+
+      // Fireflies marking the way.
+      for (let i = 0; i < 4; i++) {
+        const f = (this.time * 0.35 + i * 0.25) % 1;
+        const fx = ex.x + 10 + i * ((ex.w - 20) / 3);
+        const fy = ex.y + ex.h - f * (ex.h - 20);
+        ctx.fillStyle = `rgba(255, 240, 200, ${(1 - f) * 0.7 * a})`;
+        ctx.beginPath();
+        ctx.arc(fx, fy, 1.8, 0, TAU);
+        ctx.fill();
+      }
+
+      // Name plate above the arch.
+      const label = ex.label || 'Vidare';
+      ctx.font = '600 13px "Segoe UI", system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = this.alpha(m.accent, near ? 0.95 : 0.5);
+      const ly = (ex.labelAt ? ex.labelAt.y : ex.y - 26);
+      const lx = ex.labelAt ? ex.labelAt.x : ex.x + ex.w / 2;
+      ctx.fillText(label, lx, ly);
+      ctx.textAlign = 'left';
+    }
+  }
+
+  drawObjectiveMarker(ctx, camX, camY, z) {
+    if (this.mode !== 'play') return;
+    const target = this.objective();
+    if (!target) return;
+    const sx = (target.x - camX) * z;
+    const sy = (target.y - camY) * z;
+    const pad = 120; // partially visible goals still count as on screen
+    const onScreen = sx > -pad && sx < this.w + pad && sy > -pad && sy < this.h + pad;
+    const pulse = 0.6 + 0.4 * Math.sin(this.time * 3);
+
+    // Right on top of the goal? The glow in the world is enough.
+    const p = this.player.body;
+    if (target.kind !== 'door' && dist(p.cx, p.cy, target.x, target.y) < 46) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    if (onScreen) {
+      // Pulsing diamond floating above the goal.
+      const yy = sy - (target.kind === 'door' ? 96 : 46);
+      ctx.strokeStyle = `rgba(255, 236, 180, ${0.75 * pulse})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(sx, yy - 9);
+      ctx.lineTo(sx + 8, yy);
+      ctx.lineTo(sx, yy + 9);
+      ctx.lineTo(sx - 8, yy);
+      ctx.closePath();
+      ctx.stroke();
+      const g = ctx.createRadialGradient(sx, yy, 2, sx, yy, 34);
+      g.addColorStop(0, `rgba(255, 236, 180, ${0.3 * pulse})`);
+      g.addColorStop(1, 'rgba(255, 236, 180, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(sx, yy, 34, 0, TAU);
+      ctx.fill();
+    } else {
+      // Off-screen: an arrow on the edge pointing the way.
+      const cx = this.w / 2;
+      const cy = this.h / 2;
+      const dx = sx - cx;
+      const dy = sy - cy;
+      const ang = Math.atan2(dy, dx);
+      const rx = (this.w / 2 - pad) / Math.max(0.0001, Math.abs(Math.cos(ang)));
+      const ry = (this.h / 2 - pad) / Math.max(0.0001, Math.abs(Math.sin(ang)));
+      const r = Math.min(rx, ry);
+      const ax = cx + Math.cos(ang) * r;
+      const ay = cy + Math.sin(ang) * r;
+      ctx.translate(ax, ay);
+      ctx.rotate(ang);
+      ctx.fillStyle = `rgba(255, 236, 180, ${0.55 + 0.35 * pulse})`;
+      ctx.beginPath();
+      ctx.moveTo(14, 0);
+      ctx.lineTo(-6, -9);
+      ctx.lineTo(-2, 0);
+      ctx.lineTo(-6, 9);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   drawLamp(ctx, l) {
@@ -1866,6 +2136,10 @@ export class Game {
     for (const c of this.state.crates) {
       const s2 = toScreen(c.body.cx, c.body.cy);
       holes.push({ ...s2, r: 90 * z, a: 0.35 });
+    }
+    for (const ex of this.roomDef.exits) {
+      const s2 = toScreen(ex.x + ex.w / 2, ex.y + ex.h * 0.6);
+      holes.push({ ...s2, r: 150 * z, a: 0.5 });
     }
 
     for (const h of holes) {

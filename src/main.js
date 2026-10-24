@@ -20,6 +20,8 @@ const ui = {
   whisper: $('whisper'),
   whisperText: $('whisperText'),
   prompt: $('prompt'),
+  objective: $('objective'),
+  objLabel: $('objLabel'),
   toast: $('toast'),
   pauseBtn: $('pauseBtn'),
   muteBtn: $('muteBtn'),
@@ -171,6 +173,10 @@ function updateHud() {
   const prompt = game.prompt();
   ui.prompt.textContent = prompt;
   ui.prompt.classList.toggle('is-on', !!prompt && game.mode === 'play');
+
+  const target = game.mode === 'play' ? game.objective() : null;
+  ui.objLabel.textContent = target ? target.label : '';
+  ui.objective.style.opacity = target ? '' : '0';
 
   if (input.stick.active) {
     ui.touchStick.style.transform = `translate(${input.stick.dx * 20}px, ${input.stick.dy * 20}px)`;

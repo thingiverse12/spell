@@ -81,11 +81,16 @@ async function shot(name) {
   console.log('wrote', name);
 }
 
-// 1. Lykthuset with the lantern.
+// 1. Lykthuset with the lantern, and the way out visible.
 game.loadRoom('hub', { x: 380, y: 828 });
 stand(380, 828);
 step(30);
 await shot('01-hub');
+
+// 1b. The garden door with its label and the objective marker.
+stand(1480, 828);
+step(20);
+await shot('01b-hub-door');
 
 // 2. Charging the staff (bomb tier).
 game.player.charging = true;

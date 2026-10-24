@@ -320,6 +320,53 @@ kbd {
   color: rgba(222, 245, 238, 0.92);
 }
 
+.objective {
+  position: absolute;
+  left: 50%;
+  top: clamp(14px, 2vw, 26px);
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 215, 154, 0.2);
+  background: rgba(7, 15, 18, 0.62);
+  backdrop-filter: blur(6px);
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 236, 198, 0.9);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+
+.hud.is-live .objective {
+  opacity: 1;
+}
+
+.obj-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  box-shadow: 0 0 10px var(--gold);
+  animation: objPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes objPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
 /* prompt + toast ----------------------------------------------------- */
 
 .prompt {
