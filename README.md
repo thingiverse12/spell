@@ -1,11 +1,12 @@
-# SPELL — Ett eko i djupet
+# Lykttändaren — ett minne i skymningen
 
-Ett stämningsfullt 2D-plattformsspel i stil med Hollow Knight, byggt i ren
-HTML, CSS och JavaScript (canvas). Ingen motor, inga beroenden, inga bild- eller
-ljudfiler — all grafik ritas i kod och allt ljud syntetiseras.
+Ett pusselplattformsspel i en skog som aldrig riktigt somnar. Du är en liten
+lykttändare som gick ut i mörkret efter en röst som lät som din egen — och nu
+letar din följeslagare Glim efter dig. Hitta tre minnen, bär dem till altaret i
+Lykthuset och möt dig själv i det inre rummet.
 
-Du är en liten vandrare i en sjunken grotta. Ta dig genom tre valv med nålen i
-hand, besegra det som vakar i djupet och bär amuletten ut i ljuset.
+Byggt i ren HTML, CSS och JavaScript (canvas). Inga beroenden, inga bildfiler,
+ingen ljudfil — all grafik ritas i kod och allt ljud syntetiseras.
 
 ## Starta
 
@@ -13,73 +14,74 @@ hand, besegra det som vakar i djupet och bär amuletten ut i ljuset.
 npm start          # http://localhost:4173
 ```
 
-eller vilken statisk server som helst:
-
-```bash
-python3 -m http.server 4173
-```
-
-> Öppna via server, inte som `file://` — spelet använder ES-moduler.
+> Öppna via en server, inte som `file://` (spelet använder ES-moduler).
 
 ## Spela
 
 | Styrning | Gör |
 | --- | --- |
 | `A` `D` / piltangenter | Gå |
-| `SPACE` / `Z` | Hoppa (en gång till i luften = dubbelhopp) |
-| `J` / `X` / vänster mus | Slå med nålen |
-| `W` + `J` | Slå uppåt |
-| `S` + `J` (i luften) | Slå nedåt — studsar på fiender |
-| `SHIFT` / `C` | Dash (kort osårbarhet) |
-| `Q` / `I` | Besvärjelse: självisp som går genom fiender (kostar 33 själ) |
-| `F` | Fokusera: byt 33 själ mot en mask (stå still) |
-| `E` / `Enter` | Sätt dig vid en bänk |
+| `SPACE` / `Z` | Hoppa (en gång till i luften) |
+| `J` / vänster mus | **Ladda staven** — släpp för att kasta |
+| `W` | Sikta ljuset uppåt |
+| `S` (i luften) + full laddning | Bomben stöter dig uppåt |
+| `E` / `Enter` | Vrid speglar, spela in ekon, vila vid lyktan, använd altaret |
 | `ESC` | Paus · `M` ljud av/på |
 
-På touch: vänster halva är en rörelsespak, höger halva har hopp, slag, dash och
-besvärjelse.
+### Staven i tre steg
 
-### Regler
-
-- **Masker** är ditt liv. Att vila vid en bänk fyller alla masker, tömer själen
-  och blir din återuppståndelsepunkt.
-- **Själ** fylls när du träffar fiender. Använd den till besvärjelsen eller för
-  att fokusera fram en ny mask.
-- **Själsten** droppar från allt du dödar och sparas som rekord.
-- Fiender vaknar när du kommer nära; dör du återställs de.
-- Amuletten ligger högst upp i Väktarens hall — når du den är rundan vunnen.
-
-## Världen
-
-| Område | Innehåll |
+| Laddning | Effekt |
 | --- | --- |
-| Den sjunkna brunnen | Startbänk, krypande skalbaggar, svävande ögon, första klättringen |
-| Valvet med lyktorna | Avsatser, glödande svampar, spottare som skjuter, grunda spikgropar |
-| Väktarens hall | Spikgolv, en väktare med klor och språng, amulettsavsatsen |
+| Kort tryck (< 0,3 s) | **Knuff** — en liten ljusorb som tänder, knuffar stenar och skingrar mygg |
+| Ett andetag (0,3–0,9 s) | **Stråle** — bränner rankor, tänder lyktor och skär genom mygg |
+| Ett helt andetag (> 0,9 s) | **Bomb** — ljus i en radie, knuffar allt och ger rekyl (hoppa med `S` i luften) |
 
-Fiender: **krypare** (markbunden, klättrar inte av avsatser), **svävare**
-(jagar i luften), **husk** (långsam, mycket liv), **spottare** (skjuter
-projektiler som du kan slå sönder) och **väktaren** (boss med hopp och klor).
+### Världen — sex rum
+
+```
+            Spegellunden ──► Stenkammaren ──► Ekokammaren
+                  ▲                                 │
+Törngården ──► Lykthuset ◄─────────────────────────┘
+                  │
+                  └──► (altaret, med tre minnen) Det inre rummet
+```
+
+| Rum | Pusslet |
+| --- | --- |
+| **Lykthuset** | Navet. Bänken vid lyktan fyller hjärtan, altaret öppnar slutet. |
+| **Törngården** | Bränn tre rankor, tänd tre eldar → porten öppnas. Första minnet. |
+| **Spegellunden** | Vrid två speglar så ljuset från sändaren träffar mottagaren. Andra minnet. |
+| **Stenkammaren** | Knuffa två runstenar på två plattor. Båda samtidigt → porten. |
+| **Ekokammaren** | Spela in ditt eget eko och låt det stå på en platta medan du står på den andra. Tredje minnet. |
+| **Det inre rummet** | Slutet. |
+
+Du kan gå tillbaka genom alla rum när du vill — dörrar och karta hänger ihop.
+
+### Svårighet som anpassar sig
+
+Skogen lyssnar. Faller du ofta blir den lugnare (färre mygg, inga taggar, längre
+viskningar från Glim). Löser du pussel snabbt blir den vaksammare (fler mygg,
+taggar som gör ont, snabbare faror). Nivån visas i pausmenyn.
 
 ## Struktur
 
 ```
-index.html        Canvas + HUD (masker, själ, själsten), alla skärmar
+index.html        Canvas + HUD (hjärtan, minnen, laddningsmätare, viskningar)
 css/style.css     HUD, menyer, touch-kontroller
 src/main.js       Bootstrap, spelloop, HUD-synk, skärm- och tangentlogik
-src/game.js       Spellogik: rörelse, nålen, fiender, besvärjelser, all rendering
-src/world.js      Banans geometri, fiendeplacering, ljus och amulett
-src/physics.js    AABB-kollision, gravitation, coyote time
+src/game.js       Spellogik: rörelse, stavens tre nivåer, pussel, ljus, rendering
+src/world.js      Sex rum: geometri, pusselobjekt, dörrar, minnestexter
+src/physics.js    AABB-kollision och strålkastning/spegling för ljusstrålar
 src/input.js      Tangentbord, mus och touch → spelaktioner
-src/audio.js      Syntetiserat ljud via WebAudio
+src/audio.js      Syntetiserat ljud (laddningshum, lyktor, ekon, vind)
 server.mjs        Minimal statisk server utan beroenden
-tests/smoke.mjs   Headless speltest (mekanik + bot som spelar banan)
+tests/smoke.mjs   Headless speltest: mekanik + alla fem pussel spelas igenom
 tests/render.mjs  Renderar PNG-frames utan webbläsare (valfritt)
 ```
 
 ## Testa
 
 ```bash
-npm test                                   # mekanik + bot-genomspelning
-npx --yes @napi-rs/canvas npm run shots    # skriv ut bilder till ./shots
+npm test                                   # alla pussel + mekanik
+npx --yes @napi-rs/canvas npm run shots    # bilder till ./shots
 ```

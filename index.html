@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <meta name="theme-color" content="#05070f" />
-  <meta name="description" content="SPELL — ett stämningsfullt 2D-plattformsspel i en sjunken grotta. Nål, dash och själ i stil med Hollow Knight." />
-  <title>SPELL — Ett eko i djupet</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2305070f'/%3E%3Cpath d='M50 18c14 0 24 9 24 22 0 15-12 24-24 40-12-16-24-25-24-40 0-13 10-22 24-22z' fill='%23dff4ff'/%3E%3Cellipse cx='41' cy='42' rx='4.5' ry='7' fill='%2305070f'/%3E%3Cellipse cx='59' cy='42' rx='4.5' ry='7' fill='%2305070f'/%3E%3C/svg%3E" />
+  <meta name="theme-color" content="#070d12" />
+  <meta name="description" content="Lykttändaren — ett pusselplattformsspel i skymningsskogen. Ladda staven, tänd ljuset och hitta tillbaka till ditt eget minne." />
+  <title>Lykttändaren — ett minne i skymningen</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23070d12'/%3E%3Crect x='38' y='30' width='24' height='30' rx='4' fill='%23ffd79a'/%3E%3Cpath d='M50 12v14M50 66v10' stroke='%23ffd79a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M32 62h36' stroke='%23ffcf7a' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E" />
   <link rel="stylesheet" href="./css/style.css" />
 </head>
 <body>
@@ -14,112 +14,113 @@
     <canvas id="game" aria-label="Spelplan"></canvas>
 
     <div class="hud" id="hud">
-      <div class="vitals">
-        <div class="masks" id="masks" aria-label="Liv"></div>
-        <div class="soul">
-          <div class="soul-orb">
-            <div class="soul-fill" id="soulFill"></div>
-            <span class="soul-glyph">◇</span>
-          </div>
+      <div class="hud-left">
+        <div class="hearts" id="hearts" aria-label="Liv"></div>
+        <div class="shards" id="shards" aria-label="Minnesfragment">
+          <i></i><i></i><i></i>
         </div>
       </div>
 
-      <div class="top-right">
-        <div class="geo">
-          <span class="geo-gem"></span>
-          <b id="geoCount">0</b>
-        </div>
-        <div class="icon-row">
-          <button class="icon-btn" id="pauseBtn" type="button" title="Paus (Esc)" aria-label="Pausa">❚❚</button>
-          <button class="icon-btn" id="muteBtn" type="button" title="Ljud av/på (M)" aria-label="Ljud av eller på">♪</button>
-        </div>
+      <div class="hud-right">
+        <button class="icon-btn" id="pauseBtn" type="button" title="Paus (Esc)" aria-label="Pausa">❚❚</button>
+        <button class="icon-btn" id="muteBtn" type="button" title="Ljud av/på (M)" aria-label="Ljud av eller på">♪</button>
+      </div>
+
+      <div class="charge" id="charge">
+        <div class="charge-fill" id="chargeFill"></div>
+        <div class="charge-marks"><i></i><i></i></div>
+        <span class="charge-label" id="chargeLabel">tryck · andas · släpp</span>
+      </div>
+
+      <div class="room-title" id="roomTitle">
+        <strong id="roomName"></strong>
+        <span id="roomSub"></span>
+      </div>
+
+      <div class="whisper" id="whisper">
+        <span class="glim">✦</span>
+        <p id="whisperText"></p>
       </div>
 
       <div class="prompt" id="prompt"></div>
-
-      <div class="area-banner" id="banner">
-        <strong id="bannerTitle"></strong>
-        <span id="bannerSub"></span>
-      </div>
-
-      <div class="hint-bar" id="hintBar">A/D gå · SPACE hoppa (×2) · J slå · SHIFT dash · Q besvärjelse · F fokusera · E vila</div>
+      <div class="toast" id="toast"></div>
     </div>
 
     <div class="touch" id="touch">
       <div class="touch-stick" id="touchStick"><i></i></div>
       <div class="touch-buttons">
-        <button class="touch-btn spell" type="button" data-action="spell">✦</button>
-        <button class="touch-btn dash" type="button" data-action="dash">➤</button>
-        <button class="touch-btn attack" type="button" data-action="attack">✧</button>
+        <button class="touch-btn cast" type="button" data-action="cast">✦</button>
         <button class="touch-btn jump" type="button" data-action="jump">⤒</button>
+        <button class="touch-btn interact" type="button" data-action="interact">◎</button>
       </div>
     </div>
 
     <section class="screen" id="screen-title">
       <div class="panel title-panel">
-        <p class="eyebrow">Ett eko i djupet</p>
-        <h1 class="logo">SPELL</h1>
-        <p class="tagline">En liten vandrare. En sjunken grotta. Ett minne av ljus.</p>
-        <button class="btn primary" id="startBtn" type="button">Vandra in</button>
+        <p class="eyebrow">Ett minne i skymningen</p>
+        <h1 class="logo">Lykttändaren</h1>
+        <p class="tagline">Du gick ut i mörkret efter en röst som lät som din egen.<br />Nu letar Glim efter dig.</p>
+        <button class="btn primary" id="startBtn" type="button">Tänd lyktan</button>
         <div class="controls">
           <div><kbd>A</kbd><kbd>D</kbd><span>Gå</span></div>
-          <div><kbd>SPACE</kbd><span>Hoppa (två gånger i luften)</span></div>
-          <div><kbd>J</kbd><span>Slå med nålen</span></div>
-          <div><kbd>W</kbd>/<kbd>S</kbd> + <kbd>J</kbd><span>Slå uppåt / nedåt</span></div>
-          <div><kbd>SHIFT</kbd><span>Dash</span></div>
-          <div><kbd>Q</kbd><span>Besvärjelse (kostar själ)</span></div>
-          <div><kbd>E</kbd><span>Vila vid en bänk</span></div>
-          <div><kbd>F</kbd><span>Fokusera själ</span></div>
+          <div><kbd>SPACE</kbd><span>Hoppa (en gång till i luften)</span></div>
+          <div><kbd>J</kbd> / mus<span>Ladda staven, släpp för att kasta</span></div>
+          <div><kbd>W</kbd><span>Sikta ljuset uppåt</span></div>
+          <div><kbd>E</kbd><span>Vrid speglar, spela in ekon, vila</span></div>
           <div><kbd>ESC</kbd><span>Paus</span></div>
         </div>
-        <p class="best-line">Insamlad själsten: <b id="titleBest">0</b></p>
+        <p class="hint-line">Ett tryck tänder. Ett andetag bränner. Ett helt andetag spränger.</p>
+        <p class="best-line">Funna minnen: <b id="titleBest">0</b> / 3</p>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-memory">
+      <div class="panel memory-panel">
+        <p class="eyebrow" id="memoryCount">Första minnet</p>
+        <h2 id="memoryTitle">…</h2>
+        <p class="memory-text" id="memoryText">…</p>
+        <button class="btn primary" id="memoryBtn" type="button">Bär det med dig</button>
+        <p class="sub">Tryck <kbd>E</kbd> eller <kbd>SPACE</kbd></p>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-rest">
+      <div class="panel small">
+        <p class="eyebrow">Lykthuset</p>
+        <h2>Vila vid lyktan</h2>
+        <p class="sub">Lågorna är hela igen. Glim sitter på kanten och tittar på dig.</p>
+        <button class="btn primary" id="restBtn" type="button">Res dig</button>
+        <p class="sub">Tryck <kbd>E</kbd></p>
       </div>
     </section>
 
     <section class="screen" id="screen-pause">
       <div class="panel small">
         <p class="eyebrow">Paus</p>
-        <h2>Stilla vatten</h2>
+        <h2>Skogen väntar</h2>
+        <p class="sub" id="pauseAdapt">Skogen lyssnar: normalt</p>
         <button class="btn primary" id="resumeBtn" type="button">Fortsätt</button>
         <button class="btn ghost" id="restartBtn" type="button">Börja om</button>
         <p class="sub">Tryck <kbd>ESC</kbd> för att fortsätta</p>
       </div>
     </section>
 
-    <section class="screen" id="screen-bench">
-      <div class="panel small">
-        <p class="eyebrow">Bänken</p>
-        <h2>Vila en stund</h2>
-        <p class="sub" id="benchText">Maskerna är hela igen. Själens ljus samlas.</p>
-        <button class="btn primary" id="benchBtn" type="button">Res dig upp</button>
-        <p class="sub">Tryck <kbd>E</kbd> för att gå vidare</p>
-      </div>
-    </section>
-
     <section class="screen" id="screen-dead">
       <div class="panel small">
-        <p class="eyebrow">Du föll</p>
-        <h2>Men djupet minns</h2>
-        <p class="sub">Du vaknar vid den sista bänken.</p>
-        <div class="stats">
-          <div><span>SJÄLSTEN</span><b id="deadStone">0</b></div>
-          <div><span>FALL</span><b id="deadDeaths">1</b></div>
-        </div>
-        <button class="btn primary" id="respawnBtn" type="button">Res dig</button>
-        <p class="sub">Tryck <kbd>J</kbd> eller <kbd>SPACE</kbd></p>
+        <p class="eyebrow">Ljuset slocknade</p>
+        <h2>Men lyktan minns dig</h2>
+        <p class="sub" id="deadText">Du vaknar vid lyktan i Lykthuset.</p>
+        <button class="btn primary" id="respawnBtn" type="button">Tänd igen</button>
+        <p class="sub">Tryck <kbd>E</kbd> eller <kbd>SPACE</kbd></p>
       </div>
     </section>
 
-    <section class="screen" id="screen-win">
-      <div class="panel small win-panel">
-        <p class="eyebrow">Amuletten</p>
-        <h2>Ljuset hittar hem</h2>
-        <p class="sub" id="winText">Du bar amuletten ut ur mörkret.</p>
-        <div class="stats">
-          <div><span>SJÄLSTEN</span><b id="winStone">0</b></div>
-          <div><span>FALL</span><b id="winDeaths">0</b></div>
-          <div><span>TID</span><b id="winTime">0:00</b></div>
-        </div>
+    <section class="screen" id="screen-end">
+      <div class="panel end-panel">
+        <p class="eyebrow">Det inre rummet</p>
+        <h2>Du minns</h2>
+        <div class="memory-list" id="memoryList"></div>
+        <p class="sub" id="endText"></p>
         <button class="btn primary" id="againBtn" type="button">Vandra igen</button>
       </div>
     </section>

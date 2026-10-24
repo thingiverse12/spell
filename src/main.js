@@ -3,269 +3,324 @@ import { Input } from './input.js';
 import { Sound } from './audio.js';
 
 const canvas = document.getElementById('game');
-const sound = new Sound();
 const input = new Input(canvas);
+const sound = new Sound();
 const $ = (id) => document.getElementById(id);
 
 const ui = {
   hud: $('hud'),
-  masks: $('masks'),
-  soulFill: $('soulFill'),
-  geoCount: $('geoCount'),
+  hearts: $('hearts'),
+  shards: $('shards'),
+  charge: $('charge'),
+  chargeFill: $('chargeFill'),
+  chargeLabel: $('chargeLabel'),
+  roomTitle: $('roomTitle'),
+  roomName: $('roomName'),
+  roomSub: $('roomSub'),
+  whisper: $('whisper'),
+  whisperText: $('whisperText'),
   prompt: $('prompt'),
-  banner: $('banner'),
-  bannerTitle: $('bannerTitle'),
-  bannerSub: $('bannerSub'),
-  hintBar: $('hintBar'),
-  muteBtn: $('muteBtn'),
+  toast: $('toast'),
   pauseBtn: $('pauseBtn'),
+  muteBtn: $('muteBtn'),
   titleScreen: $('screen-title'),
+  memoryScreen: $('screen-memory'),
+  restScreen: $('screen-rest'),
   pauseScreen: $('screen-pause'),
-  benchScreen: $('screen-bench'),
   deadScreen: $('screen-dead'),
-  winScreen: $('screen-win'),
+  endScreen: $('screen-end'),
   titleBest: $('titleBest'),
-  deadStone: $('deadStone'),
-  deadDeaths: $('deadDeaths'),
-  winStone: $('winStone'),
-  winDeaths: $('winDeaths'),
-  winTime: $('winTime'),
+  memoryCount: $('memoryCount'),
+  memoryTitle: $('memoryTitle'),
+  memoryText: $('memoryText'),
+  pauseAdapt: $('pauseAdapt'),
+  deadText: $('deadText'),
+  memoryList: $('memoryList'),
+  endText: $('endText'),
   touch: $('touch'),
   touchStick: $('touchStick'),
 };
 
-const AREAS = [
-  { id: 'well', from: -Infinity, to: 2250, title: 'Den sjunkna brunnen', sub: 'Djupt under berget' },
-  { id: 'vault', from: 2250, to: 3560, title: 'Valvet med lyktorna', sub: 'Ljus som ingen tänt' },
-  { id: 'hall', from: 3560, to: Infinity, title: 'Väktarens hall', sub: 'Något vakar här' },
-];
-const seenAreas = new Set();
-
 const game = new Game(canvas, input, {
   onStart: () => {
+    hideScreens();
     document.body.classList.add('is-playing');
     ui.hud.classList.add('is-live');
-    seenAreas.clear();
-    ui.hintBar.style.opacity = '1';
-    setTimeout(() => (ui.hintBar.style.opacity = '0'), 14000);
     sound.ready();
     sound.click();
-    showArea();
-    buildMasks();
   },
-  onMode: (mode) => handleMode(mode),
+  onRoom: (id, def) => {
+    showRoomTitle(def.title, def.sub);
+    if (id === 'hub' && game.shards.length) {
+      toast(`${game.shards.length} av 3 minnen burna`);
+    }
+  },
+  onWhisper: (text) => showWhisper(text),
+  onChargeStart: () => {
+    sound.chargeStart();
+    ui.charge.classList.add('is-on');
+  },
+  onCast: (tier) => {
+    sound.cast(tier);
+    ui.charge.classList.remove('is-on');
+  },
   onJump: () => sound.jump(),
-  onDoubleJump: () => sound.doubleJump(),
-  onLand: () => sound.land(),
-  onDash: () => sound.dash(),
-  onSwing: () => sound.swing(),
-  onHit: () => sound.hit(),
-  onKill: () => sound.kill(),
+  onJump2: () => sound.jump2(),
+  onLamp: () => sound.lamp(),
+  onBurn: () => sound.burn(),
+  onGate: () => {
+    sound.gate();
+    toast('Porten öppnar sig');
+  },
+  onMirror: () => sound.mirror(),
+  onEcho: (kind) => sound.echo(kind),
+  onShard: (memory, count) => openMemory(memory, count),
   onHurt: () => {
     sound.hurt();
-    pulseMask();
+    pulseHeart();
   },
-  onSpit: () => sound.spit(),
-  onGuardian: () => sound.roar(),
-  onBench: () => sound.bench(),
   onDeath: () => {
-    sound.death();
-    ui.deadStone.textContent = String(game.stone);
-    ui.deadDeaths.textContent = String(game.stats.deaths);
-    hideScreens();
-    ui.deadScreen.classList.add('is-open');
+    sound.die();
+    game.mode = 'dead';
+    openScreen(ui.deadScreen);
+    ui.hud.classList.remove('is-live');
+    document.body.classList.remove('is-playing');
+    const level = game.adapt < 0.34 ? 'lugnare' : game.adapt > 0.7 ? 'vaksammare' : 'som förut';
+    ui.deadText.textContent = `Du vaknar vid lyktan i Lykthuset. Skogen andas ${level}.`;
+  },
+  onRest: () => {
+    sound.rest();
+    openScreen(ui.restScreen);
     ui.hud.classList.remove('is-live');
     document.body.classList.remove('is-playing');
   },
-  onFocus: () => sound.bench(),
-  onSpell: () => sound.spell(),
-  onSpellHit: () => sound.spellHit(),
-  onNoSoul: () => sound.noSoul(),
-  onRespawn: () => sound.click(),
-  onWin: ({ stone, time }) => {
-    ui.winStone.textContent = String(stone);
-    ui.winDeaths.textContent = String(game.stats.deaths);
-    ui.winTime.textContent = formatTime(time);
-    ui.titleBest.textContent = String(game.best);
+  onMidgeDeath: () => sound.midge(),
+  onAltarLocked: (n) => toast(`Altaret saknar ${n} minne${n === 1 ? '' : n > 1 ? 'n' : ''}`),
+  onEnd: ({ shards, deaths, time }) => {
     sound.win();
+    ui.memoryList.innerHTML = '';
+    for (const m of game.shards) {
+      const article = document.createElement('article');
+      article.innerHTML = `<h3>${m.title}</h3><p>${m.text}</p>`;
+      ui.memoryList.appendChild(article);
+    }
+    const mins = Math.floor(time / 60);
+    const secs = Math.floor(time % 60);
+    ui.endText.textContent = `${shards} minnen burna · ${deaths} fall · ${mins}:${String(secs).padStart(2, '0')} i skymningen`;
+    ui.hud.classList.remove('is-live');
+    document.body.classList.remove('is-playing');
+    openScreen(ui.endScreen);
+    setTitleBest();
+  },
+  onTransition: () => {
+    sound.click();
   },
 });
 
 /* -------------------------------------------------------------------- HUD */
 
-let prevHp = 5;
+let prevHp = 3;
+let whisperTimer = 0;
+let titleTimer = 0;
 
-function buildMasks() {
-  ui.masks.innerHTML = '';
+function buildHud() {
+  ui.hearts.innerHTML = '';
   for (let i = 0; i < game.player.maxHp; i++) {
     const el = document.createElement('span');
-    el.className = 'mask';
-    ui.masks.appendChild(el);
+    el.className = 'heart';
+    ui.hearts.appendChild(el);
   }
   prevHp = game.player.hp;
 }
 
-function pulseMask() {
+function pulseHeart() {
   const idx = Math.max(0, Math.floor(game.player.hp));
-  const el = ui.masks.children[idx];
-  if (el) {
-    el.classList.remove('pulse');
-    void el.offsetWidth;
-    el.classList.add('pulse');
-  }
+  const el = ui.hearts.children[idx];
+  if (!el) return;
+  el.classList.remove('pulse');
+  void el.offsetWidth;
+  el.classList.add('pulse');
 }
 
 function updateHud() {
   const p = game.player;
-  if (!p) return;
-  const masks = ui.masks.children;
-  for (let i = 0; i < masks.length; i++) masks[i].classList.toggle('empty', i >= p.hp);
+  const hearts = ui.hearts.children;
+  for (let i = 0; i < hearts.length; i++) hearts[i].classList.toggle('empty', i >= p.hp);
   if (p.hp !== prevHp) {
-    if (p.hp < prevHp) pulseMask();
+    if (p.hp < prevHp) pulseHeart();
     prevHp = p.hp;
   }
-  ui.soulFill.style.height = `${Math.round((game.soul / 99) * 100)}%`;
-  ui.geoCount.textContent = String(game.stone);
-  const showPrompt = !!game.prompt && game.mode === 'play';
-  ui.prompt.textContent = game.prompt;
-  ui.prompt.classList.toggle('is-on', showPrompt);
+
+  const pips = ui.shards.children;
+  for (let i = 0; i < pips.length; i++) pips[i].classList.toggle('on', i < game.shards.length);
+
+  const charging = p.charging;
+  ui.charge.classList.toggle('is-on', charging);
+  if (charging) {
+    const t = Math.min(1, p.chargeT / 1.5);
+    ui.chargeFill.style.width = `${t * 100}%`;
+    const label = p.chargeT < 0.3 ? 'knuff' : p.chargeT < 0.9 ? 'stråle' : 'bomb';
+    ui.chargeLabel.textContent = `${label} · ${(p.chargeT).toFixed(1)}s`;
+  }
+
+  const prompt = game.prompt();
+  ui.prompt.textContent = prompt;
+  ui.prompt.classList.toggle('is-on', !!prompt && game.mode === 'play');
+
   if (input.stick.active) {
-    ui.touchStick.style.transform = `translate(${input.stick.dx * 22}px, ${input.stick.dy * 22}px)`;
+    ui.touchStick.style.transform = `translate(${input.stick.dx * 20}px, ${input.stick.dy * 20}px)`;
     const knob = ui.touchStick.firstElementChild;
-    if (knob) knob.style.transform = `translate(${input.stick.dx * 16}px, ${input.stick.dy * 16}px)`;
+    if (knob) knob.style.transform = `translate(${input.stick.dx * 15}px, ${input.stick.dy * 15}px)`;
   }
 }
 
-function showArea() {
-  const x = game.player.body.cx;
-  const area = AREAS.find((a) => x >= a.from && x < a.to);
-  if (!area || seenAreas.has(area.id)) return;
-  seenAreas.add(area.id);
-  ui.bannerTitle.textContent = area.title;
-  ui.bannerSub.textContent = area.sub;
-  ui.banner.classList.add('is-on');
-  clearTimeout(showArea.timer);
-  showArea.timer = setTimeout(() => ui.banner.classList.remove('is-on'), 3200);
+function showWhisper(text) {
+  ui.whisperText.textContent = text;
+  ui.whisper.classList.add('is-on');
+  whisperTimer = 7;
 }
 
-let lastAreaCheck = 0;
-function checkArea(dt) {
-  lastAreaCheck += dt;
-  if (lastAreaCheck < 0.4) return;
-  lastAreaCheck = 0;
-  showArea();
+function showRoomTitle(name, sub) {
+  ui.roomName.textContent = name;
+  ui.roomSub.textContent = sub;
+  ui.roomTitle.classList.add('is-on');
+  titleTimer = 3.4;
 }
 
-function formatTime(t) {
-  const m = Math.floor(t / 60);
-  const s = Math.floor(t % 60);
-  return `${m}:${String(s).padStart(2, '0')}`;
+let toastTimer = 0;
+function toast(text) {
+  ui.toast.textContent = text;
+  ui.toast.classList.add('is-on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => ui.toast.classList.remove('is-on'), 2300);
 }
 
-/* ---------------------------------------------------------------- screens */
+function setTitleBest() {
+  ui.titleBest.textContent = String(Math.max(game.best, game.shards.length));
+}
+
+function adaptLabel() {
+  if (game.adapt < 0.34) return 'lugn — fällorna väntar på dig';
+  if (game.adapt > 0.7) return 'vaksam — skogen prövar dig';
+  return 'normal — skogen lyssnar';
+}
+
+/* ----------------------------------------------------------------- screens */
+
+function openScreen(el) {
+  for (const s of [ui.titleScreen, ui.memoryScreen, ui.restScreen, ui.pauseScreen, ui.deadScreen, ui.endScreen]) {
+    s.classList.toggle('is-open', s === el);
+  }
+}
 
 function hideScreens() {
-  for (const s of [ui.titleScreen, ui.pauseScreen, ui.benchScreen, ui.deadScreen, ui.winScreen]) {
+  for (const s of [ui.titleScreen, ui.memoryScreen, ui.restScreen, ui.pauseScreen, ui.deadScreen, ui.endScreen]) {
     s.classList.remove('is-open');
   }
 }
 
-let pausedFrom = 'play';
+let pendingMemory = null;
 
-function handleMode(mode) {
-  if (mode === 'bench') {
-    hideScreens();
-    ui.benchScreen.classList.add('is-open');
-  } else if (mode === 'won') {
-    hideScreens();
-    ui.winScreen.classList.add('is-open');
-    ui.hud.classList.remove('is-live');
-    document.body.classList.remove('is-playing');
-  } else if (mode === 'dead') {
-    hideScreens();
-    ui.deadStone.textContent = String(game.stone);
-    ui.deadDeaths.textContent = String(game.stats.deaths);
-    ui.deadScreen.classList.add('is-open');
-    ui.hud.classList.remove('is-live');
-    document.body.classList.remove('is-playing');
+function openMemory(memory, count) {
+  pendingMemory = memory;
+  game.mode = 'memory';
+  sound.shard();
+  ui.memoryCount.textContent = ['Första minnet', 'Andra minnet', 'Tredje minnet'][count - 1] || 'Ett minne';
+  ui.memoryTitle.textContent = memory.title;
+  ui.memoryText.textContent = memory.text;
+  openScreen(ui.memoryScreen);
+  ui.hud.classList.remove('is-live');
+  setTitleBest();
+}
+
+function closeMemory() {
+  if (!pendingMemory) return;
+  pendingMemory = null;
+  game.resume();
+  hideScreens();
+  ui.hud.classList.add('is-live');
+  document.body.classList.add('is-playing');
+  if (game.shards.length >= 3) {
+    setTimeout(() => toast('Altaret i Lykthuset väntar'), 500);
   }
 }
 
+function closeRest() {
+  game.resume();
+  hideScreens();
+  ui.hud.classList.add('is-live');
+  document.body.classList.add('is-playing');
+}
+
+let pausedFrom = 'play';
+
 function togglePause(force) {
-  const isPaused = game.mode === 'paused';
-  const shouldPause = force !== undefined ? force : !isPaused;
-  if (shouldPause && (game.mode === 'play' || game.mode === 'bench')) {
+  const paused = game.mode === 'paused';
+  const should = force !== undefined ? force : !paused;
+  if (should && (game.mode === 'play' || game.mode === 'rest')) {
     pausedFrom = game.mode;
     game.mode = 'paused';
-    hideScreens();
-    ui.pauseScreen.classList.add('is-open');
+    ui.pauseAdapt.textContent = `Skogen lyssnar: ${adaptLabel()}`;
+    openScreen(ui.pauseScreen);
     document.body.classList.remove('is-playing');
     sound.click();
-  } else if (!shouldPause && isPaused) {
+  } else if (!should && paused) {
     game.mode = pausedFrom;
-    ui.pauseScreen.classList.remove('is-open');
-    if (game.mode === 'bench') {
-      ui.benchScreen.classList.add('is-open');
+    hideScreens();
+    if (pausedFrom === 'rest') {
+      openScreen(ui.restScreen);
+      ui.hud.classList.remove('is-live');
     } else {
+      ui.hud.classList.add('is-live');
       document.body.classList.add('is-playing');
     }
     sound.click();
   }
 }
 
-function startRun(fresh) {
+function startRun() {
   sound.ready();
   hideScreens();
-  ui.winStone.textContent = '0';
-  game.reset(fresh);
+  buildHud();
   game.start();
-  buildMasks();
+  document.body.classList.add('is-playing');
+  ui.hud.classList.add('is-live');
   prevHp = game.player.hp;
   updateHud();
-  revealTouch();
+  if (window.matchMedia('(pointer: coarse)').matches) ui.touch.classList.add('is-on');
 }
 
 function respawn() {
   hideScreens();
-  ui.hud.classList.add('is-live');
-  document.body.classList.add('is-playing');
   game.respawn();
+  buildHud();
   prevHp = game.player.hp;
-}
-
-function closeBench() {
-  if (game.mode !== 'bench') return;
-  hideScreens();
   ui.hud.classList.add('is-live');
   document.body.classList.add('is-playing');
-  game.mode = 'play';
   sound.click();
 }
 
-function revealTouch() {
-  if (window.matchMedia('(pointer: coarse)').matches) ui.touch.classList.add('is-on');
-}
+/* ------------------------------------------------------------------ events */
 
-$('startBtn').addEventListener('click', () => startRun(true));
-$('againBtn').addEventListener('click', () => startRun(true));
+$('startBtn').addEventListener('click', startRun);
+$('againBtn').addEventListener('click', startRun);
+$('restartBtn').addEventListener('click', startRun);
+$('memoryBtn').addEventListener('click', closeMemory);
+$('restBtn').addEventListener('click', closeRest);
 $('respawnBtn').addEventListener('click', respawn);
-$('benchBtn').addEventListener('click', closeBench);
 $('resumeBtn').addEventListener('click', () => togglePause(false));
-$('restartBtn').addEventListener('click', () => startRun(true));
 $('pauseBtn').addEventListener('click', () => togglePause());
-$('muteBtn').addEventListener('click', () => {
-  const muted = sound.toggle();
-  sound.click();
-  syncMute(muted);
-});
 
-function syncMute(muted) {
-  ui.muteBtn.classList.toggle('is-muted', muted);
-  ui.muteBtn.title = muted ? 'Ljud på (M)' : 'Ljud av (M)';
+function syncMute() {
+  ui.muteBtn.classList.toggle('is-muted', sound.muted);
+  ui.muteBtn.title = sound.muted ? 'Ljud på (M)' : 'Ljud av (M)';
 }
-syncMute(sound.muted);
-
-/* ------------------------------------------------------------ touch input */
+$('muteBtn').addEventListener('click', () => {
+  sound.toggle();
+  sound.click();
+  syncMute();
+});
+syncMute();
 
 for (const btn of document.querySelectorAll('.touch-btn')) {
   const action = btn.dataset.action;
@@ -283,75 +338,85 @@ for (const btn of document.querySelectorAll('.touch-btn')) {
   btn.addEventListener('pointerleave', release);
 }
 
-/* ---------------------------------------------------------------- keyboard */
-
 window.addEventListener('keydown', (e) => {
   const key = e.code;
 
   if (key === 'KeyM') {
-    syncMute(sound.toggle());
+    sound.toggle();
+    syncMute();
     return;
   }
 
+  if (ui.endScreen.classList.contains('is-open')) {
+    if (key === 'Enter' || key === 'Space' || key === 'KeyE') startRun();
+    return;
+  }
   if (ui.deadScreen.classList.contains('is-open')) {
-    if (key === 'KeyJ' || key === 'Space' || key === 'Enter') {
+    if (key === 'Enter' || key === 'Space' || key === 'KeyE') respawn();
+    return;
+  }
+  if (ui.memoryScreen.classList.contains('is-open')) {
+    if (key === 'Enter' || key === 'Space' || key === 'KeyE') {
       e.preventDefault();
-      respawn();
+      closeMemory();
     }
     return;
   }
-
-  if (ui.winScreen.classList.contains('is-open')) {
-    if (key === 'Space' || key === 'Enter' || key === 'KeyJ') {
+  if (ui.restScreen.classList.contains('is-open')) {
+    if (key === 'Enter' || key === 'Space' || key === 'KeyE') {
       e.preventDefault();
-      startRun(true);
+      closeRest();
     }
     return;
   }
-
-  if (ui.benchScreen.classList.contains('is-open')) {
-    if (key === 'KeyE' || key === 'Space' || key === 'Enter') {
-      e.preventDefault();
-      closeBench();
-    }
-    return;
-  }
-
   if (ui.titleScreen.classList.contains('is-open')) {
     if (key === 'Enter' || key === 'Space') {
       e.preventDefault();
-      startRun(true);
+      startRun();
     }
     return;
   }
-
   if (key === 'Escape') {
     e.preventDefault();
-    if (game.mode === 'play' || game.mode === 'bench' || game.mode === 'paused') togglePause();
-    return;
+    if (game.mode === 'play' || game.mode === 'rest' || game.mode === 'paused') togglePause();
   }
+});
 
-  if (key === 'KeyR' && game.mode !== 'play') {
-    startRun(true);
-  }
+// Auto-pause when the tab loses focus.
+window.addEventListener('blur', () => {
+  if (game.mode === 'play') togglePause(true);
 });
 
 /* -------------------------------------------------------------------- loop */
 
 let last = performance.now();
-let elapsed = 0;
 
 function frame(ts) {
   const dt = Math.min(0.033, Math.max(0, (ts - last) / 1000));
   last = ts;
 
-  if (game.mode !== 'paused') {
+  if (game.mode === 'play' && input.hit('interact')) game.interact();
+
+  if (game.mode !== 'paused' && game.mode !== 'memory' && game.mode !== 'rest') {
     game.update(dt);
-    elapsed += dt;
-    checkArea(dt);
+  } else {
+    game.update(0);
   }
+
+  if (game.player.charging) sound.chargeUpdate(Math.min(1, game.player.chargeT / 1.5));
+
   game.draw();
   updateHud();
+
+  if (whisperTimer > 0) {
+    whisperTimer -= dt;
+    if (whisperTimer <= 0) ui.whisper.classList.remove('is-on');
+  }
+  if (titleTimer > 0) {
+    titleTimer -= dt;
+    if (titleTimer <= 0) ui.roomTitle.classList.remove('is-on');
+  }
+
   input.endFrame();
   requestAnimationFrame(frame);
 }
@@ -362,9 +427,8 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(() => game.resize(), 120);
 });
 
-ui.titleBest.textContent = String(game.best);
-ui.titleScreen.classList.add('is-open');
+setTitleBest();
+openScreen(ui.titleScreen);
 requestAnimationFrame(frame);
 
-// Handy for poking at the game from the console.
-window.__spell = { game, sound };
+window.__lykt = { game, sound };

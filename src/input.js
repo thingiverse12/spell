@@ -1,4 +1,4 @@
-// Keyboard, mouse and touch input, mapped to game actions.
+// Keyboard, mouse and touch mapped to game actions.
 
 const KEY_MAP = {
   KeyA: 'left',
@@ -11,21 +11,13 @@ const KEY_MAP = {
   ArrowDown: 'down',
   Space: 'jump',
   KeyZ: 'jump',
-  KeyK: 'jump',
-  KeyJ: 'attack',
-  KeyX: 'attack',
-  ShiftLeft: 'dash',
-  ShiftRight: 'dash',
-  KeyL: 'dash',
-  KeyC: 'dash',
+  KeyJ: 'cast',
+  KeyX: 'cast',
   KeyE: 'interact',
   Enter: 'interact',
-  KeyF: 'focus',
-  KeyQ: 'spell',
-  KeyI: 'spell',
   Escape: 'pause',
-  KeyR: 'restart',
   KeyM: 'mute',
+  KeyR: 'restart',
 };
 
 const BLOCKED = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Tab']);
@@ -33,29 +25,28 @@ const BLOCKED = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRig
 export class Input {
   constructor(canvas) {
     this.canvas = canvas;
-    this.down_ = new Set();
-    this.pressed_ = new Set();
+    this.held = new Set();
+    this.edges = new Set();
     this.stick = { active: false, id: null, ox: 0, oy: 0, dx: 0, dy: 0 };
     this.touch = false;
-    this._listeners = [];
 
-    this._on(window, 'keydown', (e) => {
+    window.addEventListener('keydown', (e) => {
       if (BLOCKED.has(e.code)) e.preventDefault();
-      const action = KEY_MAP[e.code];
-      if (!action) return;
-      if (!e.repeat && !this.down_.has(action)) this.pressed_.add(action);
-      this.down_.add(action);
+      const a = KEY_MAP[e.code];
+      if (!a) return;
+      if (!e.repeat && !this.held.has(a)) this.edges.add(a);
+      this.held.add(a);
     });
-    this._on(window, 'keyup', (e) => {
-      const action = KEY_MAP[e.code];
-      if (action) this.down_.delete(action);
+    window.addEventListener('keyup', (e) => {
+      const a = KEY_MAP[e.code];
+      if (a) this.held.delete(a);
     });
-    this._on(window, 'blur', () => {
-      this.down_.clear();
+    window.addEventListener('blur', () => {
+      this.held.clear();
       this.releaseStick();
     });
 
-    this._on(canvas, 'pointerdown', (e) => {
+    canvas.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'touch') {
         this.touch = true;
         if (e.clientX < window.innerWidth * 0.45 && !this.stick.active) {
@@ -69,27 +60,27 @@ export class Input {
         }
       }
       if (e.button === 0) {
-        this.pressed_.add('attack');
-        this.down_.add('attack');
+        this.edges.add('cast');
+        this.held.add('cast');
         canvas.setPointerCapture?.(e.pointerId);
       }
     });
-    this._on(window, 'pointerup', (e) => {
+    window.addEventListener('pointerup', (e) => {
       if (e.pointerType === 'touch' && this.stick.active && e.pointerId === this.stick.id) {
         this.releaseStick();
         return;
       }
-      this.down_.delete('attack');
+      this.held.delete('cast');
     });
-    this._on(window, 'pointercancel', () => {
+    window.addEventListener('pointercancel', () => {
       this.releaseStick();
-      this.down_.delete('attack');
+      this.held.delete('cast');
     });
-    this._on(canvas, 'pointermove', (e) => {
+    canvas.addEventListener('pointermove', (e) => {
       if (!this.stick.active || e.pointerId !== this.stick.id) return;
       let dx = e.clientX - this.stick.ox;
       let dy = e.clientY - this.stick.oy;
-      const max = 60;
+      const max = 58;
       const d = Math.hypot(dx, dy);
       if (d > max) {
         dx = (dx / d) * max;
@@ -100,11 +91,7 @@ export class Input {
       this.stick.dx = dx / max;
       this.stick.dy = dy / max;
     });
-  }
-
-  _on(target, type, fn) {
-    target.addEventListener(type, fn, { passive: false });
-    this._listeners.push([target, type, fn]);
+    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
   releaseStick() {
@@ -115,33 +102,31 @@ export class Input {
   }
 
   down(action) {
-    return this.down_.has(action);
+    return this.held.has(action);
   }
 
   hit(action) {
-    return this.pressed_.has(action);
+    return this.edges.has(action);
   }
 
-  /** -1, 0 or 1 from keyboard or the touch stick. */
   get axis() {
     let a = 0;
-    if (this.down_.has('left')) a -= 1;
-    if (this.down_.has('right')) a += 1;
-    if (this.stick.active && Math.abs(this.stick.dx) > 0.28) a = Math.sign(this.stick.dx);
+    if (this.held.has('left')) a -= 1;
+    if (this.held.has('right')) a += 1;
+    if (this.stick.active && Math.abs(this.stick.dx) > 0.3) a = Math.sign(this.stick.dx);
     return a;
   }
 
-  /** Touch buttons call this. */
   virtualDown(action) {
-    if (!this.down_.has(action)) this.pressed_.add(action);
-    this.down_.add(action);
+    if (!this.held.has(action)) this.edges.add(action);
+    this.held.add(action);
   }
 
   virtualUp(action) {
-    this.down_.delete(action);
+    this.held.delete(action);
   }
 
   endFrame() {
-    this.pressed_.clear();
+    this.edges.clear();
   }
 }

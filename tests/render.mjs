@@ -1,4 +1,4 @@
-// Dev-only: renders real game frames to PNG (needs @napi-rs/canvas).
+// Dev-only: renders frames of the game to PNG (needs @napi-rs/canvas).
 import { createCanvas } from '@napi-rs/canvas';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
@@ -9,11 +9,10 @@ const OUT = process.argv[2] || './shots';
 const screen = createCanvas(W, H);
 screen.getBoundingClientRect = () => ({ width: W, height: H, left: 0, top: 0 });
 globalThis.document = { createElement: () => createCanvas(64, 64), getElementById: () => null };
-globalThis.window = { devicePixelRatio: 1 };
+globalThis.window = { devicePixelRatio: 1, addEventListener: () => {} };
 globalThis.localStorage = { getItem: () => null, setItem: () => {} };
 
 mkdirSync(OUT, { recursive: true });
-
 const { Game } = await import('../src/game.js');
 
 class FakeInput {
@@ -54,17 +53,6 @@ const input = new FakeInput();
 const game = new Game(screen, input, {});
 game.start();
 
-function place(x, feetY) {
-  const b = game.player.body;
-  b.x = x;
-  b.y = feetY - b.h - 2;
-  b.vx = 0;
-  b.vy = 0;
-  b.onGround = true;
-  game.cam.x = x - W / 2;
-  game.cam.y = feetY - H * 0.6;
-}
-
 function step(n) {
   for (let i = 0; i < n; i++) {
     game.update(1 / 60);
@@ -72,53 +60,88 @@ function step(n) {
   }
 }
 
-async function shot(name, x, feetY) {
+function stand(x, feetY) {
+  const b = game.player.body;
+  b.x = x;
+  b.y = feetY - b.h - 1;
+  b.vx = 0;
+  b.vy = 0;
+  b.onGround = false;
+  game.player.invuln = 3;
+  for (let i = 0; i < 40 && !b.onGround; i++) step(1);
+  b.vx = 0;
+  game.cam.x = Math.max(0, Math.min(game.roomDef.w - W, b.cx - W / 2));
+  game.cam.y = Math.max(0, Math.min(900 - H, b.cy - H * 0.56));
+}
+
+async function shot(name) {
   game.resize();
-  if (x !== undefined) place(x, feetY);
   game.draw();
   writeFileSync(`${OUT}/${name}.png`, await screen.encode('png'));
   console.log('wrote', name);
 }
 
-// 1. Spawn: the sunken well, the first bench.
-place(430, 1900);
+// 1. Lykthuset with the lantern.
+game.loadRoom('hub', { x: 380, y: 828 });
+stand(380, 828);
 step(30);
-await shot('01-spawn');
+await shot('01-hub');
 
-// 2. Combat with a crawler, mid-swing.
-place(900, 1900);
-step(6);
-input.press('right');
-input.press('attack');
-step(4);
-input.release('attack');
-await shot('02-combat');
-input.clear();
-
-// 3. Area two: platforms, lamps, flyers.
-place(2600, 1200);
-step(40);
-await shot('03-vault');
-
-// 4. The guardian hall.
-place(4200, 1540);
-step(30);
-await shot('04-hall');
-
-// 5. Soul blast in flight.
-place(900, 1900);
-game.soul = 99;
-game.player.facing = 1;
-input.press('spell');
+// 2. Charging the staff (bomb tier).
+game.player.charging = true;
+game.player.chargeT = 1.3;
 step(2);
-input.release('spell');
-step(6);
-await shot('05-spell');
-input.clear();
+await shot('02-charge');
+game.player.charging = false;
+game.player.chargeT = 0;
 
-// 6. The charm at the end of the hall.
-place(5050, 900);
-game.charm.taken = false;
-step(4);
-game.mode = 'play';
-await shot('06-charm');
+// 3. Törngården: vines, braziers, thorn bed.
+game.loadRoom('garden', { x: 640, y: 828 });
+stand(600, 828);
+for (const l of game.world.garden.lamps) l.lit = true;
+step(20);
+await shot('03-garden');
+
+// 4. Spegellunden with the light beam solved.
+game.loadRoom('grove', { x: 700, y: 740 });
+stand(700, 740);
+for (const m of game.world.grove.mirrors) m.angle = (3 * Math.PI) / 4;
+game.updateBeam();
+step(6);
+await shot('04-grove');
+
+// 5. Stenkammaren: crates on plates, gate open.
+game.loadRoom('stones', { x: 1000, y: 828 });
+const stones = game.world.stones;
+stones.crates.forEach((c, i) => {
+  const plate = stones.plates[i];
+  c.body.x = plate.x + plate.w / 2 - c.body.w / 2;
+  c.body.y = plate.y - c.body.h;
+});
+stand(980, 828);
+step(20);
+await shot('05-stones');
+
+// 6. Ekokammaren with a live echo.
+game.loadRoom('hall', { x: 400, y: 828 });
+const hall = game.world.hall;
+hall.midges.forEach((m) => (m.dead = true));
+stand(300, 828);
+game.interact();
+input.press('right');
+step(150);
+input.release('right');
+stand(1000, 828);
+step(Math.round((hall.echo.duration + 0.2) * 60));
+stand(1165, 828);
+step(120);
+stand(1165, 828);
+game.player.body.x = 1165;
+step(30);
+await shot('06-hall');
+
+// 7. The hollow room and its mirror.
+game.loadRoom('hollow', { x: 700, y: 828 });
+stand(700, 828);
+step(20);
+await shot('07-hollow');
