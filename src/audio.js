@@ -1,23 +1,19 @@
-// Tiny WebAudio synth: all sound is generated, no assets.
-const SAFE = (fn) => {
-  try {
-    fn();
-  } catch {
-    /* audio is never allowed to break the game */
-  }
-};
+// Small WebAudio synth. No samples, no dependencies — every sound is built
+// from oscillators and noise so the game stays a single folder of text files.
+
+const NOTE = (semi) => 440 * Math.pow(2, semi / 12);
 
 export class Sound {
   constructor() {
     this.ctx = null;
-    this.master = null;
     this.muted = this._readMuted();
-    this.ready = false;
+    this.master = null;
+    this.noiseBuffer = null;
   }
 
   _readMuted() {
     try {
-      return localStorage.getItem('sistalagan.muted') === '1';
+      return localStorage.getItem('sista-lagan-muted') === '1';
     } catch {
       return false;
     }
@@ -25,151 +21,171 @@ export class Sound {
 
   _saveMuted() {
     try {
-      localStorage.setItem('sistalagan.muted', this.muted ? '1' : '0');
+      localStorage.setItem('sista-lagan-muted', this.muted ? '1' : '0');
     } catch {
-      /* ignore */
+      /* private mode */
     }
   }
 
-  init() {
-    if (this.ready) return;
-    SAFE(() => {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return;
-      this.ctx = new Ctx();
-      this.master = this.ctx.createGain();
-      this.master.gain.value = this.muted ? 0 : 0.5;
-      this.master.connect(this.ctx.destination);
-      this.ready = true;
-    });
-  }
-
-  resume() {
-    SAFE(() => {
-      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-    });
-  }
-
-  toggleMute() {
+  toggle() {
     this.muted = !this.muted;
     this._saveMuted();
-    SAFE(() => {
-      if (this.master) this.master.gain.value = this.muted ? 0 : 0.5;
-    });
+    if (this.master) this.master.gain.value = this.muted ? 0 : 0.5;
     return this.muted;
   }
 
-  _env(node, gain, attack, hold, release) {
-    const t = this.ctx.currentTime;
-    node.gain.setValueAtTime(0.0001, t);
-    node.gain.exponentialRampToValueAtTime(gain, t + attack);
-    node.gain.setValueAtTime(gain, t + attack + hold);
-    node.gain.exponentialRampToValueAtTime(0.0001, t + attack + hold + release);
+  ensure() {
+    if (this.ctx) {
+      if (this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+      return this.ctx;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try {
+      this.ctx = new AC();
+    } catch {
+      return null;
+    }
+    this.master = this.ctx.createGain();
+    this.master.gain.value = this.muted ? 0 : 0.5;
+    this.master.connect(this.ctx.destination);
+
+    // One second of noise, reused for every percussive sound.
+    const len = Math.floor(this.ctx.sampleRate);
+    const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    this.noiseBuffer = buf;
+    return this.ctx;
   }
 
-  tone({ type = 'sine', freq = 440, freq2 = null, dur = 0.2, gain = 0.2, attack = 0.005, release = 0.18, delay = 0 }) {
-    if (!this.ready || this.muted) return;
-    SAFE(() => {
-      const t = this.ctx.currentTime + delay;
-      const osc = this.ctx.createOscillator();
-      const g = this.ctx.createGain();
-      osc.type = type;
-      osc.frequency.setValueAtTime(freq, t);
-      if (freq2) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq2), t + dur);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(gain, t + attack);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + attack + release);
-      osc.connect(g).connect(this.master);
-      osc.start(t);
-      osc.stop(t + dur + release + 0.05);
-    });
+  _tone(freq, dur, type = 'sine', gain = 0.12, slide = 0, delay = 0) {
+    const ctx = this.ensure();
+    if (!ctx || this.muted) return;
+    const t0 = ctx.currentTime + delay;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (slide) osc.frequency.exponentialRampToValueAtTime(Math.max(20, freq + slide), t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(gain, t0 + Math.min(0.02, dur * 0.3));
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g).connect(this.master);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
   }
 
-  noise({ dur = 0.2, gain = 0.2, filter = 1200, delay = 0, q = 1 }) {
-    if (!this.ready || this.muted) return;
-    SAFE(() => {
-      const t = this.ctx.currentTime + delay;
-      const len = Math.max(1, Math.floor(this.ctx.sampleRate * dur));
-      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-      const data = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
-      const src = this.ctx.createBufferSource();
-      src.buffer = buf;
-      const bp = this.ctx.createBiquadFilter();
-      bp.type = 'bandpass';
-      bp.frequency.value = filter;
-      bp.Q.value = q;
-      const g = this.ctx.createGain();
-      g.gain.value = gain;
-      src.connect(bp).connect(g).connect(this.master);
-      src.start(t);
-    });
+  _noise(dur, gain = 0.16, filter = 1200, delay = 0) {
+    const ctx = this.ensure();
+    if (!ctx || this.muted || !this.noiseBuffer) return;
+    const t0 = ctx.currentTime + delay;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noiseBuffer;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = filter;
+    bp.Q.value = 0.9;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(gain, t0);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    src.connect(bp).connect(g).connect(this.master);
+    src.start(t0);
+    src.stop(t0 + dur);
   }
 
-  swing() {
-    this.noise({ dur: 0.16, gain: 0.16, filter: 900, q: 0.7 });
-    this.tone({ type: 'triangle', freq: 320, freq2: 180, dur: 0.1, gain: 0.06, release: 0.08 });
+  step() {
+    this._noise(0.05, 0.04, 420 + Math.random() * 120);
+  }
+
+  sword() {
+    this._noise(0.16, 0.15, 2600);
+    this._tone(NOTE(19), 0.12, 'triangle', 0.05, -200);
   }
 
   hit() {
-    this.noise({ dur: 0.14, gain: 0.3, filter: 420, q: 0.8 });
-    this.tone({ type: 'square', freq: 150, freq2: 70, dur: 0.1, gain: 0.1, release: 0.1 });
+    this._noise(0.12, 0.2, 900);
+    this._tone(NOTE(-12), 0.16, 'square', 0.08, -60);
   }
 
   parry() {
-    this.tone({ type: 'triangle', freq: 1400, freq2: 2400, dur: 0.12, gain: 0.16, release: 0.25 });
-    this.tone({ type: 'sine', freq: 880, freq2: 1320, dur: 0.2, gain: 0.1, release: 0.3, delay: 0.02 });
-    this.noise({ dur: 0.1, gain: 0.14, filter: 3200, q: 1.2 });
+    this._tone(NOTE(31), 0.1, 'square', 0.08, 120);
+    this._tone(NOTE(38), 0.18, 'triangle', 0.07, 90, 0.02);
+  }
+
+  perfectParry() {
+    this._tone(NOTE(31), 0.14, 'square', 0.09, 220);
+    this._tone(NOTE(38), 0.26, 'triangle', 0.09, 300, 0.04);
+    this._tone(NOTE(43), 0.34, 'sine', 0.07, 120, 0.08);
+    this._noise(0.2, 0.1, 3400);
   }
 
   block() {
-    this.noise({ dur: 0.1, gain: 0.18, filter: 700, q: 1.4 });
+    this._noise(0.1, 0.18, 1500);
   }
 
   hurt() {
-    this.tone({ type: 'sawtooth', freq: 220, freq2: 90, dur: 0.2, gain: 0.12, release: 0.2 });
-    this.noise({ dur: 0.18, gain: 0.12, filter: 500 });
+    this._tone(NOTE(-5), 0.3, 'sawtooth', 0.1, -120);
+    this._noise(0.22, 0.14, 700);
   }
 
   die() {
-    this.tone({ type: 'sawtooth', freq: 180, freq2: 50, dur: 0.6, gain: 0.12, release: 0.5 });
+    this._tone(NOTE(-17), 0.8, 'sine', 0.12, -40);
+    this._tone(NOTE(-12), 0.9, 'triangle', 0.08, -60, 0.06);
   }
 
-  fire() {
-    this.noise({ dur: 0.35, gain: 0.16, filter: 1100, q: 0.4 });
-    this.tone({ type: 'sine', freq: 420, freq2: 240, dur: 0.3, gain: 0.06 });
+  ignite() {
+    this._noise(0.42, 0.14, 700);
+    this._tone(NOTE(12), 0.3, 'sine', 0.07, 180);
+    this._tone(NOTE(19), 0.5, 'sine', 0.05, 90, 0.04);
   }
 
-  lightBrazier() {
-    this.noise({ dur: 0.5, gain: 0.2, filter: 800, q: 0.5 });
-    [392, 494, 587].forEach((f, i) =>
-      this.tone({ type: 'sine', freq: f, dur: 0.3, gain: 0.07, release: 0.5, delay: i * 0.09 }),
-    );
+  placeLantern() {
+    this._tone(NOTE(24), 0.16, 'sine', 0.08, 60);
+    this._tone(NOTE(31), 0.3, 'sine', 0.05, 40, 0.05);
+  }
+
+  bow() {
+    this._noise(0.09, 0.1, 2200);
+    this._tone(NOTE(26), 0.16, 'triangle', 0.05, -320);
+  }
+
+  bomb() {
+    this._noise(0.55, 0.3, 320);
+    this._tone(NOTE(-19), 0.5, 'sawtooth', 0.14, -50);
   }
 
   pickup() {
-    [659, 784, 988].forEach((f, i) =>
-      this.tone({ type: 'triangle', freq: f, dur: 0.14, gain: 0.09, release: 0.25, delay: i * 0.07 }),
-    );
+    this._tone(NOTE(24), 0.12, 'triangle', 0.07);
+    this._tone(NOTE(31), 0.22, 'triangle', 0.06, 0, 0.06);
   }
 
-  ui() {
-    this.tone({ type: 'sine', freq: 520, dur: 0.07, gain: 0.05, release: 0.1 });
+  talk() {
+    this._tone(NOTE(14) + Math.random() * 30, 0.05, 'square', 0.025);
   }
 
-  door() {
-    this.noise({ dur: 0.5, gain: 0.14, filter: 260, q: 0.6 });
-    this.tone({ type: 'sine', freq: 120, freq2: 70, dur: 0.4, gain: 0.08 });
+  buy() {
+    this._tone(NOTE(19), 0.1, 'square', 0.06);
+    this._tone(NOTE(26), 0.12, 'square', 0.05, 0, 0.07);
+    this._tone(NOTE(31), 0.2, 'sine', 0.05, 0, 0.14);
+  }
+
+  gate() {
+    this._noise(0.7, 0.12, 260);
+    this._tone(NOTE(-7), 0.7, 'sine', 0.08, 40);
   }
 
   bossRoar() {
-    this.tone({ type: 'sawtooth', freq: 90, freq2: 45, dur: 1.2, gain: 0.18, release: 1 });
-    this.noise({ dur: 1.1, gain: 0.16, filter: 320, q: 0.5 });
+    this._tone(NOTE(-24), 1.1, 'sawtooth', 0.12, 30);
+    this._tone(NOTE(-17), 1.3, 'triangle', 0.07, -20, 0.1);
+    this._noise(1.0, 0.1, 200);
   }
 
   win() {
-    [523, 659, 784, 1046, 1318].forEach((f, i) =>
-      this.tone({ type: 'triangle', freq: f, dur: 0.4, gain: 0.1, release: 0.9, delay: i * 0.16 }),
-    );
+    [0, 4, 7, 12, 16, 19].forEach((s, i) => this._tone(NOTE(s), 0.5, 'triangle', 0.08, 0, i * 0.13));
+  }
+
+  click() {
+    this._tone(NOTE(21), 0.04, 'square', 0.03);
   }
 }

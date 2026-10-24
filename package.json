@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Den sista lågan — ett zeldalikt äventyr uppifrån. Tänd ljusen, rädda byn, möt mörkret.",
+  "description": "Den sista lågan — ett top-down äventyr med parering, eld och en by som behöver dig.",
   "scripts": {
     "dev": "node server.mjs",
     "start": "node server.mjs",

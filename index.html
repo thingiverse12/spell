@@ -2,156 +2,167 @@
 <html lang="sv">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>Den sista lågan</title>
-    <meta name="description" content="Den sista lågan — ett zeldalikt äventyr uppifrån. Tänd ljusen, rädda byn, möt mörkret." />
     <link rel="stylesheet" href="css/style.css" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ctext y='26' font-size='26'%3E%F0%9F%94%A5%3C/text%3E%3C/svg%3E" />
   </head>
   <body>
-    <div id="app">
-      <canvas id="game" aria-label="Spelplan"></canvas>
+    <main id="stage">
+      <canvas id="game" aria-label="Spelet Den sista lågan"></canvas>
 
+      <!-- HUD ------------------------------------------------------------ -->
       <div class="hud" id="hud">
         <div class="hud-left">
-          <div class="hearts" id="hearts" aria-label="Hjärtan"></div>
-          <div class="items" id="items" aria-label="Föremål"></div>
-        </div>
-        <div class="hud-right">
-          <div class="embers" id="embersBox" title="Glöd">
-            <span class="ember-dot"></span>
-            <span id="embers">0</span>
+          <div class="hearts" id="hearts" aria-label="Liv"></div>
+          <div class="oil-row">
+            <span class="oil-icon" aria-hidden="true"></span>
+            <div class="oil-pips" id="oilPips" aria-label="Olja"></div>
           </div>
-          <div class="quest" id="quest"></div>
+        </div>
+
+        <div class="hud-center">
+          <div class="objective" id="objective">
+            <span class="obj-dot"></span>
+            <span id="objText">Tänd ringen i Stenringen</span>
+          </div>
+        </div>
+
+        <div class="hud-right">
+          <div class="glod" id="glod"><span class="glod-dot"></span><span id="glodNum">0</span></div>
+          <div class="items" id="items">
+            <button class="item" data-item="torch" type="button"><span class="key">1</span><span class="ic">🔥</span></button>
+            <button class="item" data-item="bow" type="button"><span class="key">2</span><span class="ic">🏹</span><span class="n" id="nArrows">6</span></button>
+            <button class="item" data-item="bombs" type="button"><span class="key">3</span><span class="ic">💣</span><span class="n" id="nBombs">2</span></button>
+          </div>
         </div>
       </div>
 
-      <div class="zone-card" id="zoneCard">
-        <h2 id="zoneName">Häll</h2>
-        <p id="zoneSub"></p>
-      </div>
+      <!-- zone name -->
+      <div class="zone" id="zone"><h2 id="zoneName"></h2><p id="zoneSub"></p></div>
 
+      <!-- context prompt -->
+      <div class="prompt" id="prompt"></div>
+
+      <!-- toast -->
       <div class="toast" id="toast"></div>
 
-      <div class="dialog" id="dialog">
-        <div class="dialog-name" id="dialogName"></div>
-        <div class="dialog-text" id="dialogText"></div>
-        <div class="dialog-hint">E</div>
+      <!-- dialogue ------------------------------------------------------- -->
+      <div class="dialogue" id="dialogue">
+        <div class="dialogue-name" id="dialogueName"></div>
+        <p class="dialogue-text" id="dialogueText"></p>
+        <span class="dialogue-hint">E</span>
       </div>
 
-      <div class="shop" id="shop">
-        <div class="shop-head">
-          <h3>Smeden Björn</h3>
-          <span class="shop-glod"><span class="ember-dot"></span><span id="shopEmbers">0</span></span>
-        </div>
-        <ul class="shop-list" id="shopList"></ul>
-        <div class="shop-foot">
-          <span id="shopMsg"></span>
-          <span class="key-hint">↑↓ välj · E köp · Esc stäng</span>
-        </div>
+      <!-- shop ----------------------------------------------------------- -->
+      <div class="panel shop" id="shop">
+        <h2>Bote handlar</h2>
+        <ul id="shopList"></ul>
+        <p class="shop-foot"><span class="glod-dot"></span> <span id="shopGlod">0</span> glöd · <kbd>E</kbd> köp · <kbd>Esc</kbd> stäng</p>
       </div>
 
+      <!-- title ---------------------------------------------------------- -->
       <div class="screen is-open" id="screen-title">
         <div class="title-wrap">
-          <p class="eyebrow">Ett äventyr i Häll</p>
-          <h1>Den sista lågan</h1>
+          <p class="kicker">Ett äventyr uppifrån</p>
+          <h1>Den sista <em>lågan</em></h1>
           <p class="lede">
-            Byn lovade graven en låga varje vinter, och glömde. Nu har mörkret tagit dem alla.
-            Du är främlingen som kom med den sista facklan.
+            Du är främlingen som kommer till Vedstorp i den långa natten. Byn lovade elden att bära
+            den vidare — och glömde. Nu tar förbannelsen tillbaka sitt.
           </p>
-          <div class="buttons">
-            <button class="btn btn-primary" id="btnNew">Nytt spel</button>
-            <button class="btn" id="btnContinue">Fortsätt</button>
+          <div class="title-buttons">
+            <button class="btn primary" id="startBtn" type="button">Börja vandra</button>
+            <button class="btn" id="continueBtn" type="button">Fortsätt</button>
           </div>
           <ul class="controls">
-            <li><b>WASD / pilar</b> gå</li>
-            <li><b>J</b> svärd</li>
-            <li><b>K</b> sköld — parera i rätt ögonblick</li>
-            <li><b>L</b> använd föremål · <b>Q</b> byt · <b>1–3</b> välj</li>
-            <li><b>E</b> prata / tända</li>
-            <li><b>Mellanslag</b> rulla undan</li>
-            <li><b>Esc</b> paus</li>
+            <li><kbd>WASD</kbd> gå</li>
+            <li><kbd>J</kbd> hugg</li>
+            <li><kbd>K</kbd> parera / sköld</li>
+            <li><kbd>L</kbd> använd föremål</li>
+            <li><kbd>Q</kbd> sätt lykta</li>
+            <li><kbd>E</kbd> prata · tänd · öppna</li>
+            <li><kbd>M</kbd> karta</li>
+            <li><kbd>Esc</kbd> paus</li>
           </ul>
         </div>
       </div>
 
+      <!-- pause ---------------------------------------------------------- -->
       <div class="screen" id="screen-pause">
         <div class="panel">
           <h2>Paus</h2>
-          <p class="pause-quest" id="pauseQuest"></p>
-          <div class="buttons">
-            <button class="btn btn-primary" id="btnResume">Fortsätt</button>
-            <button class="btn" id="btnRestart">Börja om</button>
+          <p>Mörkret väntar snällt.</p>
+          <div class="row">
+            <button class="btn primary" id="resumeBtn" type="button">Fortsätt</button>
+            <button class="btn" id="muteBtn" type="button">Ljud: på</button>
+            <button class="btn danger" id="restartBtn" type="button">Börja om</button>
           </div>
-          <p class="tiny">Spelet sparas automatiskt när du byter plats eller tänder ett ljus.</p>
         </div>
       </div>
 
+      <!-- death ---------------------------------------------------------- -->
       <div class="screen" id="screen-dead">
         <div class="panel">
-          <h2>Mörkret tog dig</h2>
-          <p>Men byn har fortfarande en låga kvar. Reste dig.</p>
-          <button class="btn btn-primary" id="btnRespawn">Res dig i Häll</button>
+          <h2>Lågan slocknade</h2>
+          <p id="deadText">Men någon bar dig tillbaka till elden.</p>
+          <button class="btn primary" id="reviveBtn" type="button">Res dig igen</button>
         </div>
       </div>
 
-      <div class="screen" id="screen-win">
-        <div class="panel">
-          <p class="eyebrow">Slut</p>
-          <h2>Lågan brinner</h2>
-          <p>
-            Den första lågan vaknar under kyrkan, och ljuset letar sig upp genom jorden.
-            I Häll öppnar sig dörrarna, en efter en. De som varit sten andas igen.
+      <!-- victory -------------------------------------------------------- -->
+      <div class="screen" id="screen-end">
+        <div class="panel wide">
+          <p class="kicker">Slut</p>
+          <h2 id="endTitle">Lågan brinner</h2>
+          <p id="endText">
+            Förbannelsen fick tillbaka sitt löfte, och byn fick sin eld. Du står kvar i ljuset — en
+            främling som blev den som bar det vidare.
           </p>
-          <p class="stats" id="winStats"></p>
-          <div class="buttons">
-            <button class="btn btn-primary" id="btnWinBack">Tillbaka till byn</button>
-            <button class="btn" id="btnWinNew">Nytt spel</button>
-          </div>
+          <div class="stats" id="endStats"></div>
+          <button class="btn primary" id="keepBtn" type="button">Stanna i Vedstorp</button>
         </div>
       </div>
 
-      <div class="touch" id="touch">
-        <div class="stick" id="touchStick"><div class="stick-knob" id="touchKnob"></div></div>
-        <div class="touch-buttons">
-          <button class="tbtn" data-touch-action="attack">J</button>
-          <button class="tbtn" data-touch-action="shield">K</button>
-          <button class="tbtn" data-touch-action="item">L</button>
-          <button class="tbtn tbtn-small" data-touch-action="interact">E</button>
-          <button class="tbtn tbtn-small" data-touch-action="dodge">↷</button>
-        </div>
-      </div>
-
+      <!-- boot error ----------------------------------------------------- -->
       <div class="boot-error" id="bootError" hidden>
         <h2>Spelet kunde inte starta</h2>
-        <p id="bootErrorText"></p>
-        <button class="btn" id="btnReload">Ladda om</button>
+        <p id="bootMsg"></p>
+        <button class="btn" id="bootReload" type="button">Ladda om</button>
       </div>
-    </div>
+
+      <!-- touch ---------------------------------------------------------- -->
+      <div class="touch" id="touch" aria-hidden="true">
+        <div class="stick" id="stick"><span id="stickKnob"></span></div>
+        <div class="touch-buttons">
+          <button data-touch="parry" type="button">Parera</button>
+          <button data-touch="attack" type="button">Hugg</button>
+          <button data-touch="item" type="button">Föremål</button>
+          <button data-touch="use" type="button">E</button>
+        </div>
+      </div>
+    </main>
 
     <script>
-      // Anything that goes wrong before the module runs must still be visible.
-      (function () {
-        var box = document.getElementById('bootError');
-        var text = document.getElementById('bootErrorText');
-        var show = function (msg) {
-          if (!box || !box.hidden) return;
-          box.hidden = false;
-          if (text) text.textContent = msg;
-        };
-        window.addEventListener('error', function (e) {
-          show((e && e.message ? e.message : 'Okänt fel') + (e && e.filename ? ' (' + e.filename + ':' + e.lineno + ')' : ''));
-        });
-        window.addEventListener('unhandledrejection', function (e) {
-          var r = e && e.reason;
-          show(r && r.message ? r.message : String(r));
-        });
-        document.getElementById('btnReload').addEventListener('click', function () {
-          location.reload();
-        });
-        setTimeout(function () {
-          if (!window.__sistalaganBooted) show('Motorn laddades aldrig. Prova att ladda om sidan.');
-        }, 4000);
-      })();
+      window.__booted = false;
+      window.addEventListener('error', (e) => {
+        const box = document.getElementById('bootError');
+        if (!box || window.__booted) return;
+        box.hidden = false;
+        document.getElementById('bootMsg').textContent = e.message || 'Okänt fel';
+      });
+      window.addEventListener('unhandledrejection', (e) => {
+        const box = document.getElementById('bootError');
+        if (!box || window.__booted) return;
+        box.hidden = false;
+        document.getElementById('bootMsg').textContent = String(e.reason || 'Okänt fel');
+      });
+      setTimeout(() => {
+        if (window.__booted) return;
+        const box = document.getElementById('bootError');
+        if (!box) return;
+        box.hidden = false;
+        document.getElementById('bootMsg').textContent = 'Motorn laddade aldrig. Prova att ladda om.';
+      }, 5000);
     </script>
     <script type="module" src="src/main.js"></script>
   </body>

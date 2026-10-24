@@ -1,20 +1,24 @@
-// Renders still frames of every zone to ./shots so the art can be reviewed
-// without a browser.
+// Renders the game headlessly to PNGs for visual review.
+//   npm run shots   →   ./shots/*.png
+
+import { createCanvas } from '@napi-rs/canvas';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { installDom } from './dom.mjs';
+import { Game } from '../src/game.js';
+import { draw } from '../src/render.js';
 
-const outDir = process.argv[2] || './shots';
-mkdirSync(outDir, { recursive: true });
+const noop = () => {};
 
-const env = installDom({ width: 1280, height: 720 });
-const { Game } = await import('../src/game.js');
-const { ZONES } = await import('../src/world.js');
+globalThis.document = {
+  createElement: () => createCanvas(64, 64),
+  getElementById: () => null,
+};
+globalThis.window = { devicePixelRatio: 1, addEventListener: noop };
+globalThis.localStorage = { getItem: () => null, setItem: noop };
 
 class FakeInput {
   constructor() {
     this.held = new Set();
     this.edges = new Set();
-    this.stick = { active: false, dx: 0, dy: 0 };
   }
   down(a) {
     return this.held.has(a);
@@ -25,105 +29,111 @@ class FakeInput {
   get axis() {
     return { x: 0, y: 0 };
   }
+  press(a) {
+    this.held.add(a);
+    this.edges.add(a);
+  }
+  release(a) {
+    this.held.delete(a);
+  }
   endFrame() {
     this.edges.clear();
   }
 }
 
-const canvas = env.document.getElementById('game');
-const game = new Game(canvas, new FakeInput(), {});
-game.cb = {};
-const DT = 1 / 60;
+const W = 1280;
+const H = 720;
+const canvas = createCanvas(W, H);
+canvas.getBoundingClientRect = () => ({ width: W, height: H, left: 0, top: 0 });
 
-function step(n = 1) {
+const input = new FakeInput();
+const game = new Game(canvas, input, {});
+game.start();
+game.player.invuln = 0;
+
+const dir = process.argv[2] || './shots';
+mkdirSync(dir, { recursive: true });
+
+const ctx = canvas.getContext('2d');
+
+function settle(n = 20) {
   for (let i = 0; i < n; i++) {
-    game.update(DT);
-    game.input.endFrame();
+    game.update(1 / 60);
+    input.endFrame();
   }
 }
 
-function place(x, y) {
-  const b = game.player.body;
-  b.x = x;
-  b.y = y;
-  b.vx = 0;
-  b.vy = 0;
-}
-
-async function shot(name) {
-  game.draw();
-  const buf = canvas.toBuffer('image/png');
-  writeFileSync(`${outDir}/${name}.png`, buf);
+function shot(name) {
+  draw(game);
+  writeFileSync(`${dir}/${name}.png`, canvas.toBuffer('image/png'));
   console.log('wrote', name);
 }
 
-// Village: Hedda and the dead hearth.
-game.loadZone('village', { x: 700, y: 660 });
+// 1. Vedstorp at dusk, bonfire unlit, villagers about.
+game.loadScene('overworld', { x: 1600, y: 2080 });
 game.mode = 'play';
-place(660, 700);
-step(45);
-await shot('01-village');
+settle(30);
+shot('01-village');
 
-// Village with the hearth burning.
-game.z.braziers.forEach((b) => (b.lit = true));
-place(700, 640);
-step(30);
-await shot('02-village-hearth');
+// 2. Up by the smithy and the inn.
+game.loadScene('overworld', { x: 1350, y: 1880 });
+settle(10);
+shot('02-village-north');
 
-// Fields, one brazier lit, statue nearby.
-game.loadZone('fields', { x: 400, y: 420 });
+// 3. The forest with a lit brazier.
+game.flags.braziers['forest-1'] = true;
+game.loadScene('overworld', { x: 470, y: 1780 });
+settle(10);
+shot('03-forest');
+
+// 4. Stenringen, the ring of braziers and the sealed gate.
+game.loadScene('overworld', { x: 1510, y: 1250 });
+settle(10);
+shot('04-ruins-sealed');
+
+game.flags.braziers['ring-1'] = true;
+game.flags.braziers['ring-2'] = true;
+game.flags.braziers['ring-3'] = true;
+game.loadScene('overworld', { x: 1510, y: 780 });
+settle(10);
+shot('05-ruins-open');
+
+// 6. The marsh, cold water and an archer.
+game.loadScene('overworld', { x: 2600, y: 1900 });
+settle(10);
+shot('06-marsh');
+
+// 7. Dungeon, first floor, one brazier lit.
+game.flags.braziers['d0-1'] = true;
+game.loadScene('dungeon', null, true, 0);
 game.mode = 'play';
-game.z.braziers.forEach((b) => (b.lit = true));
-place(340, 400);
-step(40);
-await shot('03-fields');
+settle(20);
+shot('07-dungeon-1');
 
-// Forest.
-game.loadZone('forest', { x: 900, y: 700 });
+// 8. Crypt floor with the eye switch.
+game.loadScene('dungeon', null, true, 1);
 game.mode = 'play';
-game.z.braziers.forEach((b) => (b.lit = true));
-place(880, 720);
-step(40);
-await shot('04-forest');
+game.flags.braziers['d1-1'] = true;
+game.player.x = 620;
+game.player.y = 420;
+settle(20);
+shot('08-dungeon-2');
 
-// River + bridge.
-game.loadZone('river', { x: 560, y: 560 });
+// 9. The boss.
+game.loadScene('dungeon', null, true, 2);
 game.mode = 'play';
-game.z.braziers.forEach((b) => (b.lit = true));
-place(560, 560);
-step(40);
-await shot('05-river');
+game.bossIntro = 0;
+game.flags.braziers['d2-1'] = true;
+game.player.x = 560;
+game.player.y = 640;
+settle(30);
+shot('09-boss');
 
-// Crypt, dark, with a lit brazier.
-game.loadZone('crypt1', { x: 700, y: 500 });
+// 10. The map.
+game.loadScene('overworld', { x: 1600, y: 2000 });
 game.mode = 'play';
-game.z.braziers.forEach((b) => (b.lit = true));
-place(660, 520);
-step(40);
-await shot('06-crypt');
+game.mapOpen = true;
+settle(4);
+shot('10-map');
 
-// Boss chamber.
-game.loadZone('crypt3', { x: 700, y: 780 });
-game.mode = 'play';
-game.z.braziers.forEach((b) => (b.lit = true));
-place(700, 640);
-step(8);
-for (const e of game.enemies) e.state = 'chase';
-step(30);
-await shot('07-warden');
-
-// Combat moment: shadows in the fields at night.
-game.loadZone('fields', { x: 900, y: 560 });
-game.mode = 'play';
-place(900, 560);
-game.enemies.forEach((e) => {
-  e.state = 'chase';
-  e.body.x = 900 + (Math.random() - 0.5) * 160;
-  e.body.y = 560 + (Math.random() - 0.5) * 120;
-});
-game.player.swingT = 0.14;
-game.effects.push({ type: 'swing', x: game.player.body.cx, y: game.player.body.cy, a: 0, life: 0.18, maxLife: 0.22, reach: 52 });
-step(3);
-await shot('08-combat');
-
-console.log('done', Object.keys(ZONES).length, 'zones');
+console.log('done');
