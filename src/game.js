@@ -568,26 +568,70 @@ export class Game {
 
   /* -------------------------------------------------------- room pieces */
 
-  solids() {
+  /** Everything solid in the room except the pushable stones. */
+  staticSolids() {
     const out = this.roomDef.solids.slice();
     for (const g of this.state.gates) if (!g.open) out.push({ x: g.x, y: g.y, w: g.w, h: g.h });
     for (const v of this.state.vines) if (!v.burnt) out.push({ x: v.x, y: v.y, w: v.w, h: v.h });
+    return out;
+  }
+
+  solids() {
+    const out = this.staticSolids();
     for (const c of this.state.crates) out.push({ x: c.body.x, y: c.body.y, w: c.body.w, h: c.body.h });
     return out;
   }
 
-  pushCrates(dir, dt, solids) {
+  pushCrates(dir, dt) {
     const b = this.player.body;
     if (dir === 0) return;
+    // Stones are heavy but not stubborn: a steady, readable shove.
+    const SPEED = 210;
     for (const c of this.state.crates) {
-      const probe = { x: b.x + dir * 3, y: b.y, w: b.w, h: b.h };
+      const probe = { x: b.x + dir * 4, y: b.y, w: b.w, h: b.h };
       if (!rectsOverlap(probe, c.body)) continue;
-      const push = dir * Math.min(Math.abs(b.vx) || 40, 90) * dt;
-      const others = solids.filter((s) => s !== c.body && !(s.x === c.body.x && s.y === c.body.y && s.w === c.body.w));
-      c.body.moveX(push, others);
-      c.glow = Math.max(c.glow, 0.3);
-      this.stuck = Math.min(this.stuck, 3);
+
+      const moved = this.shove(c, dir * SPEED * dt, this.staticSolids(), new Set());
+      if (moved) {
+        c.glow = Math.max(c.glow, 0.35);
+        this.stuck = Math.min(this.stuck, 3);
+      } else {
+        // Wedged against something that will not move: tell the player why.
+        if ((this.ctxHintCd || 0) <= 0) {
+          this.ctxHintCd = 8;
+          this.whisper('Glim: Stenen sitter fast. Prova en ljusstöt — eller flytta den andra först.');
+        }
+      }
+      // Keep the walk pace matched to the stone so it feels like one weight.
+      if (moved && Math.abs(b.vx) > SPEED) b.vx = dir * SPEED;
     }
+  }
+
+  /** Slides a stone, shoving any stone in front of it along too. */
+  shove(c, dx, solids, seen, depth = 0) {
+    if (!dx || depth > 6 || seen.has(c)) return 0;
+    seen.add(c);
+    const st = this.state;
+    const others = st.crates.filter((o) => o !== c);
+    const blockers = solids.concat(others.map((o) => o.body));
+    const before = c.body.x;
+    c.body.moveX(dx, blockers);
+    let moved = c.body.x - before;
+    if (Math.abs(moved) < Math.abs(dx) - 0.01) {
+      // Something stopped it. If it is another stone, push that one first.
+      const ahead = { x: c.body.x + (dx > 0 ? c.body.w : -3), y: c.body.y + 2, w: 3, h: c.body.h - 4 };
+      const hit = others.find((o) => rectsOverlap(ahead, o.body));
+      if (hit && !seen.has(hit)) {
+        const rest = dx - moved;
+        const pushed = this.shove(hit, rest, solids, seen, depth + 1);
+        if (pushed) {
+          const b2 = c.body.x;
+          c.body.moveX(rest, blockers);
+          moved += c.body.x - b2;
+        }
+      }
+    }
+    return moved;
   }
 
   updateCrates(dt) {
@@ -605,7 +649,18 @@ export class Game {
       c.vx = body.vx;
       body.moveY(c.vy * dt, solids);
       c.vy = body.vy;
-      if (body.onGround) c.vx *= Math.pow(0.02, dt);
+      if (body.onGround) c.vx *= Math.pow(0.06, dt);
+
+      // A stone resting over a hollow settles into it: no pixel hunting.
+      if (body.onGround && Math.abs(c.vx) < 90) {
+        for (const plate of st.plates) {
+          const overlap = Math.min(body.x + body.w, plate.x + plate.w) - Math.max(body.x, plate.x);
+          if (overlap <= 0) continue;
+          const target = plate.x + plate.w / 2 - body.w / 2;
+          const dx = target - body.x;
+          if (Math.abs(dx) < 46) body.moveX(clamp(dx, -60 * dt, 60 * dt), solids);
+        }
+      }
       else c.vx *= Math.pow(0.7, dt);
       body.x = clamp(body.x, 40, this.roomDef.w - 40 - body.w);
     }
@@ -646,7 +701,13 @@ export class Game {
       const byPlayer = rectsOverlap(rect, p.rect());
       const byEcho = !!(st.echo && st.echo.playing && st.echo.pos && rectsOverlap(rect, { x: st.echo.pos.x - 12, y: st.echo.pos.y - 44, w: 24, h: 44 }));
       const pressed = byCrate || byPlayer || byEcho;
-      if (pressed && !plate.pressed) this.burst(plate.x + plate.w / 2, plate.y, 8, this.mood.accent, 90);
+      if (pressed && !plate.pressed) {
+        this.burst(plate.x + plate.w / 2, plate.y, 14, this.mood.accent, 120);
+        this.platesSeated = (this.platesSeated || 0) + 1;
+        if (st.plates.filter((q) => q.pressed).length < st.plates.length) {
+          this.whisper('Glim: En sten på plats. Den andra väntar.');
+        }
+      }
       plate.pressed = pressed;
       plate.anim = clamp(plate.anim + (pressed ? dt * 6 : -dt * 6), 0, 1);
     }
@@ -1448,16 +1509,35 @@ export class Game {
       }
     }
 
-    // Plates.
+    // Plates: shallow hollows cut into the floor.
     for (const p of st.plates) {
       const lift = p.anim * 3;
-      ctx.fillStyle = this.alpha('#0d1a20', 0.95);
-      ctx.fillRect(p.x, p.y - lift, p.w, 9);
-      ctx.fillStyle = this.alpha(p.pressed ? '#ffe6a6' : m.rim, p.pressed ? 0.8 : 0.25);
-      ctx.fillRect(p.x + 3, p.y - lift + 1, p.w - 6, 2.4);
-      ctx.strokeStyle = this.alpha(m.rim, 0.4);
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(p.x, p.y - lift, p.w, 9);
+      const g = ctx.createLinearGradient(0, p.y - lift - 2, 0, p.y + 9);
+      g.addColorStop(0, this.alpha('#0a1418', 0.95));
+      g.addColorStop(1, this.alpha('#16282e', 0.95));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.roundRect(p.x - 2, p.y - lift - 2, p.w + 4, 12, 5);
+      ctx.fill();
+
+      ctx.strokeStyle = this.alpha(p.pressed ? '#ffe6a6' : m.rim, p.pressed ? 0.55 : 0.42);
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+
+      // Rim of the hollow.
+      ctx.fillStyle = this.alpha(m.rim, 0.28);
+      ctx.fillRect(p.x - 2, p.y - lift - 2, p.w + 4, 1.6);
+
+      // Guide light so the hollow is findable from across the room.
+      const bob = Math.sin(this.time * 2 + p.x * 0.01) * 0.5 + 0.5;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const beam = ctx.createLinearGradient(0, p.y - 92, 0, p.y);
+      beam.addColorStop(0, 'rgba(255, 226, 160, 0)');
+      beam.addColorStop(1, `rgba(255, 226, 160, ${(p.pressed ? 0.16 : 0.07) * (0.6 + bob * 0.4)})`);
+      ctx.fillStyle = beam;
+      ctx.fillRect(p.x + 4, p.y - 92, p.w - 8, 92);
+      ctx.restore();
     }
 
     // Echo crystal.
@@ -1743,39 +1823,88 @@ export class Game {
   }
 
   drawCrates(ctx) {
+    const m = this.mood;
     for (const c of this.state.crates) {
       const b = c.body;
-      const g = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
-      g.addColorStop(0, '#3e5560');
-      g.addColorStop(1, '#18262d');
+      if (!c.specks) {
+        let seed = 7919 + Math.round(b.x) * 31;
+        const rnd = () => {
+          seed = (seed * 16807) % 2147483647;
+          return seed / 2147483647;
+        };
+        c.specks = Array.from({ length: 10 }, () => ({
+          x: 7 + rnd() * (b.w - 14),
+          y: 10 + rnd() * (b.h - 20),
+          r: 0.9 + rnd() * 2.1,
+        }));
+      }
+
+      // Stone body: cool grey, worn round corners.
+      const g = ctx.createLinearGradient(b.x, b.y, b.x + b.w * 0.4, b.y + b.h);
+      g.addColorStop(0, '#54707c');
+      g.addColorStop(0.55, '#31474f');
+      g.addColorStop(1, '#16232a');
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.roundRect(b.x, b.y, b.w, b.h, 7);
+      ctx.roundRect(b.x, b.y, b.w, b.h, 9);
       ctx.fill();
-      ctx.strokeStyle = this.alpha(this.mood.rim, 0.6 + c.glow * 0.4);
+
+      // Speckles + a hairline crack so it reads as stone, not a box.
+      ctx.fillStyle = 'rgba(10, 18, 22, 0.35)';
+      for (const sp of c.specks) {
+        ctx.beginPath();
+        ctx.ellipse(b.x + sp.x, b.y + sp.y, sp.r, sp.r * 0.75, 0, 0, TAU);
+        ctx.fill();
+      }
+      ctx.strokeStyle = 'rgba(9, 16, 20, 0.5)';
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(b.x + 10, b.y + 8);
+      ctx.lineTo(b.x + 18, b.y + 19);
+      ctx.lineTo(b.x + 13, b.y + 29);
+      ctx.moveTo(b.x + 30, b.y + b.h - 8);
+      ctx.lineTo(b.x + 24, b.y + 30);
+      ctx.stroke();
+
+      // Moss along the top, lit rim.
+      ctx.fillStyle = 'rgba(110, 176, 138, 0.3)';
+      ctx.beginPath();
+      ctx.roundRect(b.x + 2, b.y + 1, b.w - 4, 7, 4);
+      ctx.fill();
+      ctx.strokeStyle = this.alpha(m.rim, 0.5 + c.glow * 0.5);
       ctx.lineWidth = 2;
-      ctx.stroke();
-      // glowing rune
-      ctx.strokeStyle = `rgba(255, 240, 200, ${0.5 + c.glow * 0.5})`;
-      ctx.lineWidth = 2.2;
       ctx.beginPath();
-      ctx.moveTo(b.cx, b.cy - 9);
-      ctx.lineTo(b.cx + 9, b.cy);
-      ctx.lineTo(b.cx, b.cy + 9);
-      ctx.lineTo(b.cx - 9, b.cy);
-      ctx.closePath();
+      ctx.roundRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 9);
       ctx.stroke();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
-      ctx.lineWidth = 1;
+
+      // Carved rune: what makes it something the light can move.
+      const pulse = 0.55 + 0.25 * Math.sin(this.time * 2 + b.x * 0.02);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      const glow = ctx.createRadialGradient(b.cx, b.cy, 2, b.cx, b.cy, 24);
+      glow.addColorStop(0, `rgba(255, 232, 176, ${(0.14 + c.glow * 0.4) * pulse})`);
+      glow.addColorStop(1, 'rgba(255, 232, 176, 0)');
+      ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.moveTo(b.x + 5, b.y + 15);
-      ctx.lineTo(b.x + b.w - 5, b.y + 15);
-      ctx.moveTo(b.x + 5, b.y + b.h - 15);
-      ctx.lineTo(b.x + b.w - 5, b.y + b.h - 15);
+      ctx.arc(b.cx, b.cy, 24, 0, TAU);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.strokeStyle = `rgba(255, 238, 194, ${0.5 + c.glow * 0.5})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(b.cx, b.cy - 10);
+      ctx.lineTo(b.cx + 8, b.cy - 2);
+      ctx.lineTo(b.cx + 2, b.cy + 10);
+      ctx.moveTo(b.cx, b.cy - 10);
+      ctx.lineTo(b.cx - 8, b.cy + 1);
+      ctx.lineTo(b.cx - 2, b.cy + 10);
       ctx.stroke();
-      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+
+      // Contact shadow.
+      ctx.fillStyle = 'rgba(0,0,0,0.3)';
       ctx.beginPath();
-      ctx.ellipse(b.cx, b.bottom + 3, b.w * 0.42, 4, 0, 0, TAU);
+      ctx.ellipse(b.cx, b.bottom + 2, b.w * 0.45, 4.5, 0, 0, TAU);
       ctx.fill();
     }
   }
@@ -2135,7 +2264,11 @@ export class Game {
     }
     for (const c of this.state.crates) {
       const s2 = toScreen(c.body.cx, c.body.cy);
-      holes.push({ ...s2, r: 90 * z, a: 0.35 });
+      holes.push({ ...s2, r: 130 * z, a: 0.5 });
+    }
+    for (const pl of this.state.plates) {
+      const s2 = toScreen(pl.x + pl.w / 2, pl.y - 40);
+      holes.push({ ...s2, r: 160 * z, a: pl.pressed ? 0.55 : 0.42 });
     }
     for (const ex of this.roomDef.exits) {
       const s2 = toScreen(ex.x + ex.w / 2, ex.y + ex.h * 0.6);
@@ -2159,6 +2292,32 @@ export class Game {
   drawGlowPass(ctx, camX, camY, z = 1) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
+
+    // Stones and their hollows glow just enough to be found in the dark.
+    for (const c of this.state.crates) {
+      const x = (c.body.cx - camX) * z;
+      const y = (c.body.cy - camY) * z;
+      const r = 70 * z;
+      const gg = ctx.createRadialGradient(x, y, 2, x, y, r);
+      gg.addColorStop(0, `rgba(255, 228, 170, ${0.16 + c.glow * 0.2})`);
+      gg.addColorStop(1, 'rgba(255, 228, 170, 0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, TAU);
+      ctx.fill();
+    }
+    for (const pl of this.state.plates) {
+      const x = (pl.x + pl.w / 2 - camX) * z;
+      const y = (pl.y - 6 - camY) * z;
+      const r = 78 * z;
+      const gg = ctx.createRadialGradient(x, y, 2, x, y, r);
+      gg.addColorStop(0, `rgba(255, 220, 150, ${pl.pressed ? 0.3 : 0.12})`);
+      gg.addColorStop(1, 'rgba(255, 220, 150, 0)');
+      ctx.fillStyle = gg;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r, r * 0.5, 0, 0, TAU);
+      ctx.fill();
+    }
 
     // Lantern halo around the player.
     const b = this.player.body;

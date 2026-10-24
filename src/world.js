@@ -176,18 +176,24 @@ export const ROOMS = {
       plat(700, 640, 150),
       plat(980, 480, 160),
       plat(1200, 360, 170),
+      // A low divider keeps each stone in its own lane, so a long shove can
+      // never smear both stones into a corner.
+      { x: 1000, y: 780, w: 26, h: 48 },
     ],
-    hazards: [{ x: 800, y: 800, w: 120, h: 28 }],
+    // Thorns sit on the optional lower ledge, never on the stone lane.
+    hazards: [{ x: 760, y: 626, w: 90, h: 14 }],
     lamps: [],
     vines: [],
     mirrors: [],
+    // One stone to the left, one to the right: each can be shoved to its
+    // own hollow without ever bumping into the other.
     crates: [
-      { x: 430, y: 780 },
-      { x: 560, y: 780 },
+      { x: 660, y: 780 },
+      { x: 1100, y: 780 },
     ],
     plates: [
-      { x: 1120, y: 820, w: 90 },
-      { x: 1320, y: 820, w: 90 },
+      { x: 300, y: 820, w: 90 },
+      { x: 1300, y: 820, w: 90 },
     ],
     emitters: [],
     targets: [],
@@ -204,9 +210,9 @@ export const ROOMS = {
       { x: 1500, y: 700, w: 68, h: 128, to: 'hall', spawn: { x: 140, y: 780 }, label: 'Ekokammaren', labelAt: { x: 1514, y: 660 } },
     ],
     hints: [
-      'Glim: Stenarna lyssnar på knuffar. Ett lätt tryck räcker.',
-      'Glim: Två plattor, två stenar. De vill stå stilla samtidigt.',
-      'Glim: Du kan också knuffa med kroppen, men det går långsamt.',
+      'Glim: Gå in i en sten och håll riktningen. Den följer dig.',
+      'Glim: En sten till vänster, en till höger. En platta åt varje håll.',
+      'Glim: Ställer du en sten på en platta sjunker den till rätta.',
     ],
   },
 

@@ -241,6 +241,39 @@ teleport('stones', 200, 780);
 const stones = game.world.stones;
 assert.ok(!stones.gates[0].open, 'the stone gate starts closed');
 
+// A player who simply walks into a stone can shove it the whole way onto a
+// hollow — no special move needed, and no risk of locking themselves in.
+{
+  place(stones.crates[0].body.x + 70, 780);
+  input.press('left');
+  let frames = 0;
+  while (!stones.plates[0].pressed && frames < 600) {
+    game.update(DT);
+    input.endFrame();
+    frames++;
+  }
+  input.release('left');
+  step(20);
+  assert.ok(stones.plates[0].pressed, 'walking pushes a stone onto the left hollow');
+
+  // Cross the divider, then shove the second stone onto the far hollow.
+  place(1080, 780);
+  input.press('right');
+  let frames2 = 0;
+  while (!stones.plates[1].pressed && frames2 < 900) {
+    game.update(DT);
+    input.endFrame();
+    frames2++;
+  }
+  input.release('right');
+  step(20);
+  assert.ok(stones.plates[1].pressed, 'the second stone seats on the right hollow');
+  assert.ok(stones.gates[0].open, 'pushing both stones opens the gate');
+  assert.ok(frames < 420 && frames2 < 420, `pushing is not a slog (${frames} + ${frames2} frames)`);
+}
+
+teleport('stones', 200, 780);
+
 // A tap sends a crate sliding.
 const crate = stones.crates[0];
 const startX = crate.body.cx;

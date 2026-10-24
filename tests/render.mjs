@@ -123,7 +123,7 @@ stones.crates.forEach((c, i) => {
   c.body.x = plate.x + plate.w / 2 - c.body.w / 2;
   c.body.y = plate.y - c.body.h;
 });
-stand(980, 828);
+stand(560, 828);
 step(20);
 await shot('05-stones');
 

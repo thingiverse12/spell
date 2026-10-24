@@ -51,7 +51,7 @@ Törngården ──► Lykthuset ◄──────────────�
 | **Lykthuset** | Navet. Bänken vid lyktan fyller hjärtan, altaret öppnar slutet. |
 | **Törngården** | Bränn tre rankor, tänd tre eldar → porten öppnas. Första minnet. |
 | **Spegellunden** | Vrid två speglar så ljuset från sändaren träffar mottagaren. Andra minnet. |
-| **Stenkammaren** | Knuffa två runstenar på två plattor. Båda samtidigt → porten. |
+| **Stenkammaren** | Gå in i en runsten och håll riktningen — den följer dig. En håla till vänster, en till höger; en sten i varje → porten. |
 | **Ekokammaren** | Spela in ditt eget eko och låt det stå på en platta medan du står på den andra. Tredje minnet. |
 | **Det inre rummet** | Slutet. |
 
