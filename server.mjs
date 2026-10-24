@@ -46,5 +46,5 @@ createServer((req, res) => {
   });
   createReadStream(filePath).pipe(res);
 }).listen(port, host, () => {
-  console.log(`SPELL running at http://${host}:${port}`);
+  console.log(`Lykttändaren running at http://${host}:${port}`);
 });
