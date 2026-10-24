@@ -4,6 +4,20 @@
 import { Body, rectsOverlap, rayRect, reflect } from './physics.js';
 import { ROOMS, FLOOR, MEMORIES } from './world.js';
 
+// Older Safari has no roundRect; without this the whole frame would throw.
+if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function roundRect(x, y, w, h, r = 0) {
+    const rr = Math.min(typeof r === 'number' ? r : 0, Math.abs(w) / 2, Math.abs(h) / 2);
+    this.moveTo(x + rr, y);
+    this.arcTo(x + w, y, x + w, y + h, rr);
+    this.arcTo(x + w, y + h, x, y + h, rr);
+    this.arcTo(x, y + h, x, y, rr);
+    this.arcTo(x, y, x + w, y, rr);
+    this.closePath();
+    return this;
+  };
+}
+
 const TAU = Math.PI * 2;
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -33,6 +47,23 @@ const MOODS = {
   memory: { deep: '#100e1e', sky: '#1d1a38', rock: '#2b2748', moss: '#5b5499', rim: '#efe7ff', accent: '#fff0c4', glow: '#fff4d2' },
 };
 
+const safeStorage = {
+  get(key) {
+    try {
+      return window.localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set(key, value) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {
+      /* private mode: scores simply do not persist */
+    }
+  },
+};
+
 export class Game {
   constructor(canvas, input, cb = {}) {
     this.canvas = canvas;
@@ -50,7 +81,7 @@ export class Game {
     this.adapt = 0.5;
     this.deaths = 0;
     this.shards = [];
-    this.best = Number(localStorage.getItem('lykt.memories') || 0);
+    this.best = Number(safeStorage.get('lykt.memories') || 0);
     this.muted = false;
 
     this.cam = { x: 0, y: 0 };
@@ -67,12 +98,16 @@ export class Game {
     this.orbs = [];
     this.whispers = [];
 
+    // Callbacks are muted until construction finishes; the constructor itself
+    // loads the first room, and the UI is not wired up yet at that point.
+    this.ready = false;
     this.player = this.makePlayer();
     this.world = {};
     this.carry = null;
     this.resize();
     this.resetWorld();
     this.loadRoom('hub', ROOMS.hub.spawn);
+    this.ready = true;
   }
 
   /* ------------------------------------------------------------- lifecycle */
@@ -170,7 +205,7 @@ export class Game {
     this.hintIndex = 0;
     this.cam.x = clamp(p.body.cx - this.viewW / 2, 0, Math.max(0, this.roomDef.w - this.viewW));
     this.cam.y = clamp(p.body.cy - this.viewH * 0.55, 0, Math.max(0, 900 - this.viewH));
-    this.cb.onRoom?.(id, this.roomDef);
+    if (this.ready) this.cb.onRoom?.(id, this.roomDef);
   }
 
   /* ---------------------------------------------------------------- input */

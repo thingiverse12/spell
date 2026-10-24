@@ -5,10 +5,26 @@ export class Sound {
     this.ctx = null;
     this.master = null;
     this.noise = null;
-    this.muted = localStorage.getItem('lykt.muted') === '1';
+    this.muted = this._readMuted();
     this._last = {};
     this.chargeOsc = null;
     this.chargeGain = null;
+  }
+
+  _readMuted() {
+    try {
+      return localStorage.getItem('lykt.muted') === '1';
+    } catch {
+      return false;
+    }
+  }
+
+  _saveMuted() {
+    try {
+      localStorage.setItem('lykt.muted', this.muted ? '1' : '0');
+    } catch {
+      /* ignore */
+    }
   }
 
   _ensure() {
@@ -36,7 +52,7 @@ export class Sound {
 
   toggle() {
     this.muted = !this.muted;
-    localStorage.setItem('lykt.muted', this.muted ? '1' : '0');
+    this._saveMuted();
     if (this.master && this.ctx) this.master.gain.setTargetAtTime(this.muted ? 0 : 0.4, this.ctx.currentTime, 0.02);
     return this.muted;
   }

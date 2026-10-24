@@ -55,7 +55,7 @@
       </div>
     </div>
 
-    <section class="screen" id="screen-title">
+    <section class="screen is-open" id="screen-title">
       <div class="panel title-panel">
         <p class="eyebrow">Ett minne i skymningen</p>
         <h1 class="logo">Lykttändaren</h1>
@@ -126,6 +126,40 @@
     </section>
   </div>
 
+  <div class="boot-error" id="bootError" role="alert">
+    <p class="eyebrow">Något gick fel</p>
+    <h2>Spelet kunde inte starta</h2>
+    <p class="sub" id="bootErrorText">Öppna konsolen för detaljer.</p>
+    <button class="btn ghost" type="button" id="bootReload">Ladda om</button>
+  </div>
+
+  <script>
+    (function () {
+      var box = document.getElementById('bootError');
+      var text = document.getElementById('bootErrorText');
+      var shown = false;
+      function show(message) {
+        if (shown) return;
+        shown = true;
+        text.textContent = message;
+        box.classList.add('is-open');
+      }
+      window.addEventListener('error', function (e) {
+        var where = e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '';
+        show((e.message || 'Okänt fel') + where);
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        show((e.reason && e.reason.message) || 'Ett löfte avbröts');
+      });
+      document.getElementById('bootReload').addEventListener('click', function () {
+        location.reload();
+      });
+      // If the module never runs, say so instead of showing a dead page.
+      setTimeout(function () {
+        if (!window.__lykt) show('Spelmotorn laddades inte. Kontrollera att /src/main.js kan hämtas.');
+      }, 4000);
+    })();
+  </script>
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

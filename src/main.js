@@ -41,6 +41,15 @@ const ui = {
   touchStick: $('touchStick'),
 };
 
+// NOTE: these must be declared before `new Game(...)` — the Game constructor
+// runs onRoom -> showRoomTitle synchronously, which assigns titleTimer.
+let prevHp = 3;
+let whisperTimer = 0;
+let titleTimer = 0;
+let toastTimer = 0;
+let pausedFrom = 'play';
+let pendingMemory = null;
+
 const game = new Game(canvas, input, {
   onStart: () => {
     hideScreens();
@@ -119,10 +128,6 @@ const game = new Game(canvas, input, {
 
 /* -------------------------------------------------------------------- HUD */
 
-let prevHp = 3;
-let whisperTimer = 0;
-let titleTimer = 0;
-
 function buildHud() {
   ui.hearts.innerHTML = '';
   for (let i = 0; i < game.player.maxHp; i++) {
@@ -187,7 +192,6 @@ function showRoomTitle(name, sub) {
   titleTimer = 3.4;
 }
 
-let toastTimer = 0;
 function toast(text) {
   ui.toast.textContent = text;
   ui.toast.classList.add('is-on');
@@ -219,8 +223,6 @@ function hideScreens() {
   }
 }
 
-let pendingMemory = null;
-
 function openMemory(memory, count) {
   pendingMemory = memory;
   game.mode = 'memory';
@@ -251,8 +253,6 @@ function closeRest() {
   ui.hud.classList.add('is-live');
   document.body.classList.add('is-playing');
 }
-
-let pausedFrom = 'play';
 
 function togglePause(force) {
   const paused = game.mode === 'paused';
