@@ -1,45 +1,11 @@
-// Headless tests for LYKTTÄNDAREN: movement, charge tiers and every puzzle.
+// Headless gameplay tests for Den sista lågan.
+// Runs the real Game and the real renderer against a stub DOM.
 import assert from 'node:assert/strict';
+import { installDom } from './dom.mjs';
 
-const noop = () => {};
-const gradient = { addColorStop: noop };
-
-function makeCtx() {
-  const state = { globalAlpha: 1 };
-  return new Proxy(state, {
-    get(target, prop) {
-      if (prop in target) return target[prop];
-      if (prop === 'createRadialGradient' || prop === 'createLinearGradient') return () => gradient;
-      if (prop === 'measureText') return () => ({ width: 10 });
-      return noop;
-    },
-    set(target, prop, value) {
-      target[prop] = value;
-      return true;
-    },
-  });
-}
-
-function makeCanvas(w = 1280, h = 720) {
-  return {
-    width: w,
-    height: h,
-    getContext: () => makeCtx(),
-    getBoundingClientRect: () => ({ width: w, height: h, left: 0, top: 0 }),
-    setPointerCapture: noop,
-  };
-}
-
-globalThis.document = { createElement: () => makeCanvas(64, 64), getElementById: () => null };
-globalThis.window = { devicePixelRatio: 1, addEventListener: noop };
-const store = new Map();
-globalThis.localStorage = {
-  getItem: (k) => (store.has(k) ? store.get(k) : null),
-  setItem: (k, v) => store.set(k, String(v)),
-};
-
+const env = installDom();
 const { Game } = await import('../src/game.js');
-const { ROOMS } = await import('../src/world.js');
+const { ZONES, QUESTS } = await import('../src/world.js');
 
 class FakeInput {
   constructor() {
@@ -54,17 +20,29 @@ class FakeInput {
     return this.edges.has(a);
   }
   get axis() {
-    let a = 0;
-    if (this.held.has('left')) a -= 1;
-    if (this.held.has('right')) a += 1;
-    return a;
+    let x = 0;
+    let y = 0;
+    if (this.held.has('left')) x -= 1;
+    if (this.held.has('right')) x += 1;
+    if (this.held.has('up')) y -= 1;
+    if (this.held.has('down')) y += 1;
+    const len = Math.hypot(x, y);
+    if (len > 1) {
+      x /= len;
+      y /= len;
+    }
+    return { x, y };
   }
   press(a) {
+    if (!this.held.has(a)) this.edges.add(a);
     this.held.add(a);
-    this.edges.add(a);
   }
   release(a) {
     this.held.delete(a);
+  }
+  tap(a) {
+    this.press(a);
+    this.edges.add(a);
   }
   endFrame() {
     this.edges.clear();
@@ -76,329 +54,291 @@ class FakeInput {
 }
 
 const input = new FakeInput();
-const events = { shards: 0, rooms: [], gates: 0, whispers: 0, ended: false };
-const game = new Game(makeCanvas(), input, {
-  onShard: () => (events.shards += 1),
-  onRoom: (id) => events.rooms.push(id),
-  onGate: () => (events.gates += 1),
-  onWhisper: () => (events.whispers += 1),
-  onEnd: () => (events.ended = true),
-});
+const events = { zones: [], items: [], parries: 0, wins: 0, lights: 0, boss: [] };
+const cb = {
+  onZone: (def) => events.zones.push(def.id),
+  onItem: (id) => events.items.push(id),
+  onParry: () => (events.parries += 1),
+  onWin: () => (events.wins += 1),
+  onLight: () => (events.lights += 1),
+  onBoss: (a) => events.boss.push(a),
+  onDeath: () => {},
+  onQuest: () => {},
+  onHud: () => {},
+  onEmbers: () => {},
+  onDialog: () => {},
+  onShop: () => {},
+  onSelect: () => {},
+  onToast: () => {},
+  onDamage: () => {},
+  onPause: () => {},
+};
+
+const game = new Game(env.document.getElementById('game'), input, cb);
+game.cb = cb;
 const DT = 1 / 60;
 
-function step(n) {
+function step(n = 1) {
   for (let i = 0; i < n; i++) {
     game.update(DT);
     input.endFrame();
   }
 }
 
-/** Put the player at x with their feet at feetY, then let them settle. */
-function place(x, feetY) {
+function place(x, y) {
   const b = game.player.body;
   b.x = x;
-  b.y = feetY - b.h - 1;
+  b.y = y;
   b.vx = 0;
   b.vy = 0;
-  b.onGround = false;
-  game.player.invuln = 2;
-  for (let i = 0; i < 60 && !b.onGround; i++) {
-    game.update(DT);
-    input.endFrame();
-  }
-  b.vx = 0;
+  game.player.invuln = 0.1;
 }
 
-function teleport(room, x, feetY) {
-  game.loadRoom(room, { x, y: feetY });
+function tp(zone, x, y) {
+  game.loadZone(zone, { x, y });
   game.mode = 'play';
-  place(x, feetY);
-  for (const m of game.world[room].midges) m.dead = true; // keep tests deterministic
+  place(x, y);
+  step(2);
 }
 
-/** Charge the staff for `seconds`, release, and let the cast resolve. */
-function cast(seconds) {
-  input.press('cast');
-  step(Math.max(1, Math.round(seconds / DT)));
-  input.release('cast');
-  step(40); // let the projectile / beam resolve
+function clearDialog() {
+  let guard = 0;
+  while (game.mode === 'dialog' && guard++ < 60) {
+    input.tap('interact');
+    game.update(DT);
+    input.endFrame();
+    input.release('interact');
+  }
+  game.mode = 'play';
 }
 
-/* ------------------------------------------------------------ basic moves */
+/* ------------------------------------------------------------------ boot */
 
-game.start();
+game.startNew();
+assert.equal(game.mode, 'dialog', 'the intro starts as a conversation');
+assert.equal(game.zoneId, 'village', 'the game starts in the village');
+clearDialog();
 assert.equal(game.mode, 'play');
-assert.equal(game.roomId, 'hub');
-assert.equal(events.rooms.at(-1), 'hub');
 
-place(520, 780);
-step(60);
-assert.ok(game.player.body.onGround, 'the player lands on the hub floor');
+/* -------------------------------------------------------------- movement */
 
-const groundY = game.player.body.y;
-input.press('jump');
-step(1);
-let apex = Infinity;
-for (let i = 0; i < 60; i++) {
-  step(1);
-  apex = Math.min(apex, game.player.body.y);
-}
-input.release('jump');
-const jumpH = groundY - apex;
-assert.ok(jumpH > 90 && jumpH < 150, `single jump is ~117px (got ${jumpH.toFixed(0)})`);
-
-step(60);
-const y2 = game.player.body.y;
-input.press('jump');
-step(10);
-input.edges.add('jump');
-step(1);
-let apex2 = Infinity;
-for (let i = 0; i < 70; i++) {
-  step(1);
-  apex2 = Math.min(apex2, game.player.body.y);
-}
-input.release('jump');
-assert.ok(y2 - apex2 > jumpH, `double jump goes higher (${(y2 - apex2).toFixed(0)} > ${jumpH.toFixed(0)})`);
-
-/* --------------------------------------------------------------- garden */
-
-teleport('garden', 300, 780);
-const garden = game.world.garden;
-assert.equal(garden.lamps.filter((l) => l.lit).length, 0);
-
-place(480, 780);
-game.player.facing = 1;
-cast(0.05);
-assert.equal(garden.vines[0].burnt, false, 'a tap does not burn the vine');
-
-place(480, 780);
-game.player.facing = 1;
-cast(0.45);
-assert.ok(garden.vines[0].burnt, 'the beam burns the first vine');
-
-place(1000, 780);
-game.player.facing = 1;
-cast(0.45);
-assert.ok(garden.vines[1].burnt, 'the second vine burns too');
-
-place(1330, 780);
-game.player.facing = 1;
-cast(0.45);
-assert.ok(garden.vines[2].burnt, 'the third vine burns too');
-
-const brazierSpots = [590, 1010, 1440]; // clear of the vines
-for (let i = 0; i < garden.lamps.length; i++) {
-  const lamp = garden.lamps[i];
-  place(brazierSpots[i], 780);
-  game.player.facing = 1;
-  for (let attempt = 0; attempt < 3 && !lamp.lit; attempt++) cast(0.05);
-  assert.ok(lamp.lit, `brazier ${i + 1} is lit`);
-}
-step(6);
-assert.ok(garden.gates[0].open, 'lighting all braziers opens the thorn gate');
-assert.ok(events.gates >= 1, 'the gate callback fired');
-
-place(1700, 780);
-step(4);
-assert.equal(events.shards, 1, 'the first memory shard is collected');
-
-/* ---------------------------------------------------------------- grove */
-
-teleport('grove', 200, 780);
-const grove = game.world.grove;
-assert.equal(grove.beamHit, false, 'the beam starts unsolved');
-
-// Both mirrors need a three-quarter turn.
-const mirrorSpots = [
-  { x: 700, y: 740 }, // on the low platform
-  { x: 665, y: 330 }, // on the high platform
-];
-for (let i = 0; i < grove.mirrors.length; i++) {
-  const mir = grove.mirrors[i];
-  const spot = mirrorSpots[i];
-  place(spot.x, spot.y);
-  game.player.invuln = 2;
-  for (let turn = 0; turn < 3; turn++) {
-    game.interact();
-    step(1);
-  }
-  assert.ok(Math.abs(mir.angle - (3 * Math.PI) / 4) < 1e-6, `mirror ${i + 1} turned to three quarters`);
-  place(spot.x, spot.y);
-}
-game.updateBeam();
-assert.ok(grove.beamHit, 'the light reaches the receptacle when both mirrors are turned');
-step(6);
-assert.ok(grove.gates[0].open, 'the beam opens the gate');
-
-place(1790, 780);
-step(4);
-assert.equal(game.shards.length, 2, 'the second shard is collected');
-
-/* --------------------------------------------------------------- stones */
-
-teleport('stones', 200, 780);
-const stones = game.world.stones;
-assert.ok(!stones.gates[0].open, 'the stone gate starts closed');
-
-// A player who simply walks into a stone can shove it the whole way onto a
-// hollow — no special move needed, and no risk of locking themselves in.
-{
-  place(stones.crates[0].body.x + 70, 780);
-  input.press('left');
-  let frames = 0;
-  let maxPush = 0;
-  while (!stones.plates[0].pressed && frames < 600) {
-    game.update(DT);
-    input.endFrame();
-    maxPush = Math.max(maxPush, game.player.pushAmt);
-    frames++;
-  }
-  assert.ok(maxPush > 0.85, `the hands come up while shoving a stone (${maxPush.toFixed(2)})`);
-  input.release('left');
-  step(20);
-  assert.equal(game.player.pushAmt, 0, 'the hands drop again when the shove ends');
-  assert.ok(stones.plates[0].pressed, 'walking pushes a stone onto the left hollow');
-
-  // Cross the divider, then shove the second stone onto the far hollow.
-  place(1080, 780);
-  input.press('right');
-  let frames2 = 0;
-  while (!stones.plates[1].pressed && frames2 < 900) {
-    game.update(DT);
-    input.endFrame();
-    frames2++;
-  }
-  input.release('right');
-  step(20);
-  assert.ok(stones.plates[1].pressed, 'the second stone seats on the right hollow');
-  assert.ok(stones.gates[0].open, 'pushing both stones opens the gate');
-  assert.ok(frames < 420 && frames2 < 420, `pushing is not a slog (${frames} + ${frames2} frames)`);
-}
-
-teleport('stones', 200, 780);
-
-// A tap sends a crate sliding.
-const crate = stones.crates[0];
-const startX = crate.body.cx;
-place(crate.body.x - 60, 780);
-game.player.facing = 1;
-cast(0.05);
-step(30);
-assert.ok(crate.body.cx > startX + 20, `the light push moves the crate (${startX.toFixed(0)} -> ${crate.body.cx.toFixed(0)})`);
-
-// With both crates on the plates, the gate opens.
-for (let i = 0; i < stones.crates.length; i++) {
-  const plate = stones.plates[i];
-  const c = stones.crates[i];
-  c.body.x = plate.x + plate.w / 2 - c.body.w / 2;
-  c.body.y = plate.y - c.body.h;
-  c.vx = 0;
-  c.vy = 0;
-}
-step(8);
-assert.ok(stones.plates.every((p) => p.pressed), 'both plates are pressed by the crates');
-assert.ok(stones.gates[0].open, 'the stone gate opens');
-
-/* ----------------------------------------------------------------- hall */
-
-teleport('hall', 200, 780);
-const hall = game.world.hall;
-assert.ok(!hall.gates[0].open, 'the echo gate starts closed');
-
-place(hall.echo.x + 10, 820);
-step(2);
-game.interact();
-assert.ok(hall.echo.recording, 'the crystal starts recording');
-
-// Walk onto the first plate and stay there for the rest of the recording.
+place(750, 700);
+const x0 = game.player.body.x;
 input.press('right');
-let frames = 0;
-while (frames < 160 && game.player.body.cx < 950) {
-  step(1);
-  frames += 1;
-}
+step(40);
 input.release('right');
-const recordedX = game.player.body.cx;
-assert.ok(recordedX > 890 && recordedX < 1010, `the walk ended on the first plate (x=${recordedX.toFixed(0)})`);
-step(Math.round((hall.echo.duration + 0.3) / DT));
-assert.ok(hall.echo.playing, 'the echo starts playing back');
-assert.ok(hall.echo.pos, 'the echo has a position');
+assert.ok(game.player.body.x > x0 + 40, `walking works (${x0.toFixed(0)} -> ${game.player.body.x.toFixed(0)})`);
 
-// Stand on the second plate while the echo holds the first.
-place(1165, 828);
-for (let i = 0; i < 400 && !hall.gates[0].open; i++) {
-  step(1);
-  game.player.body.x = 1165;
-  game.player.body.vx = 0;
+// Walls stop the player instead of letting them leave the map.
+input.press('left');
+step(400);
+input.release('left');
+assert.ok(game.player.body.x >= 8, 'the player stays inside the village');
+
+/* ---------------------------------------------------------------- hedda */
+
+place(690, 640);
+step(2);
+input.tap('interact');
+step(1);
+assert.equal(game.mode, 'dialog', 'talking to Hedda opens a conversation');
+clearDialog();
+assert.ok(game.player.items.includes('torch'), 'Hedda gives the torch');
+assert.ok(game.flags.torch);
+
+/* ------------------------------------------------------- braziers + items */
+
+tp('fields', 300, 350);
+place(300, 350);
+step(2);
+input.tap('interact');
+step(2);
+clearDialog();
+assert.ok(game.flags.braziers.fields, 'the field brazier is lit');
+assert.ok(game.flags.freed.sune, 'lighting it frees Sune');
+assert.ok(game.player.items.includes('bomb'), 'Sune hands over the bombs');
+assert.equal(game.quest, 'fields', 'the quest moved on');
+
+// A thrown flame lights a brazier from a distance.
+tp('forest', 900, 300);
+const forestBrazier = game.z.braziers[0];
+game.player.items = ['torch', 'bomb'];
+game.player.item = 0;
+place(forestBrazier.x - 150, forestBrazier.y + 10);
+game.player.facing = 0;
+game.player.attackCd = 0;
+input.tap('item');
+step(30);
+assert.ok(forestBrazier.lit, 'a thrown flame lights a brazier at range');
+clearDialog();
+assert.ok(game.flags.freed.alva, 'Alva is freed');
+assert.ok(game.player.items.includes('bow'), 'Alva gives the bow');
+
+// Fire burns brambles, steel does not.
+const bramble = game.z.brambles[0];
+assert.ok(!bramble.burnt);
+place(bramble.x - 40, bramble.y + bramble.h * 0.5);
+game.player.facing = 0;
+game.player.attackCd = 0;
+input.tap('item');
+step(40);
+assert.ok(bramble.burnt, 'the flame burns the bramble');
+
+// The third light gives a heart.
+tp('river', 1300, 700);
+place(1360, 760);
+step(2);
+input.tap('interact');
+step(2);
+clearDialog();
+assert.ok(game.flags.braziers.river);
+assert.equal(game.player.maxHp, 4, 'Vidar gives an extra heart');
+assert.ok(game.flags.braziers.fields && game.flags.braziers.forest && game.flags.braziers.river);
+
+// All three lit → Hedda hands over the crypt key.
+tp('village', 700, 640);
+place(690, 640);
+step(2);
+input.tap('interact');
+step(1);
+clearDialog();
+assert.ok(game.flags.cryptKey, 'Hedda gives the crypt key');
+
+/* ------------------------------------------------------------------ crypt */
+
+tp('crypt1', 200, 700);
+const rubble = game.z.rubble[0];
+assert.ok(!rubble.broken, 'the stair is blocked by rubble');
+place(rubble.x + rubble.w / 2, rubble.y + rubble.h + 40);
+game.player.items = ['torch', 'bomb', 'bow'];
+game.player.item = 1;
+game.player.facing = -Math.PI / 2;
+game.player.attackCd = 0;
+input.tap('item');
+step(110);
+assert.ok(rubble.broken, 'a bomb clears the rubble');
+
+tp('crypt2', 1100, 240);
+const sw = game.z.switches[0];
+assert.ok(!sw.hit);
+const gate = game.z.gates[0];
+assert.ok(!gate.open);
+place(sw.x - 140, sw.y + 10);
+game.player.items = ['torch', 'bomb', 'bow'];
+game.player.item = 2;
+game.player.facing = 0;
+game.player.attackCd = 0;
+input.tap('item');
+step(40);
+assert.ok(sw.hit, 'an arrow hits the switch');
+assert.ok(gate.open, 'the switch opens the gate');
+
+/* ----------------------------------------------------------------- combat */
+
+tp('fields', 600, 600);
+game.enemies.length = 0;
+const shadow = game.makeEnemy('shadow', 620, 600);
+shadow.state = 'chase';
+game.enemies.push(shadow);
+place(560, 600);
+game.player.facing = 0;
+const hpBefore = game.player.hp;
+for (let i = 0; i < 6 && !shadow.dead; i++) {
+  game.player.attackCd = 0;
+  input.tap('attack');
+  step(14);
 }
-assert.ok(hall.gates[0].open, 'player + echo holding both plates opens the gate');
+assert.ok(shadow.dead, 'six swings finish a shadow');
 
-place(1350, 820);
-step(4);
-assert.equal(game.shards.length, 3, 'the third shard is collected');
-
-/* ---------------------------------------------------------------- hub */
-
-teleport('hub', 700, 828);
-game.mode = 'play';
-step(4);
-assert.ok(game.prompt().startsWith('E — minnas'), 'the altar offers the ending with three memories');
-game.interact();
-assert.equal(game.roomId, 'hollow', 'the altar leads into the hollow');
-
-place(1090, 780);
-step(3);
-assert.equal(game.mode, 'end', 'the mirror in the hollow ends the story');
-assert.ok(events.ended, 'the ending callback fired');
-
-/* ------------------------------------------------------- adaptive + death */
-
-game.resetWorld();
-game.start();
-assert.equal(game.adapt, 0.5);
-const adaptBefore = game.adapt;
-game.player.hp = 1;
+// Parry: a well timed shield stops the hit and opens a counter window.
+game.player.hp = 3;
 game.player.invuln = 0;
-game.hurt(1, 1);
-assert.equal(game.mode, 'dead');
-assert.ok(game.adapt < adaptBefore, 'dying makes the forest gentler');
-game.respawn();
-assert.equal(game.roomId, 'hub');
+game.player.parryT = 0.2;
+game.player.facing = Math.PI; // facing the attacker on the left
+const parryResult = game.damagePlayer(1, game.player.body.cx - 30, game.player.body.cy);
+assert.equal(parryResult, 'parry', 'a parry beats the attack');
+assert.equal(game.player.hp, 3, 'a parry takes no damage');
+assert.ok(game.player.counter > 0, 'a parry opens a counter window');
+
+// Blocking without timing still stops damage.
+game.player.invuln = 0;
+game.player.parryT = 0;
+game.player.shielding = true;
+const blockResult = game.damagePlayer(1, game.player.body.cx - 30, game.player.body.cy);
+assert.equal(blockResult, 'block', 'the raised shield blocks');
 assert.equal(game.player.hp, 3);
 
-// Gentle mode: thorns bounce you instead of hurting.
-game.adapt = 0.1;
-teleport('garden', 800, 780);
-place(800, 780);
+// Being hit from behind while blocking hurts.
 game.player.invuln = 0;
-const hpBefore = game.player.hp;
-step(4);
-assert.equal(game.player.hp, hpBefore, 'gentle mode turns thorn damage off');
+game.player.shielding = true;
+game.player.parryT = 0;
+game.player.facing = Math.PI; // looking away from the attacker on the right
+game.damagePlayer(1, game.player.body.cx + 30, game.player.body.cy);
+assert.ok(game.player.hp < 3, 'a hit from behind still hurts');
 
-// Harsh mode keeps the damage.
-game.adapt = 0.9;
-teleport('garden', 800, 780);
-place(800, 780);
-game.player.invuln = 0;
-step(4);
-assert.ok(game.player.hp < hpBefore, 'harsh mode keeps thorn damage on');
+/* ------------------------------------------------------------------- boss */
 
-/* ----------------------------------------------------------- room travel */
+game.player.hp = game.player.maxHp;
+tp('crypt3', 700, 780);
+place(700, 500);
+step(20);
+const warden = game.enemies.find((e) => e.kind === 'warden');
+assert.ok(warden, 'the Warden wakes in the last chamber');
+assert.deepEqual(events.boss.slice(-1), [true]);
 
-game.loadRoom('hub', ROOMS.hub.spawn);
+warden.hp = 1;
+game.player.facing = Math.atan2(warden.body.cy - game.player.body.cy, warden.body.cx - game.player.body.cx);
+place(warden.body.cx - 50, warden.body.cy + 10);
+game.player.facing = 0;
+game.player.attackCd = 0;
+input.tap('attack');
+step(10);
+assert.ok(game.flags.bossDead, 'the Warden can be beaten');
+clearDialog();
+
+const altar = game.z.altar;
+place(altar.x, altar.y + 30);
+step(2);
+input.tap('interact');
+step(2);
+assert.ok(game.flags.flameLit, 'the first flame is lit');
+assert.equal(events.wins, 1, 'lighting the flame ends the game');
+
+/* ------------------------------------------------------------------- save */
+
 game.mode = 'play';
-place(1600, 780);
-step(30);
-assert.equal(game.roomId, 'garden', 'the doorway to the garden works');
+tp('village', 700, 660);
+const data = game.serialize();
+Game.clearSave();
+localStorage.setItem('sistalagan.save.v1', JSON.stringify(data));
+const loaded = Game.loadSave();
+assert.ok(loaded, 'a save can be read back');
+const game2 = new Game(env.document.getElementById('game'), new FakeInput(), {});
+game2.cb = {};
+game2.continueGame(loaded);
+assert.equal(game2.player.items.length, data.items.length, 'items survive a reload');
+assert.equal(game2.player.maxHp, data.maxHp, 'hearts survive a reload');
+assert.equal(game2.zoneId, data.zone, 'the zone survives a reload');
+
+/* ------------------------------------------------------------- rendering */
+
+game.mode = 'play';
+tp('village', 700, 660);
+for (let i = 0; i < 4; i++) {
+  game.update(DT);
+  input.endFrame();
+  game.draw();
+}
+assert.ok(game.quest);
 
 console.log('smoke ok', {
-  jump: Math.round(jumpH),
-  doubleJump: Math.round(y2 - apex2),
-  shards: game.shards.length,
-  gatesOpened: events.gates,
-  roomsVisited: events.rooms.length,
-  echoesRecorded: hall.echo.frames.length,
-  adapt: Number(game.adapt.toFixed(2)),
-  ended: events.ended,
+  zones: [...new Set(events.zones)],
+  quest: game.quest,
+  quests: QUESTS.length,
+  items: game.player.items,
+  hearts: game.player.maxHp,
+  parries: events.parries,
+  wins: events.wins,
+  bossBeaten: game.flags.bossDead,
+  zonesInWorld: Object.keys(ZONES).length,
 });

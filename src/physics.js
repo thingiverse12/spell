@@ -1,8 +1,37 @@
-// Movement primitives: swept AABB collision and gravity.
+// Top-down movement primitives: rectangle bodies, sliding collisions and a few
+// geometry helpers used by combat, sight and light.
 
-export const rectsOverlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+export const rectsOverlap = (a, b) =>
+  a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
-export const rectPoint = (rect, x, y) => x >= rect.x && x <= rect.x + rect.w && y >= rect.y && y <= rect.y + rect.h;
+export const rectPoint = (r, x, y) => x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h;
+
+export const dist = (x1, y1, x2, y2) => Math.hypot(x2 - x1, y2 - y1);
+
+export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+export const lerp = (a, b, t) => a + (b - a) * t;
+export const sign = (v) => (v < 0 ? -1 : v > 0 ? 1 : 0);
+
+/** Shortest distance from point to a rect (0 when inside). */
+export function distToRect(x, y, r) {
+  const nx = clamp(x, r.x, r.x + r.w);
+  const ny = clamp(y, r.y, r.y + r.h);
+  return Math.hypot(x - nx, y - ny);
+}
+
+export function circleRect(x, y, radius, r) {
+  const nx = clamp(x, r.x, r.x + r.w);
+  const ny = clamp(y, r.y, r.y + r.h);
+  return (x - nx) ** 2 + (y - ny) ** 2 <= radius * radius;
+}
+
+/** Angle difference in radians, wrapped to [-PI, PI]. */
+export function angleDiff(a, b) {
+  let d = a - b;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return d;
+}
 
 export class Body {
   constructor(x, y, w, h) {
@@ -12,9 +41,6 @@ export class Body {
     this.h = h;
     this.vx = 0;
     this.vy = 0;
-    this.onGround = false;
-    this.hitWall = 0;
-    this.coyote = 0;
   }
 
   get cx() {
@@ -33,60 +59,43 @@ export class Body {
     return { x: this.x, y: this.y, w: this.w, h: this.h };
   }
 
+  /** Moves along one axis, stopping flush against any solid. */
   moveX(dx, solids) {
-    if (!dx) return;
+    if (!dx) return 0;
+    const before = this.x;
     this.x += dx;
     for (const s of solids) {
       if (!rectsOverlap(this, s)) continue;
-      this.x = dx > 0 ? s.x - this.w - 0.01 : s.x + s.w + 0.01;
+      this.x = dx > 0 ? s.x - this.w : s.x + s.w;
       this.vx = 0;
-      this.hitWall = dx > 0 ? 1 : -1;
     }
+    return this.x - before;
   }
 
   moveY(dy, solids) {
-    if (!dy) return;
+    if (!dy) return 0;
+    const before = this.y;
     this.y += dy;
-    this.onGround = false;
     for (const s of solids) {
       if (!rectsOverlap(this, s)) continue;
-      if (dy > 0) {
-        this.y = s.y - this.h - 0.01;
-        this.onGround = true;
-      } else {
-        this.y = s.y + s.h + 0.01;
-      }
+      this.y = dy > 0 ? s.y - this.h : s.y + s.h;
       this.vy = 0;
     }
+    return this.y - before;
+  }
+
+  move(dx, dy, solids) {
+    this.moveX(dx, solids);
+    this.moveY(dy, solids);
   }
 }
 
-export function gatherSolids(list) {
-  const out = [];
-  for (const s of list) if (!s.open) out.push(s);
-  return out;
-}
-
-// ---- ray helpers (used by the mirror puzzles and beam spells) ----
-
-/** Distance along a ray until it enters `rect`, or Infinity. */
-export function rayRect(px, py, dx, dy, rect) {
-  const invX = dx === 0 ? Infinity : 1 / dx;
-  const invY = dy === 0 ? Infinity : 1 / dy;
-  let t1 = (rect.x - px) * invX;
-  let t2 = (rect.x + rect.w - px) * invX;
-  let t3 = (rect.y - py) * invY;
-  let t4 = (rect.y + rect.h - py) * invY;
-  const tmin = Math.max(Math.min(t1, t2), Math.min(t3, t4));
-  const tmax = Math.min(Math.max(t1, t2), Math.max(t3, t4));
-  if (tmax < 0 || tmin > tmax) return Infinity;
-  return tmin < 0 ? 0 : tmin;
-}
-
-/** Reflect a direction vector around a mirror whose surface angle is `angle`. */
-export function reflect(dx, dy, angle) {
-  const nx = Math.cos(angle + Math.PI / 2);
-  const ny = Math.sin(angle + Math.PI / 2);
-  const dot = dx * nx + dy * ny;
-  return { x: dx - 2 * dot * nx, y: dy - 2 * dot * ny };
+/** Deterministic pseudo random, so painted scenery looks the same every load. */
+export function rng(seed) {
+  let s = seed % 2147483647;
+  if (s <= 0) s += 2147483646;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
 }

@@ -46,5 +46,5 @@ createServer((req, res) => {
   });
   createReadStream(filePath).pipe(res);
 }).listen(port, host, () => {
-  console.log(`Lykttändaren running at http://${host}:${port}`);
+  console.log(`Den sista lågan running at http://${host}:${port}`);
 });

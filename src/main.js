@@ -1,440 +1,366 @@
-import { Game } from './game.js';
+// Den sista lågan — UI, screens and the game loop.
 import { Input } from './input.js';
+import { Game } from './game.js';
+import { QUESTS, ITEMS, SHOP } from './world.js';
 import { Sound } from './audio.js';
 
-const canvas = document.getElementById('game');
-const input = new Input(canvas);
-const sound = new Sound();
 const $ = (id) => document.getElementById(id);
 
-const ui = {
-  hud: $('hud'),
-  hearts: $('hearts'),
-  shards: $('shards'),
-  charge: $('charge'),
-  chargeFill: $('chargeFill'),
-  chargeLabel: $('chargeLabel'),
-  roomTitle: $('roomTitle'),
-  roomName: $('roomName'),
-  roomSub: $('roomSub'),
-  whisper: $('whisper'),
-  whisperText: $('whisperText'),
-  prompt: $('prompt'),
-  objective: $('objective'),
-  objLabel: $('objLabel'),
-  toast: $('toast'),
-  pauseBtn: $('pauseBtn'),
-  muteBtn: $('muteBtn'),
-  titleScreen: $('screen-title'),
-  memoryScreen: $('screen-memory'),
-  restScreen: $('screen-rest'),
-  pauseScreen: $('screen-pause'),
-  deadScreen: $('screen-dead'),
-  endScreen: $('screen-end'),
-  titleBest: $('titleBest'),
-  memoryCount: $('memoryCount'),
-  memoryTitle: $('memoryTitle'),
-  memoryText: $('memoryText'),
-  pauseAdapt: $('pauseAdapt'),
-  deadText: $('deadText'),
-  memoryList: $('memoryList'),
-  endText: $('endText'),
-  touch: $('touch'),
-  touchStick: $('touchStick'),
+/* ---- UI state (declared before the game is built: the engine may call back
+   into the UI while it is still constructing itself) ---- */
+let zoneTimer = 0;
+let toastTimer = 0;
+let lastHp = -1;
+let lastMaxHp = -1;
+let lastItems = '';
+let lastQuest = '';
+let lastEmbers = -1;
+
+const canvas = $('game');
+const input = new Input(canvas);
+const sound = new Sound();
+
+const game = new Game(canvas, input, {});
+game.attachSound(sound);
+window.__sistalagan = { game, sound };
+
+const ICONS = {
+  torch: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 2c1.6 2.4 1.2 4 .3 5-.7.8-1.1 1.6-.8 2.6.9-.5 1.6-1.3 1.8-2.4 1.9 1.8 2.7 4 2.7 5.8a5 5 0 1 1-10 0c0-2.2 1.3-4.6 3.2-6.4.3 1 .8 1.7 1.6 2.2-.7-1.7-.3-4.2 1.2-6.8Z" fill="#ffb45c"/><rect x="11" y="15" width="2" height="8" rx="1" fill="#8a6a44"/></svg>',
+  bomb: '<svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="15" r="7" fill="#3c4150" stroke="#7a8296" stroke-width="1.4"/><path d="M15 7.5c1.2-1.6 2.6-1.8 3.6-1.2" stroke="#c9b089" stroke-width="1.6" stroke-linecap="round"/><circle cx="19" cy="5.6" r="1.8" fill="#ff8a4c"/><circle cx="8.4" cy="12.6" r="1.6" fill="#596176"/></svg>',
+  bow: '<svg viewBox="0 0 24 24" fill="none"><path d="M7 3c5 2.4 8 6.4 8 9s-3 6.6-8 9" stroke="#c8a06a" stroke-width="1.8" stroke-linecap="round"/><path d="M7 3 7 21" stroke="#e9ddc4" stroke-width="1"/><path d="M5 12h14" stroke="#e9ddc4" stroke-width="1.4"/><path d="m19 12-3-2v4l3-2Z" fill="#e9ddc4"/></svg>',
+  heart: '<svg viewBox="0 0 24 24"><path class="fill" d="M12 21s-8-5.1-8-10.4A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8 3.6C20 15.9 12 21 12 21Z" stroke="rgba(0,0,0,0.35)" stroke-width="1"/></svg>',
 };
 
-// NOTE: these must be declared before `new Game(...)` — the Game constructor
-// runs onRoom -> showRoomTitle synchronously, which assigns titleTimer.
-let prevHp = 3;
-let whisperTimer = 0;
-let titleTimer = 0;
-let toastTimer = 0;
-let pausedFrom = 'play';
-let pendingMemory = null;
+/* ------------------------------------------------------------------- hud */
 
-const game = new Game(canvas, input, {
-  onStart: () => {
-    hideScreens();
-    document.body.classList.add('is-playing');
-    ui.hud.classList.add('is-live');
-    sound.ready();
-    sound.click();
-  },
-  onRoom: (id, def) => {
-    showRoomTitle(def.title, def.sub);
-    if (id === 'hub' && game.shards.length) {
-      toast(`${game.shards.length} av 3 minnen burna`);
-    }
-  },
-  onWhisper: (text) => showWhisper(text),
-  onChargeStart: () => {
-    sound.chargeStart();
-    ui.charge.classList.add('is-on');
-  },
-  onCast: (tier) => {
-    sound.cast(tier);
-    ui.charge.classList.remove('is-on');
-  },
-  onJump: () => sound.jump(),
-  onJump2: () => sound.jump2(),
-  onLamp: () => sound.lamp(),
-  onBurn: () => sound.burn(),
-  onGate: () => {
-    sound.gate();
-    toast('Porten öppnar sig');
-  },
-  onMirror: () => sound.mirror(),
-  onEcho: (kind) => sound.echo(kind),
-  onShard: (memory, count) => openMemory(memory, count),
-  onHurt: () => {
-    sound.hurt();
-    pulseHeart();
-  },
-  onDeath: () => {
-    sound.die();
-    game.mode = 'dead';
-    openScreen(ui.deadScreen);
-    ui.hud.classList.remove('is-live');
-    document.body.classList.remove('is-playing');
-    const level = game.adapt < 0.34 ? 'lugnare' : game.adapt > 0.7 ? 'vaksammare' : 'som förut';
-    ui.deadText.textContent = `Du vaknar vid lyktan i Lykthuset. Skogen andas ${level}.`;
-  },
-  onRest: () => {
-    sound.rest();
-    openScreen(ui.restScreen);
-    ui.hud.classList.remove('is-live');
-    document.body.classList.remove('is-playing');
-  },
-  onMidgeDeath: () => sound.midge(),
-  onAltarLocked: (n) => toast(`Altaret saknar ${n} minne${n === 1 ? '' : n > 1 ? 'n' : ''}`),
-  onEnd: ({ shards, deaths, time }) => {
-    sound.win();
-    ui.memoryList.innerHTML = '';
-    for (const m of game.shards) {
-      const article = document.createElement('article');
-      article.innerHTML = `<h3>${m.title}</h3><p>${m.text}</p>`;
-      ui.memoryList.appendChild(article);
-    }
-    const mins = Math.floor(time / 60);
-    const secs = Math.floor(time % 60);
-    ui.endText.textContent = `${shards} minnen burna · ${deaths} fall · ${mins}:${String(secs).padStart(2, '0')} i skymningen`;
-    ui.hud.classList.remove('is-live');
-    document.body.classList.remove('is-playing');
-    openScreen(ui.endScreen);
-    setTitleBest();
-  },
-  onTransition: () => {
-    sound.click();
-  },
-});
-
-/* -------------------------------------------------------------------- HUD */
-
-function buildHud() {
-  ui.hearts.innerHTML = '';
-  for (let i = 0; i < game.player.maxHp; i++) {
-    const el = document.createElement('span');
-    el.className = 'heart';
-    ui.hearts.appendChild(el);
-  }
-  prevHp = game.player.hp;
-}
-
-function pulseHeart() {
-  const idx = Math.max(0, Math.floor(game.player.hp));
-  const el = ui.hearts.children[idx];
-  if (!el) return;
-  el.classList.remove('pulse');
-  void el.offsetWidth;
-  el.classList.add('pulse');
-}
-
-function updateHud() {
+function renderHearts(animate = false) {
+  const box = $('hearts');
+  if (!box) return;
   const p = game.player;
-  const hearts = ui.hearts.children;
-  for (let i = 0; i < hearts.length; i++) hearts[i].classList.toggle('empty', i >= p.hp);
-  if (p.hp !== prevHp) {
-    if (p.hp < prevHp) pulseHeart();
-    prevHp = p.hp;
+  if (document.querySelectorAll('.heart').length !== p.maxHp) {
+    box.innerHTML = '';
+    for (let i = 0; i < p.maxHp; i++) {
+      const h = document.createElement('div');
+      h.className = 'heart';
+      h.innerHTML = ICONS.heart;
+      box.appendChild(h);
+    }
   }
-
-  const pips = ui.shards.children;
-  for (let i = 0; i < pips.length; i++) pips[i].classList.toggle('on', i < game.shards.length);
-
-  const charging = p.charging;
-  ui.charge.classList.toggle('is-on', charging);
-  if (charging) {
-    const t = Math.min(1, p.chargeT / 1.5);
-    ui.chargeFill.style.width = `${t * 100}%`;
-    const label = p.chargeT < 0.3 ? 'knuff' : p.chargeT < 0.9 ? 'stråle' : 'bomb';
-    ui.chargeLabel.textContent = `${label} · ${(p.chargeT).toFixed(1)}s`;
-  }
-
-  const prompt = game.prompt();
-  ui.prompt.textContent = prompt;
-  ui.prompt.classList.toggle('is-on', !!prompt && game.mode === 'play');
-
-  const target = game.mode === 'play' ? game.objective() : null;
-  ui.objLabel.textContent = target ? target.label : '';
-  ui.objective.style.opacity = target ? '' : '0';
-
-  if (input.stick.active) {
-    ui.touchStick.style.transform = `translate(${input.stick.dx * 20}px, ${input.stick.dy * 20}px)`;
-    const knob = ui.touchStick.firstElementChild;
-    if (knob) knob.style.transform = `translate(${input.stick.dx * 15}px, ${input.stick.dy * 15}px)`;
-  }
+  [...box.children].forEach((el, i) => {
+    const full = i < p.hp;
+    const wasFull = el.dataset.full === '1';
+    el.classList.toggle('is-empty', !full);
+    el.dataset.full = full ? '1' : '0';
+    if (animate && wasFull && !full) {
+      el.classList.remove('is-lost');
+      void el.offsetWidth;
+      el.classList.add('is-lost');
+    }
+  });
 }
 
-function showWhisper(text) {
-  ui.whisperText.textContent = text;
-  ui.whisper.classList.add('is-on');
-  whisperTimer = 7;
+function renderItems(highlight = null) {
+  const box = $('items');
+  if (!box) return;
+  const p = game.player;
+  const key = p.items.join(',');
+  if (key !== lastItems) {
+    lastItems = key;
+    box.innerHTML = '';
+    p.items.forEach((id, i) => {
+      const slot = document.createElement('div');
+      slot.className = 'item-slot';
+      slot.dataset.slot = i;
+      slot.innerHTML = `${ICONS[id] || ''}<span class="slot-key">${ITEMS[id]?.key || i + 1}</span>`;
+      box.appendChild(slot);
+    });
+  }
+  [...box.children].forEach((el, i) => {
+    el.classList.toggle('is-active', i === p.item);
+    if (highlight && ITEMS[highlight] && p.items[i] === highlight) {
+      el.classList.remove('is-new');
+      void el.offsetWidth;
+      el.classList.add('is-new');
+    }
+  });
 }
 
-function showRoomTitle(name, sub) {
-  ui.roomName.textContent = name;
-  ui.roomSub.textContent = sub;
-  ui.roomTitle.classList.add('is-on');
-  titleTimer = 3.4;
+function renderEmbers() {
+  const box = $('embers');
+  if (box) box.textContent = String(game.flags.embers);
+  const shopBox = $('shopEmbers');
+  if (shopBox) shopBox.textContent = String(game.flags.embers);
+}
+
+function renderQuest() {
+  const q = QUESTS.find((x) => x.id === game.quest) || QUESTS[0];
+  const box = $('quest');
+  if (box && q.text !== lastQuest) {
+    lastQuest = q.text;
+    box.textContent = q.text;
+  }
+  const pq = $('pauseQuest');
+  if (pq) pq.textContent = q.text;
+}
+
+function renderHud(animate = false) {
+  const p = game.player;
+  if (p.hp !== lastHp || p.maxHp !== lastMaxHp) {
+    lastHp = p.hp;
+    lastMaxHp = p.maxHp;
+    renderHearts(animate);
+  }
+  renderItems();
+  if (game.flags.embers !== lastEmbers) {
+    lastEmbers = game.flags.embers;
+    renderEmbers();
+  }
+  renderQuest();
+}
+
+function showZone(def) {
+  const card = $('zoneCard');
+  if (!card) return;
+  $('zoneName').textContent = def.name;
+  $('zoneSub').textContent = def.sub || '';
+  card.classList.add('is-on');
+  clearTimeout(zoneTimer);
+  zoneTimer = setTimeout(() => card.classList.remove('is-on'), 2600);
 }
 
 function toast(text) {
-  ui.toast.textContent = text;
-  ui.toast.classList.add('is-on');
+  const el = $('toast');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('is-on');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => ui.toast.classList.remove('is-on'), 2300);
+  toastTimer = setTimeout(() => el.classList.remove('is-on'), 2600);
 }
 
-function setTitleBest() {
-  ui.titleBest.textContent = String(Math.max(game.best, game.shards.length));
+/* ---------------------------------------------------------------- screens */
+
+function openScreen(id) {
+  document.querySelectorAll('.screen').forEach((s) => s.classList.toggle('is-open', s.id === id));
 }
 
-function adaptLabel() {
-  if (game.adapt < 0.34) return 'lugn — fällorna väntar på dig';
-  if (game.adapt > 0.7) return 'vaksam — skogen prövar dig';
-  return 'normal — skogen lyssnar';
+function closeScreens() {
+  document.querySelectorAll('.screen').forEach((s) => s.classList.remove('is-open'));
 }
 
-/* ----------------------------------------------------------------- screens */
+function setHudLive(on) {
+  $('hud')?.classList.toggle('is-live', on);
+}
 
-function openScreen(el) {
-  for (const s of [ui.titleScreen, ui.memoryScreen, ui.restScreen, ui.pauseScreen, ui.deadScreen, ui.endScreen]) {
-    s.classList.toggle('is-open', s === el);
+function updateContinueButton() {
+  const btn = $('btnContinue');
+  if (btn) btn.hidden = !Game.hasSave();
+}
+
+/* ---------------------------------------------------------------- dialog */
+
+function renderDialog(d) {
+  const box = $('dialog');
+  if (!box) return;
+  if (!d) {
+    box.classList.remove('is-on');
+    return;
   }
+  $('dialogName').textContent = d.name;
+  $('dialogText').textContent = d.lines[d.i] || '';
+  box.classList.add('is-on');
 }
 
-function hideScreens() {
-  for (const s of [ui.titleScreen, ui.memoryScreen, ui.restScreen, ui.pauseScreen, ui.deadScreen, ui.endScreen]) {
-    s.classList.remove('is-open');
+/* ------------------------------------------------------------------ shop */
+
+function renderShop(shop) {
+  const box = $('shop');
+  if (!box) return;
+  if (!shop) {
+    box.classList.remove('is-on');
+    return;
   }
+  const list = $('shopList');
+  list.innerHTML = '';
+  shop.items.forEach((item, i) => {
+    const li = document.createElement('li');
+    const bought = game.flags[`bought-${item.id}`] && !item.repeat;
+    li.className = i === shop.index ? 'is-active' : '';
+    li.innerHTML = `
+      <span><b>${item.name}</b><br><span class="tiny">${item.desc}</span></span>
+      <span class="${bought ? 'bought' : 'cost'}">${bought ? 'köpt' : `${item.cost} glöd`}</span>`;
+    list.appendChild(li);
+  });
+  $('shopMsg').textContent = shop.message || '';
+  $('shopEmbers').textContent = String(game.flags.embers);
+  box.classList.add('is-on');
 }
 
-function openMemory(memory, count) {
-  pendingMemory = memory;
-  game.mode = 'memory';
-  sound.shard();
-  ui.memoryCount.textContent = ['Första minnet', 'Andra minnet', 'Tredje minnet'][count - 1] || 'Ett minne';
-  ui.memoryTitle.textContent = memory.title;
-  ui.memoryText.textContent = memory.text;
-  openScreen(ui.memoryScreen);
-  ui.hud.classList.remove('is-live');
-  setTitleBest();
+/* --------------------------------------------------------------- handlers */
+
+game.cb = {
+  onZone: (def) => {
+    showZone(def);
+    setHudLive(true);
+    renderHud();
+  },
+  onDialog: renderDialog,
+  onShop: renderShop,
+  onQuest: () => renderQuest(),
+  onEmbers: renderEmbers,
+  onHud: () => renderHud(),
+  onItem: (id) => {
+    renderHud();
+    if (ITEMS[id]) toast(`Du fick ${ITEMS[id].name}`);
+  },
+  onToast: toast,
+  onLight: () => renderHud(),
+  onSelect: (id) => {
+    renderItems();
+    if (ITEMS[id]) toast(ITEMS[id].name);
+  },
+  onDamage: () => renderHud(true),
+  onParry: () => toast('Parerat!'),
+  onDeath: () => {
+    setHudLive(false);
+    openScreen('screen-dead');
+  },
+  onPause: () => {
+    game.mode = 'pause';
+    setHudLive(false);
+    openScreen('screen-pause');
+  },
+  onBoss: (active) => {
+    if (active) toast('Gravens väktare vaknar');
+  },
+  onWin: (data) => {
+    game.mode = 'win';
+    renderWin(data);
+    setHudLive(false);
+    openScreen('screen-win');
+    sound.win();
+  },
+};
+
+function renderWin(data) {
+  const stats = $('winStats');
+  if (!stats) return;
+  const minutes = Math.max(1, Math.round((game.time || 0) / 60));
+  stats.textContent = `Glöd: ${data.flags.embers} · Hjärtan: ${data.maxHp} · Mörka nätter: ${data.flags.deaths} · Tid: ${minutes} min`;
 }
 
-function closeMemory() {
-  if (!pendingMemory) return;
-  pendingMemory = null;
-  game.resume();
-  hideScreens();
-  ui.hud.classList.add('is-live');
-  document.body.classList.add('is-playing');
-  if (game.shards.length >= 3) {
-    setTimeout(() => toast('Altaret i Lykthuset väntar'), 500);
-  }
+/* ------------------------------------------------------------------ flow */
+
+function startNew() {
+  Game.clearSave();
+  closeScreens();
+  setHudLive(true);
+  sound.init();
+  sound.resume();
+  game.startNew();
+  renderHud();
 }
 
-function closeRest() {
-  game.resume();
-  hideScreens();
-  ui.hud.classList.add('is-live');
-  document.body.classList.add('is-playing');
+function continueGame() {
+  const data = Game.loadSave();
+  closeScreens();
+  setHudLive(true);
+  sound.init();
+  sound.resume();
+  if (data) game.continueGame(data);
+  else game.startNew();
+  renderHud();
 }
 
-function togglePause(force) {
-  const paused = game.mode === 'paused';
-  const should = force !== undefined ? force : !paused;
-  if (should && (game.mode === 'play' || game.mode === 'rest')) {
-    pausedFrom = game.mode;
-    game.mode = 'paused';
-    ui.pauseAdapt.textContent = `Skogen lyssnar: ${adaptLabel()}`;
-    openScreen(ui.pauseScreen);
-    document.body.classList.remove('is-playing');
-    sound.click();
-  } else if (!should && paused) {
-    game.mode = pausedFrom;
-    hideScreens();
-    if (pausedFrom === 'rest') {
-      openScreen(ui.restScreen);
-      ui.hud.classList.remove('is-live');
-    } else {
-      ui.hud.classList.add('is-live');
-      document.body.classList.add('is-playing');
-    }
-    sound.click();
-  }
-}
-
-function startRun() {
-  sound.ready();
-  hideScreens();
-  buildHud();
-  game.start();
-  document.body.classList.add('is-playing');
-  ui.hud.classList.add('is-live');
-  prevHp = game.player.hp;
-  updateHud();
-  if (window.matchMedia('(pointer: coarse)').matches) ui.touch.classList.add('is-on');
-}
-
-function respawn() {
-  hideScreens();
+$('btnNew')?.addEventListener('click', () => {
+  sound.init();
+  startNew();
+});
+$('btnContinue')?.addEventListener('click', () => {
+  sound.init();
+  continueGame();
+});
+$('btnResume')?.addEventListener('click', () => {
+  closeScreens();
+  setHudLive(true);
+  game.mode = 'play';
+});
+$('btnRestart')?.addEventListener('click', startNew);
+$('btnRespawn')?.addEventListener('click', () => {
+  closeScreens();
+  setHudLive(true);
   game.respawn();
-  buildHud();
-  prevHp = game.player.hp;
-  ui.hud.classList.add('is-live');
-  document.body.classList.add('is-playing');
-  sound.click();
-}
-
-/* ------------------------------------------------------------------ events */
-
-$('startBtn').addEventListener('click', startRun);
-$('againBtn').addEventListener('click', startRun);
-$('restartBtn').addEventListener('click', startRun);
-$('memoryBtn').addEventListener('click', closeMemory);
-$('restBtn').addEventListener('click', closeRest);
-$('respawnBtn').addEventListener('click', respawn);
-$('resumeBtn').addEventListener('click', () => togglePause(false));
-$('pauseBtn').addEventListener('click', () => togglePause());
-
-function syncMute() {
-  ui.muteBtn.classList.toggle('is-muted', sound.muted);
-  ui.muteBtn.title = sound.muted ? 'Ljud på (M)' : 'Ljud av (M)';
-}
-$('muteBtn').addEventListener('click', () => {
-  sound.toggle();
-  sound.click();
-  syncMute();
+  renderHud();
 });
-syncMute();
-
-for (const btn of document.querySelectorAll('.touch-btn')) {
-  const action = btn.dataset.action;
-  const press = (e) => {
-    e.preventDefault();
-    input.virtualDown(action);
-  };
-  const release = (e) => {
-    e.preventDefault();
-    input.virtualUp(action);
-  };
-  btn.addEventListener('pointerdown', press);
-  btn.addEventListener('pointerup', release);
-  btn.addEventListener('pointercancel', release);
-  btn.addEventListener('pointerleave', release);
-}
-
-window.addEventListener('keydown', (e) => {
-  const key = e.code;
-
-  if (key === 'KeyM') {
-    sound.toggle();
-    syncMute();
-    return;
-  }
-
-  if (ui.endScreen.classList.contains('is-open')) {
-    if (key === 'Enter' || key === 'Space' || key === 'KeyE') startRun();
-    return;
-  }
-  if (ui.deadScreen.classList.contains('is-open')) {
-    if (key === 'Enter' || key === 'Space' || key === 'KeyE') respawn();
-    return;
-  }
-  if (ui.memoryScreen.classList.contains('is-open')) {
-    if (key === 'Enter' || key === 'Space' || key === 'KeyE') {
-      e.preventDefault();
-      closeMemory();
-    }
-    return;
-  }
-  if (ui.restScreen.classList.contains('is-open')) {
-    if (key === 'Enter' || key === 'Space' || key === 'KeyE') {
-      e.preventDefault();
-      closeRest();
-    }
-    return;
-  }
-  if (ui.titleScreen.classList.contains('is-open')) {
-    if (key === 'Enter' || key === 'Space') {
-      e.preventDefault();
-      startRun();
-    }
-    return;
-  }
-  if (key === 'Escape') {
-    e.preventDefault();
-    if (game.mode === 'play' || game.mode === 'rest' || game.mode === 'paused') togglePause();
-  }
+$('btnWinBack')?.addEventListener('click', () => {
+  closeScreens();
+  setHudLive(true);
+  game.mode = 'play';
+  game.loadZone('village', { x: 750, y: 660 });
 });
+$('btnWinNew')?.addEventListener('click', startNew);
 
-// Auto-pause when the tab loses focus.
+// Pause when the tab loses focus.
 window.addEventListener('blur', () => {
-  if (game.mode === 'play') togglePause(true);
+  if (game.mode === 'play') game.cb.onPause?.();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && game.mode === 'play') game.cb.onPause?.();
 });
 
-/* -------------------------------------------------------------------- loop */
+// Touch layout only where it makes sense.
+if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+  document.body.classList.add('is-touch');
+}
+
+window.addEventListener('resize', () => {
+  game.resize();
+});
+
+// Mute toggle.
+input.onFirstInput = () => sound.resume();
+
+/* ------------------------------------------------------------------ loop */
 
 let last = performance.now();
+let hudTick = 0;
 
-function frame(ts) {
-  const dt = Math.min(0.033, Math.max(0, (ts - last) / 1000));
-  last = ts;
+function frame(now) {
+  const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
+  last = now;
 
-  if (game.mode === 'play' && input.hit('interact')) game.interact();
-
-  if (game.mode !== 'paused' && game.mode !== 'memory' && game.mode !== 'rest') {
+  if (game.mode === 'play' || game.mode === 'dialog' || game.mode === 'shop') {
     game.update(dt);
   } else {
-    game.update(0);
+    game.time += dt;
   }
-
-  if (game.player.charging) sound.chargeUpdate(Math.min(1, game.player.chargeT / 1.5));
-
-  game.draw();
-  updateHud();
-
-  if (whisperTimer > 0) {
-    whisperTimer -= dt;
-    if (whisperTimer <= 0) ui.whisper.classList.remove('is-on');
-  }
-  if (titleTimer > 0) {
-    titleTimer -= dt;
-    if (titleTimer <= 0) ui.roomTitle.classList.remove('is-on');
-  }
-
   input.endFrame();
+
+  if (game.mode === 'play' || game.mode === 'dialog' || game.mode === 'shop' || game.mode === 'title') {
+    game.draw();
+  }
+
+  hudTick += dt;
+  if (hudTick > 0.2) {
+    hudTick = 0;
+    if (game.mode === 'play') renderHud();
+  }
+
+  // Item hotkeys 1-3.
+  if (game.mode === 'play') {
+    for (const [i, id] of game.player.items.entries()) {
+      if (input.hit(`slot${i}`)) {
+        game.player.item = i;
+        renderItems();
+      }
+    }
+  }
+
   requestAnimationFrame(frame);
 }
 
-let resizeTimer = 0;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => game.resize(), 120);
-});
-
-setTitleBest();
-openScreen(ui.titleScreen);
+updateContinueButton();
+renderHud();
+renderQuest();
+renderEmbers();
 requestAnimationFrame(frame);
-
-window.__lykt = { game, sound };
+window.__sistalaganBooted = true;

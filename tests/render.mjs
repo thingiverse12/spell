@@ -1,19 +1,14 @@
-// Dev-only: renders frames of the game to PNG (needs @napi-rs/canvas).
-import { createCanvas } from '@napi-rs/canvas';
+// Renders still frames of every zone to ./shots so the art can be reviewed
+// without a browser.
 import { mkdirSync, writeFileSync } from 'node:fs';
+import { installDom } from './dom.mjs';
 
-const W = 1440;
-const H = 810;
-const OUT = process.argv[2] || './shots';
+const outDir = process.argv[2] || './shots';
+mkdirSync(outDir, { recursive: true });
 
-const screen = createCanvas(W, H);
-screen.getBoundingClientRect = () => ({ width: W, height: H, left: 0, top: 0 });
-globalThis.document = { createElement: () => createCanvas(64, 64), getElementById: () => null };
-globalThis.window = { devicePixelRatio: 1, addEventListener: () => {} };
-globalThis.localStorage = { getItem: () => null, setItem: () => {} };
-
-mkdirSync(OUT, { recursive: true });
+const env = installDom({ width: 1280, height: 720 });
 const { Game } = await import('../src/game.js');
+const { ZONES } = await import('../src/world.js');
 
 class FakeInput {
   constructor() {
@@ -28,135 +23,107 @@ class FakeInput {
     return this.edges.has(a);
   }
   get axis() {
-    let a = 0;
-    if (this.held.has('left')) a -= 1;
-    if (this.held.has('right')) a += 1;
-    return a;
-  }
-  press(a) {
-    this.held.add(a);
-    this.edges.add(a);
-  }
-  release(a) {
-    this.held.delete(a);
+    return { x: 0, y: 0 };
   }
   endFrame() {
     this.edges.clear();
   }
-  clear() {
-    this.held.clear();
-    this.edges.clear();
-  }
 }
 
-const input = new FakeInput();
-const game = new Game(screen, input, {});
-game.start();
+const canvas = env.document.getElementById('game');
+const game = new Game(canvas, new FakeInput(), {});
+game.cb = {};
+const DT = 1 / 60;
 
-function step(n) {
+function step(n = 1) {
   for (let i = 0; i < n; i++) {
-    game.update(1 / 60);
-    input.endFrame();
+    game.update(DT);
+    game.input.endFrame();
   }
 }
 
-function stand(x, feetY) {
+function place(x, y) {
   const b = game.player.body;
   b.x = x;
-  b.y = feetY - b.h - 1;
+  b.y = y;
   b.vx = 0;
   b.vy = 0;
-  b.onGround = false;
-  game.player.invuln = 3;
-  for (let i = 0; i < 40 && !b.onGround; i++) step(1);
-  b.vx = 0;
-  game.cam.x = Math.max(0, Math.min(game.roomDef.w - W, b.cx - W / 2));
-  game.cam.y = Math.max(0, Math.min(900 - H, b.cy - H * 0.56));
 }
 
 async function shot(name) {
-  game.resize();
   game.draw();
-  writeFileSync(`${OUT}/${name}.png`, await screen.encode('png'));
+  const buf = canvas.toBuffer('image/png');
+  writeFileSync(`${outDir}/${name}.png`, buf);
   console.log('wrote', name);
 }
 
-// 1. Lykthuset with the lantern, and the way out visible.
-game.loadRoom('hub', { x: 380, y: 828 });
-stand(380, 828);
+// Village: Hedda and the dead hearth.
+game.loadZone('village', { x: 700, y: 660 });
+game.mode = 'play';
+place(660, 700);
+step(45);
+await shot('01-village');
+
+// Village with the hearth burning.
+game.z.braziers.forEach((b) => (b.lit = true));
+place(700, 640);
 step(30);
-await shot('01-hub');
+await shot('02-village-hearth');
 
-// 1b. The garden door with its label and the objective marker.
-stand(1480, 828);
-step(20);
-await shot('01b-hub-door');
+// Fields, one brazier lit, statue nearby.
+game.loadZone('fields', { x: 400, y: 420 });
+game.mode = 'play';
+game.z.braziers.forEach((b) => (b.lit = true));
+place(340, 400);
+step(40);
+await shot('03-fields');
 
-// 2. Charging the staff (bomb tier).
-game.player.charging = true;
-game.player.chargeT = 1.3;
-step(2);
-await shot('02-charge');
-game.player.charging = false;
-game.player.chargeT = 0;
+// Forest.
+game.loadZone('forest', { x: 900, y: 700 });
+game.mode = 'play';
+game.z.braziers.forEach((b) => (b.lit = true));
+place(880, 720);
+step(40);
+await shot('04-forest');
 
-// 3. Törngården: vines, braziers, thorn bed.
-game.loadRoom('garden', { x: 640, y: 828 });
-stand(600, 828);
-for (const l of game.world.garden.lamps) l.lit = true;
-step(20);
-await shot('03-garden');
+// River + bridge.
+game.loadZone('river', { x: 560, y: 560 });
+game.mode = 'play';
+game.z.braziers.forEach((b) => (b.lit = true));
+place(560, 560);
+step(40);
+await shot('05-river');
 
-// 4. Spegellunden with the light beam solved.
-game.loadRoom('grove', { x: 700, y: 740 });
-stand(700, 740);
-for (const m of game.world.grove.mirrors) m.angle = (3 * Math.PI) / 4;
-game.updateBeam();
-step(6);
-await shot('04-grove');
+// Crypt, dark, with a lit brazier.
+game.loadZone('crypt1', { x: 700, y: 500 });
+game.mode = 'play';
+game.z.braziers.forEach((b) => (b.lit = true));
+place(660, 520);
+step(40);
+await shot('06-crypt');
 
-// 5. Stenkammaren: crates on plates, gate open.
-game.loadRoom('stones', { x: 1000, y: 828 });
-const stones = game.world.stones;
-stones.crates.forEach((c, i) => {
-  const plate = stones.plates[i];
-  c.body.x = plate.x + plate.w / 2 - c.body.w / 2;
-  c.body.y = plate.y - c.body.h;
+// Boss chamber.
+game.loadZone('crypt3', { x: 700, y: 780 });
+game.mode = 'play';
+game.z.braziers.forEach((b) => (b.lit = true));
+place(700, 640);
+step(8);
+for (const e of game.enemies) e.state = 'chase';
+step(30);
+await shot('07-warden');
+
+// Combat moment: shadows in the fields at night.
+game.loadZone('fields', { x: 900, y: 560 });
+game.mode = 'play';
+place(900, 560);
+game.enemies.forEach((e) => {
+  e.state = 'chase';
+  e.body.x = 900 + (Math.random() - 0.5) * 160;
+  e.body.y = 560 + (Math.random() - 0.5) * 120;
 });
-stand(560, 828);
-step(20);
-await shot('05-stones');
+game.player.swingT = 0.14;
+game.effects.push({ type: 'swing', x: game.player.body.cx, y: game.player.body.cy, a: 0, life: 0.18, maxLife: 0.22, reach: 52 });
+step(3);
+await shot('08-combat');
 
-// 5b. Mid-push: hands braced against the stone.
-game.loadRoom('stones', { x: 700, y: 828 });
-input.press('left');
-for (let i = 0; i < 90; i++) {
-  game.update(1 / 60);
-  input.endFrame();
-}
-await shot('05b-push');
-input.release('left');
-
-// 6. Ekokammaren with a live echo.
-game.loadRoom('hall', { x: 400, y: 828 });
-const hall = game.world.hall;
-hall.midges.forEach((m) => (m.dead = true));
-stand(300, 828);
-game.interact();
-input.press('right');
-step(150);
-input.release('right');
-stand(1000, 828);
-step(Math.round((hall.echo.duration + 0.2) * 60));
-stand(1165, 828);
-step(120);
-stand(1165, 828);
-game.player.body.x = 1165;
-step(30);
-await shot('06-hall');
-
-// 7. The hollow room and its mirror.
-game.loadRoom('hollow', { x: 700, y: 828 });
-stand(700, 828);
-step(20);
-await shot('07-hollow');
+console.log('done', Object.keys(ZONES).length, 'zones');

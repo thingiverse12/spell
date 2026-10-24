@@ -1,95 +1,104 @@
-# Lykttändaren — ett minne i skymningen
+# Den sista lågan
 
-Ett pusselplattformsspel i en skog som aldrig riktigt somnar. Du är en liten
-lykttändare som gick ut i mörkret efter en röst som lät som din egen — och nu
-letar din följeslagare Glim efter dig. Hitta tre minnen, bär dem till altaret i
-Lykthuset och möt dig själv i det inre rummet.
+Ett zeldalikt äventyr **uppifrån** som spelas direkt i webbläsaren. Ingen
+byggprocess, inga beroenden i produktion — bara HTML, CSS och JavaScript.
 
-Byggt i ren HTML, CSS och JavaScript (canvas). Inga beroenden, inga bildfiler,
-ingen ljudfil — all grafik ritas i kod och allt ljud syntetiseras.
+Byn Häll lovade graven en låga varje vinter, och glömde. Nu har mörkret tagit
+dem alla. Du är främlingen som kom med den sista facklan: tänd de tre ljusen i
+markerna, få byn att lita på dig, och gå ner under kyrkan för att tända den
+första lågan igen.
 
 ## Starta
 
 ```bash
-npm start          # http://localhost:4173
+npm start          # serverar spelet på http://localhost:4173
 ```
 
-> Öppna via en server, inte som `file://` (spelet använder ES-moduler).
+Öppna adressen i webbläsaren. Allt körs lokalt i webbläsaren; ingen serverlogik.
 
 ## Spela
 
-| Styrning | Gör |
+| Tangent | Gör |
 | --- | --- |
-| `A` `D` / piltangenter | Gå |
-| `SPACE` / `Z` | Hoppa (en gång till i luften) |
-| `J` / vänster mus | **Ladda staven** — släpp för att kasta |
-| `W` | Sikta ljuset uppåt |
-| `S` (i luften) + full laddning | Bomben stöter dig uppåt |
-| `E` / `Enter` | Vrid speglar, spela in ekon, vila vid lyktan, använd altaret |
-| `ESC` | Paus · `M` ljud av/på |
+| **WASD / pilar** | gå |
+| **J** | svärdshugg |
+| **K** | sköld — *håll* för att blockera, *tryck* i rätt ögonblick för att parera |
+| **L** | använd valt föremål |
+| **Q** | byt föremål · **1–3** välj direkt |
+| **E** | prata, tända, öppna |
+| **Mellanslag** | rulla undan (odefinierbar stund) |
+| **Esc** | paus |
 
-### Staven i tre steg
+### Striden
 
-| Laddning | Effekt |
-| --- | --- |
-| Kort tryck (< 0,3 s) | **Knuff** — en liten ljusorb som tänder, knuffar stenar och skingrar mygg |
-| Ett andetag (0,3–0,9 s) | **Stråle** — bränner rankor, tänder lyktor och skär genom mygg |
-| Ett helt andetag (> 0,9 s) | **Bomb** — ljus i en radie, knuffar allt och ger rekyl (hoppa med `S` i luften) |
+Fienderna visar vad de ska göra innan de slår — de lyser rött och växer.
+Parerar du i det ögonblicket (`K` just innan slaget landar, med skölden mot
+fienden) tar du ingen skada, fienden tappar balansen och ditt nästa hugg gör
+dubbel skada. Fel tajmat blir det bara ett vanligt block.
 
-### Knuffa stenar
+### Ljuset
 
-Gå in i en runsten och håll riktningen. Lykttändaren sänker farten, tar upp
-båda händerna och skjuter stenen framför sig i jämn takt, med damm vid
-foten. Lyktan hänger kvar på bältet medan händerna är upptagna. Stenar
-sjunker ner i en håla när de kommer över den, så du behöver inte stanna på
-millimetern.
+Mörkret är inte bara mörkt: skuggor och krypare **brinner** i starkt ljus.
+Tänd en eldstad med facklan och du har både en fyr att slåss ifrån och ett rum
+som slutar anfalla dig.
 
-### Världen — sex rum
+## Världen
 
 ```
-            Spegellunden ──► Stenkammaren ──► Ekokammaren
-                  ▲                                 │
-Törngården ──► Lykthuset ◄─────────────────────────┘
-                  │
-                  └──► (altaret, med tre minnen) Det inre rummet
+              Björkskogen
+                   │
+   Fälten ──── Häll (byn) ──── Bäcken
+                   │
+              Kryptan (3 våningar + väktaren)
 ```
 
-| Rum | Pusslet |
+| Plats | Vad som händer där |
 | --- | --- |
-| **Lykthuset** | Navet. Bänken vid lyktan fyller hjärtan, altaret öppnar slutet. |
-| **Törngården** | Bränn tre rankor, tänd tre eldar → porten öppnas. Första minnet. |
-| **Spegellunden** | Vrid två speglar så ljuset från sändaren träffar mottagaren. Andra minnet. |
-| **Stenkammaren** | Gå in i en runsten och håll riktningen — den följer dig. En håla till vänster, en till höger; en sten i varje → porten. |
-| **Ekokammaren** | Spela in ditt eget eko och låt det stå på en platta medan du står på den andra. Tredje minnet. |
-| **Det inre rummet** | Slutet. |
+| **Häll** | Byn. Hedda ger dig facklan, smeden säljer förbättringar för glöd, de du räddar kommer tillbaka hit. |
+| **Fälten** | Första ljuset. Sune sitter förstenad. Skuggor, krypare, törnsnår och en kista. |
+| **Björkskogen** | Andra ljuset. Alva. Tät skog, en grind som bara en pil kan öppna. |
+| **Bäcken** | Tredje ljuset. Vidar. Broar, vatten som stoppar dig och en vakt av sten. |
+| **Kryptan** | Rasmassor (bomber), en pilbrytare (båge), eldstäder i mörkret — och till slut **Gravens väktare**. |
 
-Du kan gå tillbaka genom alla rum när du vill — dörrar och karta hänger ihop.
+## Föremål
 
-### Svårighet som anpassar sig
+- **Facklan** (från Hedda) — kastar en flamma som tänder eldstäder, bränner
+  törnsnår och skadar skuggor.
+- **Bomberna** (från Sune) — spränger rasmassor och allt som står för nära.
+- **Bågen** (från Alva) — pilar når långt och väcker gamla mekanismer.
+- **Ett hjärta** (från Vidar), plus hjärtan och uppgraderingar hos smeden.
 
-Skogen lyssnar. Faller du ofta blir den lugnare (färre mygg, inga taggar, längre
-viskningar från Glim). Löser du pussel snabbt blir den vaksammare (fler mygg,
-taggar som gör ont, snabbare faror). Nivån visas i pausmenyn.
+Glöd får du av besegrade fiender och kistor. Smeden Björn säljer ett hjärta
+till, ett vassare svärd, en större fackla och lagning.
+
+## Spara
+
+Spelet sparar sig själv i `localStorage` när du byter plats, tänder ett ljus
+eller får något. Välj **Fortsätt** på titelskärmen för att komma tillbaka.
 
 ## Struktur
 
 ```
-index.html        Canvas + HUD (hjärtan, minnen, laddningsmätare, viskningar)
-css/style.css     HUD, menyer, touch-kontroller
-src/main.js       Bootstrap, spelloop, HUD-synk, skärm- och tangentlogik
-src/game.js       Spellogik: rörelse, stavens tre nivåer, pussel, ljus, rendering
-src/world.js      Sex rum: geometri, pusselobjekt, dörrar, minnestexter
-src/physics.js    AABB-kollision och strålkastning/spegling för ljusstrålar
-src/input.js      Tangentbord, mus och touch → spelaktioner
-src/audio.js      Syntetiserat ljud (laddningshum, lyktor, ekon, vind)
-server.mjs        Minimal statisk server utan beroenden
-tests/smoke.mjs   Headless speltest: mekanik + alla fem pussel spelas igenom
-tests/render.mjs  Renderar PNG-frames utan webbläsare (valfritt)
+index.html          markup, skärmar, boot-felskydd
+css/style.css       HUD, dialog, butik, touch-kontroller
+src/main.js         UI, skärmar, spelloop
+src/game.js         spelmotor: rörelse, strid, eld, fiender, boss, sparning
+src/world.js        alla zoner, föremål, uppdrag, butik
+src/render.js       den målade renderaren (mark, hus, folk, ljus)
+src/physics.js      kollision och geometri
+src/input.js        tangentbord, touch-sticka och knappar
+src/audio.js        allt ljud syntas i WebAudio
+tests/              smoke-, boot- och render-tester
 ```
 
 ## Testa
 
 ```bash
-npm test                                   # alla pussel + mekanik
-npx --yes @napi-rs/canvas npm run shots    # bilder till ./shots
+npm test           # spellogik + start av hela spelet mot en DOM-attrapp
+npm run shots      # ritar 8 bilder till ./shots (kräver @napi-rs/canvas)
 ```
+
+`tests/smoke.mjs` spelar igenom hela spelet: alla tre ljusen, alla föremål,
+bomben, pilen, pareringen, väktaren och slutet. `tests/boot.mjs` laddar
+`src/main.js` mot en DOM-attrapp och klickar sig igenom titelskärmen — den
+fångar den sortens krasch som ger en svart skärm.

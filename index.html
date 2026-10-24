@@ -1,170 +1,158 @@
 <!doctype html>
 <html lang="sv">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <meta name="theme-color" content="#070d12" />
-  <meta name="description" content="Lykttändaren — ett pusselplattformsspel i skymningsskogen. Ladda staven, tänd ljuset och hitta tillbaka till ditt eget minne." />
-  <title>Lykttändaren — ett minne i skymningen</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%23070d12'/%3E%3Crect x='38' y='30' width='24' height='30' rx='4' fill='%23ffd79a'/%3E%3Cpath d='M50 12v14M50 66v10' stroke='%23ffd79a' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M32 62h36' stroke='%23ffcf7a' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./css/style.css" />
-</head>
-<body>
-  <div id="app">
-    <canvas id="game" aria-label="Spelplan"></canvas>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Den sista lågan</title>
+    <meta name="description" content="Den sista lågan — ett zeldalikt äventyr uppifrån. Tänd ljusen, rädda byn, möt mörkret." />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game" aria-label="Spelplan"></canvas>
 
-    <div class="hud" id="hud">
-      <div class="hud-left">
-        <div class="hearts" id="hearts" aria-label="Liv"></div>
-        <div class="shards" id="shards" aria-label="Minnesfragment">
-          <i></i><i></i><i></i>
+      <div class="hud" id="hud">
+        <div class="hud-left">
+          <div class="hearts" id="hearts" aria-label="Hjärtan"></div>
+          <div class="items" id="items" aria-label="Föremål"></div>
+        </div>
+        <div class="hud-right">
+          <div class="embers" id="embersBox" title="Glöd">
+            <span class="ember-dot"></span>
+            <span id="embers">0</span>
+          </div>
+          <div class="quest" id="quest"></div>
         </div>
       </div>
 
-      <div class="hud-right">
-        <button class="icon-btn" id="pauseBtn" type="button" title="Paus (Esc)" aria-label="Pausa">❚❚</button>
-        <button class="icon-btn" id="muteBtn" type="button" title="Ljud av/på (M)" aria-label="Ljud av eller på">♪</button>
+      <div class="zone-card" id="zoneCard">
+        <h2 id="zoneName">Häll</h2>
+        <p id="zoneSub"></p>
       </div>
 
-      <div class="charge" id="charge">
-        <div class="charge-fill" id="chargeFill"></div>
-        <div class="charge-marks"><i></i><i></i></div>
-        <span class="charge-label" id="chargeLabel">tryck · andas · släpp</span>
-      </div>
-
-      <div class="room-title" id="roomTitle">
-        <strong id="roomName"></strong>
-        <span id="roomSub"></span>
-      </div>
-
-      <div class="whisper" id="whisper">
-        <span class="glim">✦</span>
-        <p id="whisperText"></p>
-      </div>
-
-      <div class="objective" id="objective">
-        <span class="obj-dot"></span>
-        <span id="objLabel">Mål</span>
-      </div>
-
-      <div class="prompt" id="prompt"></div>
       <div class="toast" id="toast"></div>
-    </div>
 
-    <div class="touch" id="touch">
-      <div class="touch-stick" id="touchStick"><i></i></div>
-      <div class="touch-buttons">
-        <button class="touch-btn cast" type="button" data-action="cast">✦</button>
-        <button class="touch-btn jump" type="button" data-action="jump">⤒</button>
-        <button class="touch-btn interact" type="button" data-action="interact">◎</button>
+      <div class="dialog" id="dialog">
+        <div class="dialog-name" id="dialogName"></div>
+        <div class="dialog-text" id="dialogText"></div>
+        <div class="dialog-hint">E</div>
       </div>
-    </div>
 
-    <section class="screen is-open" id="screen-title">
-      <div class="panel title-panel">
-        <p class="eyebrow">Ett minne i skymningen</p>
-        <h1 class="logo">Lykttändaren</h1>
-        <p class="tagline">Du gick ut i mörkret efter en röst som lät som din egen.<br />Nu letar Glim efter dig.</p>
-        <button class="btn primary" id="startBtn" type="button">Tänd lyktan</button>
-        <div class="controls">
-          <div><kbd>A</kbd><kbd>D</kbd><span>Gå</span></div>
-          <div><kbd>SPACE</kbd><span>Hoppa (en gång till i luften)</span></div>
-          <div><kbd>J</kbd> / mus<span>Ladda staven, släpp för att kasta</span></div>
-          <div><kbd>W</kbd><span>Sikta ljuset uppåt</span></div>
-          <div><kbd>E</kbd><span>Vrid speglar, spela in ekon, vila</span></div>
-          <div><kbd>ESC</kbd><span>Paus</span></div>
+      <div class="shop" id="shop">
+        <div class="shop-head">
+          <h3>Smeden Björn</h3>
+          <span class="shop-glod"><span class="ember-dot"></span><span id="shopEmbers">0</span></span>
         </div>
-        <p class="hint-line">Ett tryck tänder. Ett andetag bränner. Ett helt andetag spränger.</p>
-        <p class="best-line">Funna minnen: <b id="titleBest">0</b> / 3</p>
+        <ul class="shop-list" id="shopList"></ul>
+        <div class="shop-foot">
+          <span id="shopMsg"></span>
+          <span class="key-hint">↑↓ välj · E köp · Esc stäng</span>
+        </div>
       </div>
-    </section>
 
-    <section class="screen" id="screen-memory">
-      <div class="panel memory-panel">
-        <p class="eyebrow" id="memoryCount">Första minnet</p>
-        <h2 id="memoryTitle">…</h2>
-        <p class="memory-text" id="memoryText">…</p>
-        <button class="btn primary" id="memoryBtn" type="button">Bär det med dig</button>
-        <p class="sub">Tryck <kbd>E</kbd> eller <kbd>SPACE</kbd></p>
+      <div class="screen is-open" id="screen-title">
+        <div class="title-wrap">
+          <p class="eyebrow">Ett äventyr i Häll</p>
+          <h1>Den sista lågan</h1>
+          <p class="lede">
+            Byn lovade graven en låga varje vinter, och glömde. Nu har mörkret tagit dem alla.
+            Du är främlingen som kom med den sista facklan.
+          </p>
+          <div class="buttons">
+            <button class="btn btn-primary" id="btnNew">Nytt spel</button>
+            <button class="btn" id="btnContinue">Fortsätt</button>
+          </div>
+          <ul class="controls">
+            <li><b>WASD / pilar</b> gå</li>
+            <li><b>J</b> svärd</li>
+            <li><b>K</b> sköld — parera i rätt ögonblick</li>
+            <li><b>L</b> använd föremål · <b>Q</b> byt · <b>1–3</b> välj</li>
+            <li><b>E</b> prata / tända</li>
+            <li><b>Mellanslag</b> rulla undan</li>
+            <li><b>Esc</b> paus</li>
+          </ul>
+        </div>
       </div>
-    </section>
 
-    <section class="screen" id="screen-rest">
-      <div class="panel small">
-        <p class="eyebrow">Lykthuset</p>
-        <h2>Vila vid lyktan</h2>
-        <p class="sub">Lågorna är hela igen. Glim sitter på kanten och tittar på dig.</p>
-        <button class="btn primary" id="restBtn" type="button">Res dig</button>
-        <p class="sub">Tryck <kbd>E</kbd></p>
+      <div class="screen" id="screen-pause">
+        <div class="panel">
+          <h2>Paus</h2>
+          <p class="pause-quest" id="pauseQuest"></p>
+          <div class="buttons">
+            <button class="btn btn-primary" id="btnResume">Fortsätt</button>
+            <button class="btn" id="btnRestart">Börja om</button>
+          </div>
+          <p class="tiny">Spelet sparas automatiskt när du byter plats eller tänder ett ljus.</p>
+        </div>
       </div>
-    </section>
 
-    <section class="screen" id="screen-pause">
-      <div class="panel small">
-        <p class="eyebrow">Paus</p>
-        <h2>Skogen väntar</h2>
-        <p class="sub" id="pauseAdapt">Skogen lyssnar: normalt</p>
-        <button class="btn primary" id="resumeBtn" type="button">Fortsätt</button>
-        <button class="btn ghost" id="restartBtn" type="button">Börja om</button>
-        <p class="sub">Tryck <kbd>ESC</kbd> för att fortsätta</p>
+      <div class="screen" id="screen-dead">
+        <div class="panel">
+          <h2>Mörkret tog dig</h2>
+          <p>Men byn har fortfarande en låga kvar. Reste dig.</p>
+          <button class="btn btn-primary" id="btnRespawn">Res dig i Häll</button>
+        </div>
       </div>
-    </section>
 
-    <section class="screen" id="screen-dead">
-      <div class="panel small">
-        <p class="eyebrow">Ljuset slocknade</p>
-        <h2>Men lyktan minns dig</h2>
-        <p class="sub" id="deadText">Du vaknar vid lyktan i Lykthuset.</p>
-        <button class="btn primary" id="respawnBtn" type="button">Tänd igen</button>
-        <p class="sub">Tryck <kbd>E</kbd> eller <kbd>SPACE</kbd></p>
+      <div class="screen" id="screen-win">
+        <div class="panel">
+          <p class="eyebrow">Slut</p>
+          <h2>Lågan brinner</h2>
+          <p>
+            Den första lågan vaknar under kyrkan, och ljuset letar sig upp genom jorden.
+            I Häll öppnar sig dörrarna, en efter en. De som varit sten andas igen.
+          </p>
+          <p class="stats" id="winStats"></p>
+          <div class="buttons">
+            <button class="btn btn-primary" id="btnWinBack">Tillbaka till byn</button>
+            <button class="btn" id="btnWinNew">Nytt spel</button>
+          </div>
+        </div>
       </div>
-    </section>
 
-    <section class="screen" id="screen-end">
-      <div class="panel end-panel">
-        <p class="eyebrow">Det inre rummet</p>
-        <h2>Du minns</h2>
-        <div class="memory-list" id="memoryList"></div>
-        <p class="sub" id="endText"></p>
-        <button class="btn primary" id="againBtn" type="button">Vandra igen</button>
+      <div class="touch" id="touch">
+        <div class="stick" id="touchStick"><div class="stick-knob" id="touchKnob"></div></div>
+        <div class="touch-buttons">
+          <button class="tbtn" data-touch-action="attack">J</button>
+          <button class="tbtn" data-touch-action="shield">K</button>
+          <button class="tbtn" data-touch-action="item">L</button>
+          <button class="tbtn tbtn-small" data-touch-action="interact">E</button>
+          <button class="tbtn tbtn-small" data-touch-action="dodge">↷</button>
+        </div>
       </div>
-    </section>
-  </div>
 
-  <div class="boot-error" id="bootError" role="alert">
-    <p class="eyebrow">Något gick fel</p>
-    <h2>Spelet kunde inte starta</h2>
-    <p class="sub" id="bootErrorText">Öppna konsolen för detaljer.</p>
-    <button class="btn ghost" type="button" id="bootReload">Ladda om</button>
-  </div>
+      <div class="boot-error" id="bootError" hidden>
+        <h2>Spelet kunde inte starta</h2>
+        <p id="bootErrorText"></p>
+        <button class="btn" id="btnReload">Ladda om</button>
+      </div>
+    </div>
 
-  <script>
-    (function () {
-      var box = document.getElementById('bootError');
-      var text = document.getElementById('bootErrorText');
-      var shown = false;
-      function show(message) {
-        if (shown) return;
-        shown = true;
-        text.textContent = message;
-        box.classList.add('is-open');
-      }
-      window.addEventListener('error', function (e) {
-        var where = e.filename ? ' (' + e.filename.split('/').pop() + ':' + e.lineno + ')' : '';
-        show((e.message || 'Okänt fel') + where);
-      });
-      window.addEventListener('unhandledrejection', function (e) {
-        show((e.reason && e.reason.message) || 'Ett löfte avbröts');
-      });
-      document.getElementById('bootReload').addEventListener('click', function () {
-        location.reload();
-      });
-      // If the module never runs, say so instead of showing a dead page.
-      setTimeout(function () {
-        if (!window.__lykt) show('Spelmotorn laddades inte. Kontrollera att /src/main.js kan hämtas.');
-      }, 4000);
-    })();
-  </script>
-  <script type="module" src="./src/main.js"></script>
-</body>
+    <script>
+      // Anything that goes wrong before the module runs must still be visible.
+      (function () {
+        var box = document.getElementById('bootError');
+        var text = document.getElementById('bootErrorText');
+        var show = function (msg) {
+          if (!box || !box.hidden) return;
+          box.hidden = false;
+          if (text) text.textContent = msg;
+        };
+        window.addEventListener('error', function (e) {
+          show((e && e.message ? e.message : 'Okänt fel') + (e && e.filename ? ' (' + e.filename + ':' + e.lineno + ')' : ''));
+        });
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e && e.reason;
+          show(r && r.message ? r.message : String(r));
+        });
+        document.getElementById('btnReload').addEventListener('click', function () {
+          location.reload();
+        });
+        setTimeout(function () {
+          if (!window.__sistalaganBooted) show('Motorn laddades aldrig. Prova att ladda om sidan.');
+        }, 4000);
+      })();
+    </script>
+    <script type="module" src="src/main.js"></script>
+  </body>
 </html>

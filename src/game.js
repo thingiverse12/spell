@@ -1,2471 +1,1378 @@
-// LYKTTÄNDAREN — a lantern-lit puzzle platformer in the dusk forest.
-// Game state, puzzles and rendering all live here.
-
-import { Body, rectsOverlap, rayRect, reflect } from './physics.js';
-import { ROOMS, FLOOR, MEMORIES } from './world.js';
-
-// Older Safari has no roundRect; without this the whole frame would throw.
-if (typeof CanvasRenderingContext2D !== 'undefined' && !CanvasRenderingContext2D.prototype.roundRect) {
-  CanvasRenderingContext2D.prototype.roundRect = function roundRect(x, y, w, h, r = 0) {
-    const rr = Math.min(typeof r === 'number' ? r : 0, Math.abs(w) / 2, Math.abs(h) / 2);
-    this.moveTo(x + rr, y);
-    this.arcTo(x + w, y, x + w, y + h, rr);
-    this.arcTo(x + w, y + h, x, y + h, rr);
-    this.arcTo(x, y + h, x, y, rr);
-    this.arcTo(x, y, x + w, y, rr);
-    this.closePath();
-    return this;
-  };
-}
+// Den sista lågan — game logic.
+import { Body, rectsOverlap, dist, clamp, lerp, angleDiff, rng } from './physics.js';
+import { ZONES, ITEMS, QUESTS, SHOP } from './world.js';
+import { bakeGround, drawScene, drawLighting, drawEffectLayer } from './render.js';
 
 const TAU = Math.PI * 2;
-const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-const lerp = (a, b, t) => a + (b - a) * t;
 const rand = (a, b) => a + Math.random() * (b - a);
-const sign = (v) => (v < 0 ? -1 : 1);
-const dist = (ax, ay, bx, by) => Math.hypot(bx - ax, by - ay);
 
-const PHYS = {
-  run: 262,
-  accel: 2900,
-  airAccel: 2100,
-  jump: 700,
-  jump2: 640,
-  gravity: 2080,
-  maxFall: 1050,
+const PLAYER = {
+  speed: 214,
+  accel: 2400,
+  friction: 2100,
+  w: 22,
+  h: 26,
+  maxHp: 3,
+  atkCd: 0.34,
+  swing: 0.22,
+  reach: 52,
+  arc: 1.35,
+  dodgeSpeed: 470,
+  dodgeTime: 0.26,
+  dodgeCd: 0.75,
+  parryWindow: 0.2,
 };
 
-const CHARGE = { push: 0.3, beam: 0.9, max: 1.5 };
-const CAST = { pushSpeed: 470, beamRange: 230, bombRadius: 138 };
-
-const MOODS = {
-  home: { deep: '#0b141d', sky: '#162633', rock: '#22303f', moss: '#3f8a76', rim: '#9df3d8', accent: '#ffcf7a', glow: '#ffd79a' },
-  thorn: { deep: '#0a1618', sky: '#12292a', rock: '#1d3231', moss: '#3c8767', rim: '#9dffcd', accent: '#b6ff8f', glow: '#a8ffcf' },
-  mirror: { deep: '#0d0c1c', sky: '#1a1734', rock: '#262247', moss: '#544d96', rim: '#c9b6ff', accent: '#e0d3ff', glow: '#d7c8ff' },
-  stone: { deep: '#0b1219', sky: '#162230', rock: '#232f3f', moss: '#4a7288', rim: '#a8e2f7', accent: '#c2e8ff', glow: '#c2e8ff' },
-  echo: { deep: '#0a1618', sky: '#122a2e', rock: '#1d3439', moss: '#3f878c', rim: '#9cf3f4', accent: '#bff9ff', glow: '#bff9ff' },
-  memory: { deep: '#100e1e', sky: '#1d1a38', rock: '#2b2748', moss: '#5b5499', rim: '#efe7ff', accent: '#fff0c4', glow: '#fff4d2' },
+const ENEMY = {
+  shadow: { hp: 3, speed: 74, r: 15, dmg: 1, range: 36, windup: 0.42, recover: 0.55, ember: 6, h: 34 },
+  crawler: { hp: 2, speed: 122, r: 11, dmg: 1, range: 28, windup: 0.28, recover: 0.45, ember: 5, h: 20 },
+  guard: { hp: 9, speed: 60, r: 21, dmg: 2, range: 48, windup: 0.72, recover: 0.85, ember: 14, h: 44 },
+  warden: { hp: 44, speed: 74, r: 36, dmg: 2, range: 74, windup: 0.78, recover: 0.8, ember: 0, h: 68 },
 };
 
-const safeStorage = {
-  get(key) {
-    try {
-      return window.localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  set(key, value) {
-    try {
-      window.localStorage.setItem(key, value);
-    } catch {
-      /* private mode: scores simply do not persist */
-    }
-  },
-};
+const ITEM_ORDER = ['torch', 'bomb', 'bow'];
 
 export class Game {
   constructor(canvas, input, cb = {}) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
     this.input = input;
     this.cb = cb;
-    this.dpr = Math.min(window.devicePixelRatio || 1, 2);
-    this.w = 1280;
-    this.h = 720;
-    this.lightCanvas = document.createElement('canvas');
-    this.lightCtx = this.lightCanvas.getContext('2d');
+    this.ctx = canvas.getContext('2d');
+    this.sound = null;
 
+    this.mode = 'title'; // title | play | dialog | shop | pause | dead | win
     this.time = 0;
-    this.mode = 'title'; // title | play | memory | rest | paused | dead | end
-    this.adapt = 0.5;
-    this.deaths = 0;
-    this.shards = [];
-    this.best = Number(safeStorage.get('lykt.memories') || 0);
-    this.muted = false;
-
     this.cam = { x: 0, y: 0 };
     this.zoom = 1;
+    this.hitstop = 0;
     this.shake = 0;
     this.flash = 0;
-    this.exitLock = 0;
-    this.stuck = 0;
-    this.hintIndex = 0;
-    this.whisperCooldown = 0;
+    this.fade = 0;
 
-    this.particles = [];
-    this.fx = [];
-    this.orbs = [];
-    this.whispers = [];
-
-    // Callbacks are muted until construction finishes; the constructor itself
-    // loads the first room, and the UI is not wired up yet at that point.
-    this.ready = false;
+    this.flags = this.freshFlags();
     this.player = this.makePlayer();
-    this.world = {};
-    this.carry = null;
+    this.zoneId = 'village';
+    this.zoneDef = ZONES.village;
+    this.z = null;
+    this.enemies = [];
+    this.projectiles = [];
+    this.particles = [];
+    this.effects = [];
+    this.lightsCache = [];
+    this.dialog = null;
+    this.shop = null;
+    this.quest = 'torch';
+    this.hint = '';
+    this.hintTimer = 0;
     this.resize();
-    this.resetWorld();
-    this.loadRoom('hub', ROOMS.hub.spawn);
+    this.loadZone('village', ZONES.village.spawn);
     this.ready = true;
+  }
+
+  attachSound(sound) {
+    this.sound = sound;
+  }
+
+  freshFlags() {
+    return {
+      torch: false,
+      bombs: false,
+      bow: false,
+      braziers: { fields: false, forest: false, river: false },
+      braziersHearth: false,
+      freed: { sune: false, alva: false, vidar: false },
+      cryptKey: false,
+      cryptEntry: false,
+      bossDead: false,
+      flameLit: false,
+      chests: {},
+      rubble: {},
+      bramble: {},
+      switches: {},
+      embers: 0,
+      hearts: 0,
+      edge: 0,
+      lantern: 0,
+      seenVillage: false,
+      quest: 'torch',
+      deaths: 0,
+    };
+  }
+
+  makePlayer() {
+    return {
+      body: new Body(750, 660, PLAYER.w, PLAYER.h),
+      vx: 0,
+      vy: 0,
+      facing: Math.PI / 2,
+      hp: PLAYER.maxHp,
+      maxHp: PLAYER.maxHp,
+      invuln: 0,
+      attackCd: 0,
+      swingT: 0,
+      swingId: 0,
+      shielding: false,
+      parryT: 0,
+      shieldCd: 0,
+      stagger: 0,
+      dodgeT: 0,
+      dodgeCd: 0,
+      dodgeDir: { x: 0, y: 1 },
+      counter: 0,
+      item: 0,
+      items: [],
+      step: 0,
+      lantern: 0,
+      burnT: 0,
+    };
   }
 
   /* ------------------------------------------------------------- lifecycle */
 
-  makePlayer() {
-    const b = new Body(260, 700, 26, 44);
+  startNew() {
+    this.flags = this.freshFlags();
+    this.player = this.makePlayer();
+    this.quest = 'torch';
+    this.mode = 'play';
+    this.loadZone('village', ZONES.village.spawn);
+    this.say('Hedda', [
+      'Du är inte härifrån. Det syns på hur du står.',
+      'Byn heter Häll. Förr brann det i varje fönster här.',
+      'Vi lovade graven en låga varje vinter. Sedan glömde vi.',
+      'Nu har mörkret tagit dem. Alla utom mig.',
+      'Ta facklan. Tänd de tre ljusen ute i markerna — då finns det kraft kvar i byn.',
+    ]);
+    this.setQuest('torch');
+  }
+
+  continueGame(data) {
+    this.flags = { ...this.freshFlags(), ...data.flags };
+    this.player = this.makePlayer();
+    this.player.hp = data.hp ?? PLAYER.maxHp;
+    this.player.maxHp = data.maxHp ?? PLAYER.maxHp;
+    this.player.items = (data.items || []).filter((i) => ITEMS[i]);
+    this.player.item = clamp(data.item || 0, 0, Math.max(0, this.player.items.length - 1));
+    this.quest = data.quest || this.flags.quest || 'torch';
+    this.mode = 'play';
+    this.loadZone(data.zone || 'village', { x: data.x ?? 750, y: data.y ?? 660 });
+    this.say('Glim', ['Du är tillbaka. Mörkret väntade.', 'Fortsätt där du var.']);
+  }
+
+  serialize() {
+    const p = this.player;
     return {
-      body: b,
-      facing: 1,
-      hp: 3,
-      maxHp: 3,
-      invuln: 0.6,
-      charging: false,
-      chargeT: 0,
-      castCd: 0,
-      aimUp: false,
-      anim: 0,
-      land: 0,
-      airJump: true,
-      coyote: 0,
-      pushAmt: 0, // 0..1, how hard the hands are braced against a stone
-      pushDir: 1,
-      pushHold: false,
+      v: 1,
+      zone: this.zoneId,
+      x: Math.round(p.body.x),
+      y: Math.round(p.body.y),
+      hp: p.hp,
+      maxHp: p.maxHp,
+      items: p.items,
+      item: p.item,
+      quest: this.quest,
+      flags: this.flags,
     };
+  }
+
+  save() {
+    try {
+      localStorage.setItem('sistalagan.save.v1', JSON.stringify(this.serialize()));
+    } catch {
+      /* ignore */
+    }
+  }
+
+  static loadSave() {
+    try {
+      const raw = localStorage.getItem('sistalagan.save.v1');
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      return data && data.v === 1 ? data : null;
+    } catch {
+      return null;
+    }
+  }
+
+  static hasSave() {
+    return !!Game.loadSave();
+  }
+
+  static clearSave() {
+    try {
+      localStorage.removeItem('sistalagan.save.v1');
+    } catch {
+      /* ignore */
+    }
   }
 
   resize() {
     const rect = this.canvas.getBoundingClientRect();
-    this.w = Math.max(480, Math.round(rect.width));
-    this.h = Math.max(320, Math.round(rect.height));
-    // A zoomed-in camera keeps the knight readable on tall screens.
-    this.zoom = clamp(Math.min(this.w / 1120, this.h / 640), 1, 2.1);
-    this.viewW = this.w / this.zoom;
-    this.viewH = this.h / this.zoom;
-    const dpr = this.dpr;
+    this.w = Math.max(480, Math.round(rect.width || 1280));
+    this.h = Math.max(320, Math.round(rect.height || 720));
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    this.dpr = dpr;
     this.canvas.width = Math.round(this.w * dpr);
     this.canvas.height = Math.round(this.h * dpr);
-    this.lightCanvas.width = Math.round(this.w * dpr);
-    this.lightCanvas.height = Math.round(this.h * dpr);
-  }
-
-  resetWorld() {
-    this.world = {};
-    for (const id of Object.keys(ROOMS)) {
-      const def = ROOMS[id];
-      this.world[id] = {
-        lamps: def.lamps.map((l) => ({ ...l, lit: false })),
-        vines: def.vines.map((v) => ({ ...v, burnt: false, burn: 0 })),
-        mirrors: def.mirrors.map((m) => ({ ...m })),
-        crates: def.crates.map((c) => ({ body: new Body(c.x, c.y, 44, 44), vx: 0, vy: 0, glow: 0 })),
-        plates: def.plates.map((p) => ({ ...p, pressed: false, anim: 0 })),
-        gates: def.gates.map((g) => ({ ...g, open: false, anim: 0 })),
-        shard: def.shard ? { ...def.shard, taken: false, t: 0 } : null,
-        echo: def.echo
-          ? { x: def.echo.x, y: def.echo.y, duration: def.echo.duration, recording: false, playing: false, t: 0, frames: [], playT: 0, pos: null }
-          : null,
-        midges: def.midges.map((m) => ({ x: m.x, y: m.y, hx: m.x, hy: m.y, phase: Math.random() * TAU, t: 0, dead: false, alert: false })),
-        beamHit: false,
-        solved: false,
-      };
+    // Keep roughly 900x640 world pixels on screen.
+    this.zoom = clamp(Math.min(this.w / 840, this.h / 540), 0.85, 2.1);
+    this.viewW = this.w / this.zoom;
+    this.viewH = this.h / this.zoom;
+    if (this.lightCanvas) {
+      this.lightCanvas.width = Math.round(this.w * dpr);
+      this.lightCanvas.height = Math.round(this.h * dpr);
     }
   }
 
-  start() {
-    this.mode = 'play';
-    this.adapt = 0.5;
-    this.deaths = 0;
-    this.shards = [];
-    this.whispers = [];
+  ensureLightCanvas() {
+    if (this.lightCanvas) return;
+    this.lightCanvas = document.createElement('canvas');
+    this.lightCanvas.width = Math.round(this.w * this.dpr);
+    this.lightCanvas.height = Math.round(this.h * this.dpr);
+    this.lightCtx = this.lightCanvas.getContext('2d');
+  }
+
+  setQuest(id) {
+    // Quests only ever move forward: a late hint must never rewind progress.
+    const order = QUESTS.map((q) => q.id);
+    const next = order.indexOf(id);
+    const now = order.indexOf(this.quest);
+    if (next >= 0 && now >= 0 && next < now) return;
+    this.quest = id;
+    this.flags.quest = id;
+    const q = QUESTS.find((x) => x.id === id);
+    if (q) this.cb.onQuest?.(q);
+    this.save();
+  }
+
+  advanceQuest() {
+    const f = this.flags;
+    const litAll = f.braziers.fields && f.braziers.forest && f.braziers.river;
+    if (!f.torch || !litAll) return this.setQuest('torch');
+    if (!f.cryptEntry) return this.setQuest('crypt');
+    if (!f.flameLit) return this.setQuest('flame');
+    return this.setQuest('done');
+  }
+
+  /* ------------------------------------------------------------------ zone */
+
+  loadZone(id, spawn = null) {
+    const def = ZONES[id];
+    if (!def) return;
+    this.zoneId = id;
+    this.zoneDef = def;
+    this.z = this.buildZoneState(def);
+    this.ground = bakeGround(def);
+    this.lightsCache = [];
+    this.projectiles.length = 0;
     this.particles.length = 0;
-    this.fx.length = 0;
-    this.orbs.length = 0;
-    this.player = this.makePlayer();
-    this.resetWorld();
-    this.loadRoom('hub', ROOMS.hub.spawn);
-    this.cb.onStart?.();
-    this.whisper('Glim: Äntligen vaken. Lyktan är din igen.');
-  }
-
-  loadRoom(id, spawn = null) {
-    this.roomId = id;
-    this.roomDef = ROOMS[id];
-    this.state = this.world[id];
-    this.mood = MOODS[this.roomDef.mood] || MOODS.home;
+    this.effects.length = 0;
+    this.enemies = [];
+    this.bossStarted = false;
+    this.spawnEnemies();
     const p = this.player;
-    const point = spawn || this.roomDef.spawn;
-    p.body.x = point.x;
-    p.body.y = point.y - p.body.h;
-    p.body.vx = 0;
-    p.body.vy = 0;
-    p.charging = false;
-    p.chargeT = 0;
-    p.airJump = true;
-    this.orbs.length = 0;
-    this.beamPath = null;
-    this.exitLock = 0.35;
-    this.stuck = 0;
-    this.hintIndex = 0;
-    this.cam.x = clamp(p.body.cx - this.viewW / 2, 0, Math.max(0, this.roomDef.w - this.viewW));
-    this.cam.y = clamp(p.body.cy - this.viewH * 0.55, 0, Math.max(0, 900 - this.viewH));
-    if (this.ready) this.cb.onRoom?.(id, this.roomDef);
-  }
-
-  /* ---------------------------------------------------------------- input */
-
-  interactable() {
-    const b = this.player.body;
-    const st = this.state;
-    const near = (x, y, r = 74) => dist(b.cx, b.cy, x, y) < r;
-
-    for (const m of st.mirrors) if (near(m.x, m.y)) return { type: 'mirror', obj: m };
-    if (st.echo && near(st.echo.x, st.echo.y - 20)) return { type: 'echo', obj: st.echo };
-    for (const l of st.lamps) if (l.hearth && near(l.x, l.y - 30)) return { type: 'hearth', obj: l };
-    if (this.roomDef.altar && near(this.roomDef.altar.x + 55, this.roomDef.altar.y + 40, 90)) {
-      return { type: 'altar', obj: this.roomDef.altar };
+    const s = spawn || def.spawn;
+    p.body.x = s.x;
+    p.body.y = s.y;
+    p.vx = 0;
+    p.vy = 0;
+    p.invuln = 1.1;
+    p.dodgeT = 0;
+    p.stagger = 0;
+    p.swingT = 0;
+    this.cam.x = clamp(p.body.cx - this.viewW / 2, 0, Math.max(0, def.w - this.viewW));
+    this.cam.y = clamp(p.body.cy - this.viewH / 2, 0, Math.max(0, def.h - this.viewH));
+    this.exitLock = 0.5;
+    this.fade = 1;
+    if (id.startsWith('crypt') && !this.flags.cryptEntry) {
+      this.flags.cryptEntry = true;
+      this.setQuest('flame');
     }
-    return null;
+    if (this.ready) this.cb.onZone?.(def, this.z);
+    if (id === 'village' && !this.flags.seenVillage) this.flags.seenVillage = true;
+    this.save();
   }
 
-  /** What the player should do next, and where. Used by the HUD + marker. */
-  objective() {
-    const st = this.state;
-    const def = this.roomDef;
-    const p = this.player.body;
-    const nearest = (list, at) => {
-      let best = null;
-      let bd = Infinity;
-      for (const o of list) {
-        const t = at(o);
-        const d = dist(p.cx, p.cy, t.x, t.y);
-        if (d < bd) {
-          bd = d;
-          best = t;
+  buildZoneState(def) {
+    const f = this.flags;
+    const st = {
+      braziers: [],
+      rubble: (def.rubble || []).map((r, i) => ({ ...r, broken: !!f.rubble[`${def.id}:${i}`], idx: i })),
+      brambles: (def.brambles || []).map((b, i) => ({ ...b, burnt: !!f.bramble[`${def.id}:${i}`], idx: i })),
+      gates: (def.gates || []).map((g) => ({ ...g, open: !!f.switches[g.id] })),
+      switches: (def.switches || []).map((s) => ({ ...s, hit: !!f.switches[s.id] })),
+      chests: (def.chests || []).map((c) => ({ ...c, opened: !!f.chests[c.id] })),
+      statues: (def.statues || []).map((s) => ({ ...s })).filter((s) => !f.freed[s.id]),
+      npcs: (def.npcs || []).filter((n) => !n.after || f.freed[n.after]).map((n) => ({ ...n })),
+      altar: def.altar ? { ...def.altar, lit: !!f.flameLit } : null,
+    };
+    if (def.brazier) {
+      const lit = def.brazier.id === 'hearth' ? !!f.braziersHearth : !!f.braziers[def.brazier.id];
+      st.braziers.push({ ...def.brazier, lit, hearth: def.brazier.id === 'hearth' });
+    }
+    for (const b of def.braziers || []) {
+      st.braziers.push({ ...b, lit: !!f.braziers[b.id] });
+    }
+    return st;
+  }
+
+  spawnEnemies() {
+    if (this.zoneDef.boss) {
+      if (!this.flags.bossDead && !this.bossStarted) {
+        // The warden wakes when the player walks toward the altar.
+      }
+      return;
+    }
+    for (const e of this.zoneDef.enemies || []) this.enemies.push(this.makeEnemy(e.kind, e.x, e.y));
+  }
+
+  makeEnemy(kind, x, y) {
+    const def = ENEMY[kind] || ENEMY.shadow;
+    return {
+      kind,
+      body: new Body(x - def.r, y - def.r, def.r * 2, def.r * 2),
+      def,
+      hp: def.hp * (1 + this.flags.deaths * 0.02),
+      maxHp: def.hp,
+      state: 'idle',
+      stateT: 0,
+      vx: 0,
+      vy: 0,
+      facing: 0,
+      hitBy: -1,
+      burnT: 0,
+      flash: 0,
+      staggerT: 0,
+      bob: Math.random() * TAU,
+      phase: 1,
+      attackAngle: 0,
+      dead: false,
+      spawnGrace: 0.4,
+    };
+  }
+
+  /** Everything the player collides with right now. */
+  solids() {
+    const out = [];
+    for (const p of this.zoneDef.props || []) if (p.solid) out.push(p.solid);
+    for (const w of this.zoneDef.walls || []) out.push(w);
+    for (const w of this.waterSolids()) out.push(w);
+    for (const g of this.z.gates) if (!g.open) out.push({ x: g.x, y: g.y, w: g.w, h: g.h });
+    for (const r of this.z.rubble) if (!r.broken) out.push({ x: r.x, y: r.y, w: r.w, h: r.h });
+    for (const b of this.z.brambles) if (!b.burnt) out.push({ x: b.x, y: b.y, w: b.w, h: b.h });
+    for (const b of this.z.braziers) out.push({ x: b.x - 16, y: b.y - 12, w: 32, h: 20 });
+    for (const c of this.z.chests) if (!c.opened) out.push({ x: c.x - 16, y: c.y - 12, w: 32, h: 18 });
+    for (const s of this.z.statues) out.push(s.solid);
+    for (const n of this.z.npcs) out.push({ x: n.x - 11, y: n.y - 10, w: 22, h: 16 });
+    if (this.z.altar) out.push({ x: this.z.altar.x - 34, y: this.z.altar.y - 16, w: 68, h: 30 });
+    return out;
+  }
+
+  /** Water collides everywhere except where a bridge crosses it. */
+  waterSolids() {
+    const out = [];
+    for (const w of this.zoneDef.water || []) {
+      const bridges = (this.zoneDef.bridges || []).filter((b) => rectsOverlap(b, w));
+      if (!bridges.length) {
+        out.push(w);
+        continue;
+      }
+      const xs = [
+        w.x,
+        w.x + w.w,
+        ...bridges.flatMap((b) => [clamp(b.x, w.x, w.x + w.w), clamp(b.x + b.w, w.x, w.x + w.w)]),
+      ].sort((a, b) => a - b);
+      for (let i = 0; i < xs.length - 1; i++) {
+        const x0 = xs[i];
+        const x1 = xs[i + 1];
+        if (x1 - x0 < 0.5) continue;
+        const covered = bridges
+          .filter((b) => b.x <= x0 + 0.5 && b.x + b.w >= x1 - 0.5)
+          .map((b) => [Math.max(b.y, w.y), Math.min(b.y + b.h, w.y + w.h)])
+          .sort((a, b) => a[0] - b[0]);
+        let y = w.y;
+        for (const [a, b] of covered) {
+          if (a > y) out.push({ x: x0, y, w: x1 - x0, h: a - y });
+          y = Math.max(y, b);
         }
+        if (y < w.y + w.h) out.push({ x: x0, y, w: x1 - x0, h: w.y + w.h - y });
       }
-      return best;
-    };
-    const door = (to) => {
-      const ex = def.exits.find((e) => e.to === to) || def.exits[0];
-      return { x: ex.x + ex.w / 2, y: ex.y + ex.h / 2, label: ex.label || 'Vidare', kind: 'door' };
-    };
-
-    if (def.id === 'hub') {
-      if (this.shards.length >= 3) {
-        return { x: def.altar.x + 55, y: def.altar.y + 30, label: 'Minnas vid altaret', kind: 'altar' };
-      }
-      return { ...door('garden'), label: 'Gå till Törngården', sub: `Minnen: ${this.shards.length}/3` };
     }
-
-    if (def.id === 'garden') {
-      const vines = st.vines.filter((v) => !v.burnt);
-      if (vines.length) {
-        const t = nearest(vines, (v) => ({ x: v.x + v.w / 2, y: v.y + v.h / 2 }));
-        return { ...t, label: `Bränn rankorna (${3 - vines.length}/3)`, kind: 'vine' };
-      }
-      const lamps = st.lamps.filter((l) => !l.lit);
-      if (lamps.length) {
-        const t = nearest(lamps, (l) => ({ x: l.x, y: l.y - 30 }));
-        return { ...t, label: `Tänd eldarna (${3 - lamps.length}/3)`, kind: 'lamp' };
-      }
-      if (st.shard && !st.shard.taken) return { x: st.shard.x, y: st.shard.y - 30, label: 'Ta minnet', kind: 'shard' };
-      return { ...door('grove'), label: 'Vidare till Spegellunden' };
-    }
-
-    if (def.id === 'grove') {
-      if (!st.beamHit) {
-        const t = nearest(st.mirrors, (m) => ({ x: m.x, y: m.y }));
-        return { ...t, label: 'Vrid speglarna (E)', kind: 'mirror' };
-      }
-      if (st.shard && !st.shard.taken) return { x: st.shard.x, y: st.shard.y - 30, label: 'Ta minnet', kind: 'shard' };
-      return { ...door('stones'), label: 'Vidare till Stenkammaren' };
-    }
-
-    if (def.id === 'stones') {
-      const open = st.plates.filter((pl) => !pl.pressed);
-      if (open.length) {
-        const t = nearest(open, (pl) => ({ x: pl.x + pl.w / 2, y: pl.y }));
-        return { ...t, label: `Sten på plattorna (${2 - open.length}/2)`, kind: 'plate' };
-      }
-      return { ...door('hall'), label: 'Vidare till Ekokammaren' };
-    }
-
-    if (def.id === 'hall') {
-      if (!st.gates[0].open) {
-        const e = st.echo;
-        return { x: e.x, y: e.y - 40, label: 'Spela in ditt eko (E)', kind: 'echo' };
-      }
-      if (st.shard && !st.shard.taken) return { x: st.shard.x, y: st.shard.y - 30, label: 'Ta minnet', kind: 'shard' };
-      return { ...door('hub'), label: 'Tillbaka till Lykthuset' };
-    }
-
-    return { x: def.mirror ? def.mirror.x : def.w / 2, y: 700, label: 'Spegeln', kind: 'mirror' };
+    return out;
   }
 
-  /** Context prompt for the HUD. */
-  prompt() {
-    if (this.mode !== 'play') return '';
-    const it = this.interactable();
-    if (!it) {
-      if (this.roomDef.mirror && dist(this.player.body.cx, this.player.body.cy, this.roomDef.mirror.x, this.roomDef.mirror.y - 40) < 110) {
-        return 'Minnet väntar';
-      }
-      return '';
+  /* ------------------------------------------------------------------ light */
+
+  lightSources() {
+    const out = [];
+    const p = this.player;
+    const lampR = 168 + p.lantern * 46;
+    out.push({ x: p.body.cx, y: p.body.cy, r: lampR, warm: 0.85, player: true });
+    for (const b of this.z.braziers) {
+      if (!b.lit) continue;
+      out.push({ x: b.x, y: b.y - 14, r: b.hearth ? 430 : b.r * 5.2, warm: b.hearth ? 1 : 0.9 });
     }
-    if (it.type === 'mirror') return 'E — vrid spegeln';
-    if (it.type === 'echo') return it.obj.recording ? 'E — avsluta inspelningen' : 'E — spela in dina steg';
-    if (it.type === 'hearth') return 'E — vila vid lyktan';
-    if (it.type === 'altar') {
-      return this.shards.length >= 3 ? 'E — minnas' : `Altaret saknar ${3 - this.shards.length} minne(n)`;
-    }
-    return '';
+    if (this.z.altar && this.z.altar.lit) out.push({ x: this.z.altar.x, y: this.z.altar.y, r: 520, warm: 1 });
+    for (const l of this.zoneDef.lights || []) out.push(l);
+    for (const pr of this.projectiles) if (pr.kind === 'flame') out.push({ x: pr.x, y: pr.y, r: 96, warm: 0.8 });
+    return out;
   }
 
-  /* --------------------------------------------------------------- update */
+  lightAt(x, y) {
+    const lights = this.lightsCache.length ? this.lightsCache : this.lightSources();
+    let best = 0;
+    for (const l of lights) {
+      const d = dist(x, y, l.x, l.y);
+      if (d > l.r) continue;
+      const t = 1 - d / l.r;
+      best = Math.max(best, t * t * (l.warm ?? 1));
+    }
+    const ambient = 1 - (this.zoneDef.dark || 0);
+    return clamp(Math.max(best, ambient * 0.55), 0, 1);
+  }
+
+  /* ----------------------------------------------------------------- update */
 
   update(dt) {
     this.time += dt;
-    this.shake = Math.max(0, this.shake - dt * 3.4);
-    this.flash = Math.max(0, this.flash - dt * 2.8);
-    this.exitLock = Math.max(0, this.exitLock - dt);
-    this.whisperCooldown = Math.max(0, this.whisperCooldown - dt);
-    this.updateParticles(dt);
-    if (this.state) this.state.shard && (this.state.shard.t += dt);
+    this.lightsCache = this.lightSources();
+    this.shake = Math.max(0, this.shake - dt * 3.2);
+    this.flash = Math.max(0, this.flash - dt * 3);
+    this.fade = Math.max(0, this.fade - dt * 2);
+    this.hintTimer = Math.max(0, this.hintTimer - dt);
+    this.exitLock = Math.max(0, (this.exitLock || 0) - dt);
 
-    if (this.mode !== 'play') {
-      if (this.mode === 'memory' || this.mode === 'rest' || this.mode === 'paused') return;
-      this.updateCamera(dt);
+    if (this.hitstop > 0) {
+      this.hitstop = Math.max(0, this.hitstop - dt);
       return;
     }
 
-    const p = this.player;
-    p.anim += dt;
-    p.castCd = Math.max(0, p.castCd - dt);
-    p.invuln = Math.max(0, p.invuln - dt);
-    p.land = Math.max(0, p.land - dt * 5);
-    p.pushAmt = clamp(p.pushAmt + (p.pushHold ? 1 : -1) * dt * (p.pushHold ? 9 : 12), 0, 1);
+    if (this.mode === 'dialog') {
+      this.updateDialog();
+      this.updateParticles(dt);
+      return;
+    }
+    if (this.mode === 'shop') {
+      this.updateShop();
+      return;
+    }
+    if (this.mode !== 'play') {
+      this.updateParticles(dt);
+      return;
+    }
 
-    this.stuck += dt;
-    p.pushHold = false;
     this.updatePlayer(dt);
-    this.updateCasting(dt);
-    this.updateCrates(dt);
-    this.updateGates(dt);
-    this.updatePlates(dt);
-    this.updateBeam(dt);
-    this.updateEcho(dt);
-    this.updateMidges(dt);
-    this.updateOrbs(dt);
-    this.checkPickups();
-    this.contextHints(dt);
-    this.checkExits();
+    this.updateEnemies(dt);
+    this.updateProjectiles(dt);
+    this.updateParticles(dt);
+    this.updateEffects(dt);
+    this.updateZoneLogic(dt);
     this.updateCamera(dt);
-    this.updateHints(dt);
+    this.checkExits();
+    if (this.input.hit('pause')) this.cb.onPause?.();
   }
 
   updatePlayer(dt) {
     const p = this.player;
-    const b = p.body;
     const input = this.input;
+    const b = p.body;
     const solids = this.solids();
+    const axis = input.axis;
 
-    let dir = input.axis;
-    const accel = b.onGround ? PHYS.accel : PHYS.airAccel;
-    const target = dir * PHYS.run;
-    const diff = target - b.vx;
-    const step = accel * dt;
-    b.vx += Math.abs(diff) < step ? diff : sign(diff) * step;
-    if (dir !== 0 && !p.charging) p.facing = dir;
-    if (dir !== 0) p.facing = dir;
+    p.invuln = Math.max(0, p.invuln - dt);
+    p.attackCd = Math.max(0, p.attackCd - dt);
+    p.shieldCd = Math.max(0, p.shieldCd - dt);
+    p.dodgeCd = Math.max(0, p.dodgeCd - dt);
+    p.stagger = Math.max(0, p.stagger - dt);
+    p.counter = Math.max(0, p.counter - dt);
+    p.burnT = Math.max(0, p.burnT - dt);
+    if (p.swingT > 0) p.swingT = Math.max(0, p.swingT - dt);
+    if (p.parryT > 0) p.parryT = Math.max(0, p.parryT - dt);
 
-    const wasGround = b.onGround;
-
-    if (input.hit('jump')) {
-      if (b.onGround || b.coyote > 0.09) {
-        b.vy = -PHYS.jump;
-        b.onGround = false;
-        b.coyote = 0;
-        p.airJump = true;
-        p.land = -0.35;
-        this.puff(b.cx, b.bottom, 5, this.mood.accent);
-        this.cb.onJump?.();
-      } else if (p.airJump) {
-        p.airJump = false;
-        b.vy = -PHYS.jump2;
-        for (let i = 0; i < 8; i++) {
-          const a = Math.PI / 2 + rand(-1, 1);
-          this.particles.push(this.particle(b.cx, b.cy + 12, Math.cos(a) * rand(30, 130), Math.sin(a) * rand(30, 140), 0.4, rand(1.5, 3), this.mood.rim));
-        }
-        this.cb.onJump2?.();
-      }
-    }
-    if (!input.down('jump') && b.vy < 0) b.vy += PHYS.gravity * 1.5 * dt;
-    b.vy = Math.min(PHYS.maxFall, b.vy + PHYS.gravity * dt);
-
-    this.pushCrates(dir, dt, solids);
-
-    b.moveX(b.vx * dt, solids);
-    b.moveY(b.vy * dt, solids);
-    b.coyote = b.onGround ? 0.1 : Math.max(0, b.coyote - dt);
-
-    if (!wasGround && b.onGround) {
-      p.airJump = true;
-      if (b.vy > 340) {
-        p.land = 1;
-        this.puff(b.cx, b.bottom, 6, this.mood.rim);
-      }
+    // Facing follows movement, and the swing locks it a little.
+    if (axis.x || axis.y) {
+      const target = Math.atan2(axis.y, axis.x);
+      if (p.stagger <= 0 && p.swingT <= 0) p.facing = this.turnToward(p.facing, target, dt * 16);
+      p.step += dt * Math.hypot(axis.x, axis.y) * 7;
     }
 
-    b.x = clamp(b.x, 0, this.roomDef.w - b.w);
-    if (b.y > 940) this.hurt(1, 0, true);
-
-    // Thorn beds.
-    for (const hz of this.roomDef.hazards) {
-      if (!rectsOverlap(b.rect(), hz)) continue;
-      if (this.adapt < 0.3) {
-        if (b.vy > 0) b.vy = -PHYS.jump * 0.6;
-      } else {
-        this.hurt(1, b.cx < hz.x + hz.w / 2 ? -1 : 1);
-      }
-      break;
-    }
-  }
-
-  /* ------------------------------------------------------------- casting */
-
-  updateCasting(dt) {
-    const p = this.player;
-    const input = this.input;
-    p.aimUp = input.down('up');
-
-    if (input.down('cast') && !p.charging && p.castCd <= 0) {
-      p.charging = true;
-      p.chargeT = 0;
-      this.cb.onChargeStart?.();
+    // Dodge.
+    if (input.hit('dodge') && p.dodgeCd <= 0 && p.stagger <= 0) {
+      p.dodgeT = PLAYER.dodgeTime;
+      p.dodgeCd = PLAYER.dodgeCd;
+      p.invuln = Math.max(p.invuln, PLAYER.dodgeTime + 0.06);
+      const dir = axis.x || axis.y ? axis : { x: Math.cos(p.facing), y: Math.sin(p.facing) };
+      const len = Math.hypot(dir.x, dir.y) || 1;
+      p.dodgeDir = { x: dir.x / len, y: dir.y / len };
+      this.sound?.swing();
+      for (let i = 0; i < 6; i++) this.dust(b.cx, b.cy + 10, 1);
     }
 
-    if (p.charging) {
-      p.chargeT = Math.min(CHARGE.max, p.chargeT + dt);
-      if (Math.random() < dt * (14 + p.chargeT * 30)) {
-        const a = rand(0, TAU);
-        const r = 18 + p.chargeT * 10;
-        this.particles.push(this.particle(p.body.cx + Math.cos(a) * r, p.body.cy - 6 + Math.sin(a) * r, -Math.cos(a) * 60, -Math.sin(a) * 60, 0.4, rand(1.2, 2.6), this.tierColor()));
-      }
-    }
-
-    if (!input.down('cast') && p.charging) {
-      p.charging = false;
-      const tier = p.chargeT < CHARGE.push ? 'push' : p.chargeT < CHARGE.beam ? 'beam' : 'bomb';
-      this.cast(tier);
-      p.chargeT = 0;
-      p.castCd = 0.18;
-    }
-  }
-
-  tierColor() {
-    const t = this.player.chargeT;
-    if (t < CHARGE.push) return '#ffe6a6';
-    if (t < CHARGE.beam) return '#b6f0ff';
-    return '#ffffff';
-  }
-
-  aimDir() {
-    const p = this.player;
-    if (p.aimUp) return { x: 0, y: -1 };
-    return { x: p.facing, y: 0 };
-  }
-
-  cast(tier) {
-    const p = this.player;
-    const b = p.body;
-    const dir = this.aimDir();
-    const ox = b.cx + dir.x * 18;
-    const oy = b.cy - 4 + dir.y * 18;
-
-    if (tier === 'push') {
-      this.orbs.push({ x: ox, y: oy, vx: dir.x * CAST.pushSpeed, vy: dir.y * CAST.pushSpeed, life: 0.85, r: 9, hit: new Set() });
-      this.cb.onCast?.('push');
-      this.shake = Math.max(this.shake, 0.16);
-    } else if (tier === 'beam') {
-      const hit = this.beamCast(ox, oy, dir);
-      this.fx.push({ type: 'beam', x1: ox, y1: oy, x2: hit.x, y2: hit.y, life: 0.22, max: 0.22 });
-      this.cb.onCast?.('beam');
-      this.shake = Math.max(this.shake, 0.3);
-      this.flash = Math.max(this.flash, 0.18);
+    // Movement.
+    let speedScale = 1;
+    if (p.shielding) speedScale *= 0.55;
+    if (this.lightAt(b.cx, b.cy) < 0.22) speedScale *= 0.82;
+    if (p.dodgeT > 0) {
+      p.dodgeT = Math.max(0, p.dodgeT - dt);
+      b.vx = p.dodgeDir.x * PLAYER.dodgeSpeed;
+      b.vy = p.dodgeDir.y * PLAYER.dodgeSpeed;
+      if (Math.random() < 0.5) this.dust(b.cx, b.cy + 8, 0.8);
+    } else if (p.stagger > 0) {
+      b.vx *= Math.pow(0.02, dt);
+      b.vy *= Math.pow(0.02, dt);
     } else {
-      this.bomb(ox, oy);
-      this.cb.onCast?.('bomb');
-      this.shake = Math.max(this.shake, 0.6);
-      this.flash = Math.max(this.flash, 0.4);
-      // Recoil: aim down while airborne to leap, otherwise a nudge backwards.
-      if (this.input.down('down') && !b.onGround) {
-        b.vy = -PHYS.jump * 0.92;
-        p.airJump = true;
-      } else {
-        b.vx -= dir.x * 210;
+      const targetVx = axis.x * PLAYER.speed * speedScale;
+      const targetVy = axis.y * PLAYER.speed * speedScale;
+      const a = (axis.x || axis.y ? PLAYER.accel : PLAYER.friction) * dt;
+      b.vx = this.approach(b.vx, targetVx, a);
+      b.vy = this.approach(b.vy, targetVy, a);
+    }
+    b.move(b.vx * dt, b.vy * dt, solids);
+    b.x = clamp(b.x, 8, this.zoneDef.w - b.w - 8);
+    b.y = clamp(b.y, 8, this.zoneDef.h - b.h - 8);
+
+    // Combat.
+    p.shielding = input.down('shield') && p.stagger <= 0 && p.swingT <= 0 && p.dodgeT <= 0;
+    if (input.hit('shield') && p.shieldCd <= 0 && p.stagger <= 0) {
+      p.parryT = PLAYER.parryWindow;
+      p.shieldCd = 0.3;
+    }
+    if (input.hit('attack') && p.attackCd <= 0 && p.stagger <= 0 && p.dodgeT <= 0) {
+      p.swingT = PLAYER.swing;
+      p.attackCd = PLAYER.atkCd;
+      p.swingId++;
+      p.shielding = false;
+      this.sound?.swing();
+      this.effects.push({ type: 'swing', x: b.cx, y: b.cy, a: p.facing, life: 0.22, maxLife: 0.22, reach: PLAYER.reach });
+    }
+    if (p.swingT > 0) this.resolveSwing();
+
+    // Items.
+    if (input.hit('cycle') && p.items.length > 0) {
+      p.item = (p.item + 1) % p.items.length;
+      this.sound?.ui();
+      this.cb.onSelect?.(p.items[p.item]);
+    }
+    for (let i = 0; i < 3; i++) {
+      if (input.hit(`slot${i + 1}`) && i < p.items.length) {
+        p.item = i;
+        this.sound?.ui();
+        this.cb.onSelect?.(p.items[i]);
       }
+    }
+    if (input.hit('item')) this.useItem();
+    if (input.hit('interact')) this.interact();
+
+    p.lantern = this.flags.lantern;
+  }
+
+  turnToward(a, b, maxStep) {
+    const d = angleDiff(b, a);
+    return a + clamp(d, -maxStep, maxStep);
+  }
+
+  approach(v, target, step) {
+    if (v < target) return Math.min(target, v + step);
+    if (v > target) return Math.max(target, v - step);
+    return target;
+  }
+
+  resolveSwing() {
+    const p = this.player;
+    const b = p.body;
+    const dmg = (1 + (this.flags.edge ? 1 : 0)) * (p.counter > 0 ? 2 : 1);
+    for (const e of this.enemies) {
+      if (e.dead || e.hitBy === p.swingId) continue;
+      const d = dist(b.cx, b.cy, e.body.cx, e.body.cy);
+      if (d > PLAYER.reach + e.def.r) continue;
+      const ang = Math.atan2(e.body.cy - b.cy, e.body.cx - b.cx);
+      if (Math.abs(angleDiff(ang, p.facing)) > PLAYER.arc) continue;
+      e.hitBy = p.swingId;
+      this.damageEnemy(e, dmg, ang, 240);
+      p.counter = 0;
     }
   }
 
-  /** Instant ray for the beam tier. Lights lamps, burns vines, kills midges. */
-  beamCast(ox, oy, dir) {
-    const st = this.state;
+  useItem() {
+    const p = this.player;
+    if (!p.items.length || p.attackCd > 0.05) return;
+    const item = p.items[p.item];
+    if (item === 'torch') {
+      if (p.attackCd > 0.1) return;
+      p.attackCd = 0.42;
+      this.projectiles.push({
+        kind: 'flame',
+        x: p.body.cx + Math.cos(p.facing) * 20,
+        y: p.body.cy + Math.sin(p.facing) * 20,
+        vx: Math.cos(p.facing) * 430,
+        vy: Math.sin(p.facing) * 430,
+        life: 0.75,
+        r: 12,
+        damage: 1,
+      });
+      this.sound?.fire();
+    } else if (item === 'bomb') {
+      if (p.attackCd > 0.1) return;
+      p.attackCd = 0.5;
+      this.projectiles.push({
+        kind: 'bomb',
+        x: p.body.cx + Math.cos(p.facing) * 26,
+        y: p.body.cy + Math.sin(p.facing) * 26,
+        vx: 0,
+        vy: 0,
+        life: 1.35,
+        r: 10,
+      });
+      this.sound?.ui();
+    } else if (item === 'bow') {
+      if (p.attackCd > 0.1) return;
+      p.attackCd = 0.46;
+      this.projectiles.push({
+        kind: 'arrow',
+        x: p.body.cx + Math.cos(p.facing) * 22,
+        y: p.body.cy + Math.sin(p.facing) * 22,
+        vx: Math.cos(p.facing) * 640,
+        vy: Math.sin(p.facing) * 640,
+        life: 1.15,
+        r: 6,
+        damage: 2,
+        angle: p.facing,
+      });
+      this.sound?.swing();
+    }
+  }
+
+  damageEnemy(e, dmg, ang, knock = 200) {
+    e.hp -= dmg;
+    e.flash = 0.2;
+    e.body.vx += Math.cos(ang) * knock;
+    e.body.vy += Math.sin(ang) * knock;
+    this.hitstop = Math.max(this.hitstop, 0.05);
+    this.shake = Math.max(this.shake, 0.28);
+    this.spark(e.body.cx, e.body.cy, 8);
+    this.sound?.hit();
+    if (e.hp <= 0) this.killEnemy(e);
+    else if (e.kind === 'guard' || e.kind === 'warden') e.state = e.state === 'windup' ? e.state : 'chase';
+    else e.staggerT = Math.max(e.staggerT, 0.12);
+  }
+
+  killEnemy(e) {
+    e.dead = true;
+    this.dissolve(e.body.cx, e.body.cy, e.def.r);
+    this.sound?.die();
+    this.flags.embers += e.def.ember;
+    this.cb.onEmbers?.(this.flags.embers);
+    if (e.kind === 'warden') {
+      this.flags.bossDead = true;
+      this.bossStarted = false;
+      this.shake = 1;
+      this.flash = 0.8;
+      this.sound?.win();
+      this.say('Gravens väktare', ['…lågan är din. Ta den.', 'Byn glömde. Du glömde inte.']);
+      this.cb.onBoss?.(false);
+      this.save();
+    }
+  }
+
+  damagePlayer(dmg, fromX, fromY, opts = {}) {
+    const p = this.player;
+    if (p.invuln > 0 || this.mode !== 'play') return false;
+    const ang = Math.atan2(p.body.cy - fromY, p.body.cx - fromX);
+    // Parry.
+    if (p.parryT > 0 && !opts.unblockable) {
+      const facingDiff = Math.abs(angleDiff(ang, p.facing + Math.PI));
+      if (facingDiff < 1.2) {
+        p.parryT = 0;
+        p.counter = 2.2;
+        p.invuln = 0.35;
+        p.shieldCd = 0.1;
+        this.hitstop = 0.1;
+        this.shake = 0.5;
+        this.flash = 0.35;
+        this.effects.push({ type: 'parry', x: p.body.cx, y: p.body.cy, life: 0.5, maxLife: 0.5 });
+        this.spark(p.body.cx + Math.cos(ang) * 18, p.body.cy + Math.sin(ang) * 18, 16, '#ffe9a8');
+        this.sound?.parry();
+        this.cb.onParry?.();
+        return 'parry';
+      }
+    }
+    // Block.
+    if (p.shielding) {
+      const facingDiff = Math.abs(angleDiff(ang, p.facing + Math.PI));
+      if (facingDiff < 1.35) {
+        p.invuln = 0.3;
+        p.stagger = 0.18;
+        p.shieldCd = 0.35;
+        this.shake = 0.25;
+        this.spark(p.body.cx + Math.cos(ang) * 16, p.body.cy + Math.sin(ang) * 16, 6, '#cfe6ff');
+        this.sound?.block();
+        return 'block';
+      }
+    }
+    p.hp -= dmg;
+    p.invuln = 1.0;
+    p.stagger = 0.22;
+    p.counter = 0;
+    p.body.vx = Math.cos(ang) * 210;
+    p.body.vy = Math.sin(ang) * 210;
+    this.shake = 0.7;
+    this.flash = 0.4;
+    this.sound?.hurt();
+    this.cb.onDamage?.(p.hp, p.maxHp);
+    if (p.hp <= 0) this.die();
+    return 'hit';
+  }
+
+  die() {
+    this.flags.deaths++;
+    this.mode = 'dead';
+    this.sound?.die();
+    this.cb.onDeath?.();
+  }
+
+  respawn() {
+    const p = this.player;
+    p.hp = p.maxHp;
+    p.invuln = 1.4;
+    this.mode = 'play';
+    const spot = this.zoneId.startsWith('crypt') ? 'village' : this.zoneId;
+    const spawn = spot === 'village' ? { x: 750, y: 660 } : ZONES[spot].spawn;
+    this.loadZone(spot, spawn);
+  }
+
+  updateEnemies(dt) {
+    const p = this.player;
     const solids = this.solids();
-    let best = CAST.beamRange;
-    for (const s of solids) {
-      const t = rayRect(ox, oy, dir.x, dir.y, s);
-      if (t < best) best = t;
-    }
-    const end = { x: ox + dir.x * best, y: oy + dir.y * best };
-    const seg = { x1: ox, y1: oy, x2: end.x, y2: end.y };
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const d = e.def;
+      e.flash = Math.max(0, e.flash - dt);
+      e.stateT += dt;
+      e.bob += dt * 3;
 
-    for (const l of st.lamps) if (this.segNear(seg, l.x, l.y - 20, 26)) this.lightLamp(l);
-    for (const v of st.vines) if (!v.burnt && this.segNear(seg, v.x + v.w / 2, v.y + v.h / 2, Math.max(v.w, v.h) / 2 + 8)) this.burnVine(v);
-    for (const m of st.midges) if (!m.dead && this.segNear(seg, m.x, m.y, 26)) this.killMidge(m);
-    for (const c of st.crates) {
-      if (this.segNear(seg, c.body.cx, c.body.cy, 28)) {
-        c.vx += dir.x * 320;
-        c.vy -= 90;
-        c.glow = 1;
+      if (e.kind === 'warden' && e.phase === 1 && e.hp <= e.maxHp * 0.5) {
+        e.phase = 2;
+        e.state = 'windup';
+        e.stateT = -0.6;
+        this.sound?.bossRoar();
+        this.shake = 0.8;
+        this.flash = 0.5;
+        this.showHint('Väktaren reser sig igen.');
+      }
+
+      // Shadows burn in strong light.
+      const light = this.lightAt(e.body.cx, e.body.cy);
+      if ((e.kind === 'shadow' || e.kind === 'crawler') && light > 0.55) {
+        e.burnT += dt;
+        if (e.burnT > 0.55) {
+          e.burnT = 0;
+          this.damageEnemy(e, 1, Math.atan2(e.body.cy - p.body.cy, e.body.cx - p.body.cx), 60);
+          this.spark(e.body.cx, e.body.cy, 6, '#ffd28a');
+          if (e.dead) continue;
+        }
+      } else {
+        e.burnT = Math.max(0, e.burnT - dt * 0.5);
+      }
+
+      if (e.staggerT > 0) {
+        e.staggerT -= dt;
+        e.body.vx *= Math.pow(0.02, dt);
+        e.body.vy *= Math.pow(0.02, dt);
+        e.body.move(e.body.vx * dt, e.body.vy * dt, solids);
+        continue;
+      }
+
+      const distToP = dist(e.body.cx, e.body.cy, p.body.cx, p.body.cy);
+      const ang = Math.atan2(p.body.cy - e.body.cy, p.body.cx - e.body.cx);
+
+      if (e.state === 'idle') {
+        if (distToP < 430) {
+          e.state = 'chase';
+          e.stateT = 0;
+        }
+      } else if (e.state === 'chase') {
+        const speed = d.speed * (e.kind === 'warden' && e.phase === 2 ? 1.25 : 1);
+        e.facing = this.turnToward(e.facing, ang, dt * 6);
+        const wobble = e.kind === 'crawler' ? Math.sin(e.bob * 4) * 0.5 : 0;
+        e.body.vx = Math.cos(ang + wobble) * speed;
+        e.body.vy = Math.sin(ang + wobble) * speed;
+        // Keep a little distance when winding up.
+        if (distToP < d.range * 0.75) {
+          e.body.vx *= 0.2;
+          e.body.vy *= 0.2;
+        }
+        if (distToP < d.range && e.stateT > 0.25) {
+          e.state = 'windup';
+          e.stateT = 0;
+          e.attackAngle = ang;
+          this.cb.onTelegraph?.(e);
+        }
+        if (e.kind === 'warden' && e.phase === 2 && e.stateT > 2.4 && Math.random() < dt * 1.4) {
+          this.wardenSummon(e);
+        }
+      } else if (e.state === 'windup') {
+        e.body.vx *= Math.pow(0.05, dt);
+        e.body.vy *= Math.pow(0.05, dt);
+        if (e.stateT >= d.windup) {
+          e.state = 'strike';
+          e.stateT = 0;
+          this.enemyStrike(e);
+        }
+      } else if (e.state === 'strike') {
+        if (e.stateT > 0.16) {
+          e.state = 'recover';
+          e.stateT = 0;
+        }
+      } else if (e.state === 'recover') {
+        e.body.vx *= Math.pow(0.1, dt);
+        e.body.vy *= Math.pow(0.1, dt);
+        if (e.stateT >= d.recover) {
+          e.state = 'chase';
+          e.stateT = 0;
+        }
+      }
+
+      e.body.move(e.body.vx * dt, e.body.vy * dt, solids);
+      e.body.x = clamp(e.body.x, 8, this.zoneDef.w - e.body.w - 8);
+      e.body.y = clamp(e.body.y, 8, this.zoneDef.h - e.body.h - 8);
+    }
+    this.enemies = this.enemies.filter((e) => !e.dead);
+
+    // Boss wake-up.
+    if (this.zoneDef.bossSpawn && !this.flags.bossDead && !this.bossStarted) {
+      const p2 = this.player.body;
+      if (dist(p2.cx, p2.cy, this.zoneDef.bossSpawn.x, this.zoneDef.bossSpawn.y) < 320) {
+        this.bossStarted = true;
+        const w = this.makeEnemy('warden', this.zoneDef.bossSpawn.x, this.zoneDef.bossSpawn.y);
+        w.state = 'chase';
+        this.enemies.push(w);
+        this.sound?.bossRoar();
+        this.shake = 0.8;
+        this.cb.onBoss?.(true, w);
       }
     }
-    for (let i = 0; i < 14; i++) {
-      const k = rand(0.15, 1);
-      this.particles.push(this.particle(lerp(ox, end.x, k), lerp(oy, end.y, k), rand(-30, 30), rand(-30, 30), 0.3, rand(1.5, 3), '#cdf6ff'));
-    }
-    return end;
   }
 
-  bomb(x, y) {
-    const st = this.state;
-    const R = CAST.bombRadius;
-    this.fx.push({ type: 'bomb', x, y, r: 10, max: R, life: 0.5, maxLife: 0.5 });
-    for (let i = 0; i < 26; i++) {
+  wardenSummon(e) {
+    for (let i = 0; i < 2; i++) {
       const a = rand(0, TAU);
-      this.particles.push(this.particle(x, y, Math.cos(a) * rand(40, 300), Math.sin(a) * rand(40, 300), rand(0.3, 0.7), rand(1.5, 3.4), '#ffefc4', 260));
+      const c = this.makeEnemy('crawler', e.body.cx + Math.cos(a) * 90, e.body.cy + Math.sin(a) * 90);
+      c.state = 'chase';
+      this.enemies.push(c);
+      this.dissolve(c.body.cx, c.body.cy, c.def.r, '#8a7ad0');
     }
-    for (const l of st.lamps) if (dist(x, y, l.x, l.y - 20) < R) this.lightLamp(l);
-    for (const v of st.vines) {
-      if (v.burnt) continue;
-      const nx = clamp(x, v.x, v.x + v.w);
-      const ny = clamp(y, v.y, v.y + v.h);
-      if (dist(x, y, nx, ny) < R) this.burnVine(v);
+    this.sound?.bossRoar();
+  }
+
+  enemyStrike(e) {
+    const p = this.player;
+    const d = e.def;
+    const distToP = dist(e.body.cx, e.body.cy, p.body.cx, p.body.cy);
+    const ang = Math.atan2(p.body.cy - e.body.cy, p.body.cx - e.body.cx);
+    this.effects.push({
+      type: 'strike',
+      x: e.body.cx,
+      y: e.body.cy,
+      a: ang,
+      life: 0.24,
+      maxLife: 0.24,
+      reach: d.range + 18,
+      big: e.kind === 'warden',
+    });
+    if (distToP < d.range + 16) {
+      // The player can be hit only if roughly in front of the attacker.
+      if (Math.abs(angleDiff(ang, e.facing)) < 1.5) this.damagePlayer(d.dmg, e.body.cx, e.body.cy);
     }
-    for (const m of st.midges) if (!m.dead && dist(x, y, m.x, m.y) < R + 12) this.killMidge(m);
-    for (const c of st.crates) {
-      const d = dist(x, y, c.body.cx, c.body.cy);
-      if (d < R) {
-        const a = Math.atan2(c.body.cy - y, c.body.cx - x);
-        c.vx += Math.cos(a) * 420;
-        c.vy -= 140;
-        c.glow = 1;
+    if (e.kind === 'warden') this.shake = Math.max(this.shake, 0.5);
+  }
+
+  updateProjectiles(dt) {
+    const p = this.player;
+    for (const pr of this.projectiles) {
+      pr.life -= dt;
+      if (pr.kind === 'bomb') {
+        pr.vx *= Math.pow(0.02, dt);
+        pr.vy *= Math.pow(0.02, dt);
+        if (pr.life <= 0) this.explode(pr);
+        continue;
+      }
+      pr.x += pr.vx * dt;
+      pr.y += pr.vy * dt;
+      if (pr.kind === 'flame') {
+        pr.vx *= Math.pow(0.55, dt);
+        pr.vy *= Math.pow(0.55, dt);
+        if (Math.random() < 0.7) this.particles.push(this.particle(pr.x, pr.y, rand(-30, 30), rand(-40, 10), 0.35, rand(2, 4), '#ffb45c'));
+      }
+      for (const b of this.z.braziers) {
+        if (!b.lit && pr.kind === 'flame' && dist(pr.x, pr.y, b.x, b.y - 10) < 46) {
+          this.lightBrazier(b);
+          pr.life = 0;
+        }
+      }
+      for (const br of this.z.brambles) {
+        if (br.burnt) continue;
+        if (pr.x > br.x && pr.x < br.x + br.w && pr.y > br.y && pr.y < br.y + br.h) {
+          if (pr.kind === 'flame') this.burnBramble(br, 'fackla');
+          pr.life = 0;
+        }
+      }
+      for (const s of this.z.switches) {
+        if (!s.hit && pr.kind === 'arrow' && dist(pr.x, pr.y, s.x, s.y) < 26) {
+          s.hit = true;
+          this.flags.switches[s.id] = true;
+          this.sound?.pickup();
+          this.burst(s.x, s.y, 10, '#ffe9a8');
+          this.openGates('switch');
+          pr.life = 0;
+        }
+      }
+      for (const e of this.enemies) {
+        if (e.dead) continue;
+        if (dist(pr.x, pr.y, e.body.cx, e.body.cy) < e.def.r + pr.r) {
+          const ang = Math.atan2(pr.vy, pr.vx);
+          this.damageEnemy(e, pr.damage, ang, pr.kind === 'arrow' ? 150 : 90);
+          pr.life = 0;
+          if (pr.kind === 'flame') this.burst(pr.x, pr.y, 8, '#ffb45c');
+        }
+      }
+      if (pr.kind === 'bomb' || pr.kind === 'arrow' || pr.kind === 'flame') {
+        const hitWall = this.solids().some((s) => pr.x > s.x && pr.x < s.x + s.w && pr.y > s.y && pr.y < s.y + s.h);
+        if (hitWall) {
+          if (pr.kind === 'bomb') pr.life = Math.min(pr.life, 0.05);
+          else pr.life = 0;
+        }
+      }
+      if (pr.x < 0 || pr.x > this.zoneDef.w || pr.y < 0 || pr.y > this.zoneDef.h) pr.life = 0;
+    }
+    this.projectiles = this.projectiles.filter((pr) => pr.life > 0);
+  }
+
+  explode(pr) {
+    this.sound?.bossRoar();
+    this.shake = 0.6;
+    this.flash = 0.3;
+    this.burst(pr.x, pr.y, 26, '#ffca7a', 320);
+    this.effects.push({ type: 'bomb', x: pr.x, y: pr.y, life: 0.4, maxLife: 0.4, r: 118 });
+    for (const e of this.enemies) {
+      if (e.dead) continue;
+      const d = dist(pr.x, pr.y, e.body.cx, e.body.cy);
+      if (d < 118 + e.def.r) {
+        const ang = Math.atan2(e.body.cy - pr.y, e.body.cx - pr.x);
+        this.damageEnemy(e, 3, ang, 380);
       }
     }
+    for (const r of this.z.rubble) {
+      if (r.broken) continue;
+      const nx = clamp(pr.x, r.x, r.x + r.w);
+      const ny = clamp(pr.y, r.y, r.y + r.h);
+      if (dist(pr.x, pr.y, nx, ny) < 60) this.breakRubble(r);
+    }
   }
 
-  segNear(seg, px, py, r) {
-    const dx = seg.x2 - seg.x1;
-    const dy = seg.y2 - seg.y1;
-    const len2 = dx * dx + dy * dy || 1;
-    const t = clamp(((px - seg.x1) * dx + (py - seg.y1) * dy) / len2, 0, 1);
-    return dist(seg.x1 + dx * t, seg.y1 + dy * t, px, py) < r;
-  }
-
-  /* -------------------------------------------------------- room pieces */
-
-  /** Everything solid in the room except the pushable stones. */
-  staticSolids() {
-    const out = this.roomDef.solids.slice();
-    for (const g of this.state.gates) if (!g.open) out.push({ x: g.x, y: g.y, w: g.w, h: g.h });
-    for (const v of this.state.vines) if (!v.burnt) out.push({ x: v.x, y: v.y, w: v.w, h: v.h });
-    return out;
-  }
-
-  solids() {
-    const out = this.staticSolids();
-    for (const c of this.state.crates) out.push({ x: c.body.x, y: c.body.y, w: c.body.w, h: c.body.h });
-    return out;
-  }
-
-  pushCrates(dir, dt) {
-    const b = this.player.body;
-    if (dir === 0) return;
-    // Stones are heavy but not stubborn: a steady, readable shove.
-    const SPEED = 210;
-    for (const c of this.state.crates) {
-      const probe = { x: b.x + dir * 4, y: b.y, w: b.w, h: b.h };
-      if (!rectsOverlap(probe, c.body)) continue;
-
-      // Braced against the stone — the hands come up.
-      this.player.pushHold = true;
-      this.player.pushDir = dir;
-
-      const moved = this.shove(c, dir * SPEED * dt, this.staticSolids(), new Set());
-
-      if (moved && Math.random() < 0.35) {
-        const edge = dir > 0 ? c.body.x : c.body.x + c.body.w;
+  updateZoneLogic(dt) {
+    // Altar burning = ending.
+    if (this.z.altar && this.z.altar.lit && this.mode === 'play' && !this.flags.flameLit) {
+      this.flags.flameLit = true;
+      this.setQuest('done');
+      this.save();
+    }
+    // Bramble regrowth is off; braziers keep burning.
+    for (const b of this.z.braziers) {
+      if (b.lit && Math.random() < dt * 6) {
         this.particles.push(
-          this.particle(edge + rand(-6, 6), c.body.bottom - 2, -dir * rand(10, 60), -rand(10, 50), rand(0.25, 0.5), rand(1.2, 2.4), this.mood.rim, 120),
+          this.particle(b.x + rand(-8, 8), b.y - 16, rand(-12, 12), rand(-50, -18), rand(0.5, 1), rand(1.4, 2.8), Math.random() < 0.5 ? '#ffc46a' : '#ffe9b0'),
         );
       }
-      if (moved) {
-        c.glow = Math.max(c.glow, 0.35);
-        this.stuck = Math.min(this.stuck, 3);
-      } else {
-        // Wedged against something that will not move: tell the player why.
-        if ((this.ctxHintCd || 0) <= 0) {
-          this.ctxHintCd = 8;
-          this.whisper('Glim: Stenen sitter fast. Prova en ljusstöt — eller flytta den andra först.');
-        }
-      }
-      // Move at exactly the stone's pace, so contact never breaks and the
-      // shove feels like one continuous weight instead of a stutter.
-      if (moved) b.vx = dir * SPEED;
     }
   }
 
-  /** Slides a stone, shoving any stone in front of it along too. */
-  shove(c, dx, solids, seen, depth = 0) {
-    if (!dx || depth > 6 || seen.has(c)) return 0;
-    seen.add(c);
-    const st = this.state;
-    const others = st.crates.filter((o) => o !== c);
-    const blockers = solids.concat(others.map((o) => o.body));
-    const before = c.body.x;
-    c.body.moveX(dx, blockers);
-    let moved = c.body.x - before;
-    if (Math.abs(moved) < Math.abs(dx) - 0.01) {
-      // Something stopped it. If it is another stone, push that one first.
-      const ahead = { x: c.body.x + (dx > 0 ? c.body.w : -3), y: c.body.y + 2, w: 3, h: c.body.h - 4 };
-      const hit = others.find((o) => rectsOverlap(ahead, o.body));
-      if (hit && !seen.has(hit)) {
-        const rest = dx - moved;
-        const pushed = this.shove(hit, rest, solids, seen, depth + 1);
-        if (pushed) {
-          const b2 = c.body.x;
-          c.body.moveX(rest, blockers);
-          moved += c.body.x - b2;
-        }
-      }
-    }
-    return moved;
-  }
-
-  updateCrates(dt) {
-    const st = this.state;
-    const solids = this.roomDef.solids.concat(
-      st.gates.filter((g) => !g.open).map((g) => ({ x: g.x, y: g.y, w: g.w, h: g.h })),
-      st.vines.filter((v) => !v.burnt).map((v) => ({ x: v.x, y: v.y, w: v.w, h: v.h })),
-    );
-    for (const c of st.crates) {
-      const body = c.body;
-      c.glow = Math.max(0, c.glow - dt * 2);
-      c.vy = Math.min(900, c.vy + PHYS.gravity * dt);
-      body.vx = c.vx;
-      body.moveX(c.vx * dt, solids.concat(st.crates.filter((o) => o !== c).map((o) => o.body)));
-      c.vx = body.vx;
-      body.moveY(c.vy * dt, solids);
-      c.vy = body.vy;
-      if (body.onGround) c.vx *= Math.pow(0.06, dt);
-
-      // A stone resting over a hollow settles into it: no pixel hunting.
-      if (body.onGround && Math.abs(c.vx) < 90) {
-        for (const plate of st.plates) {
-          const overlap = Math.min(body.x + body.w, plate.x + plate.w) - Math.max(body.x, plate.x);
-          if (overlap <= 0) continue;
-          const target = plate.x + plate.w / 2 - body.w / 2;
-          const dx = target - body.x;
-          if (Math.abs(dx) < 46) body.moveX(clamp(dx, -60 * dt, 60 * dt), solids);
-        }
-      }
-      else c.vx *= Math.pow(0.7, dt);
-      body.x = clamp(body.x, 40, this.roomDef.w - 40 - body.w);
-    }
-  }
-
-  updateGates(dt) {
-    const st = this.state;
-    for (const g of st.gates) {
-      let solved = false;
-      if (g.key === 'lamps') solved = st.lamps.length > 0 && st.lamps.every((l) => l.lit);
-      else if (g.key === 'beam') solved = st.beamHit;
-      else solved = st.plates.length > 0 && st.plates.every((p) => p.pressed);
-
-      if (solved && !g.open) {
-        g.open = true;
-        g.anim = 1;
-        this.flash = Math.max(this.flash, 0.3);
-        this.shake = Math.max(this.shake, 0.4);
-        this.burst(g.x + g.w / 2, g.y + g.h / 2, 26, this.mood.rim, 220);
-        this.cb.onGate?.();
-        this.adapt = Math.min(1, this.adapt + 0.07);
-        this.stuck = 0;
-        this.whisper('Glim: Där. Vägen öppnar sig.');
-      }
-      if (!solved && g.open && g.key === 'echo') {
-        // Echo plates can release again, but solved gates stay open for the rest.
-      }
-      g.anim = Math.max(0, g.anim - dt);
-    }
-  }
-
-  updatePlates(dt) {
-    const st = this.state;
+  updateCamera(dt) {
     const p = this.player.body;
-    for (const plate of st.plates) {
-      const rect = { x: plate.x, y: plate.y, w: plate.w, h: 12 };
-      const byCrate = st.crates.some((c) => rectsOverlap(rect, c.body));
-      const byPlayer = rectsOverlap(rect, p.rect());
-      const byEcho = !!(st.echo && st.echo.playing && st.echo.pos && rectsOverlap(rect, { x: st.echo.pos.x - 12, y: st.echo.pos.y - 44, w: 24, h: 44 }));
-      const pressed = byCrate || byPlayer || byEcho;
-      if (pressed && !plate.pressed) {
-        this.burst(plate.x + plate.w / 2, plate.y, 14, this.mood.accent, 120);
-        this.platesSeated = (this.platesSeated || 0) + 1;
-        if (st.plates.filter((q) => q.pressed).length < st.plates.length) {
-          this.whisper('Glim: En sten på plats. Den andra väntar.');
-        }
-      }
-      plate.pressed = pressed;
-      plate.anim = clamp(plate.anim + (pressed ? dt * 6 : -dt * 6), 0, 1);
-    }
-  }
-
-  updateBeam() {
-    const st = this.state;
-    if (!this.roomDef.emitters.length) return;
-    const solids = this.roomDef.solids;
-    const path = [];
-    let hit = false;
-
-    for (const em of this.roomDef.emitters) {
-      let px = em.x;
-      let py = em.y;
-      let dx = Math.cos(em.angle);
-      let dy = Math.sin(em.angle);
-      let skip = null;
-      const points = [{ x: px, y: py }];
-      for (let bounce = 0; bounce < 8; bounce++) {
-        let bestT = 3000;
-        let what = null;
-        for (const s of solids) {
-          const t = rayRect(px, py, dx, dy, s);
-          if (t < bestT) {
-            bestT = t;
-            what = { type: 'solid' };
-          }
-        }
-        for (const m of st.mirrors) {
-          if (m === skip) continue;
-          const cd = { x: m.x - 15, y: m.y - 15, w: 30, h: 30 };
-          const t = rayRect(px, py, dx, dy, cd);
-          if (t < bestT) {
-            bestT = t;
-            what = { type: 'mirror', m };
-          }
-        }
-        for (const t2 of this.roomDef.targets) {
-          const t = rayRect(px, py, dx, dy, t2);
-          if (t < bestT) {
-            bestT = t;
-            what = { type: 'target' };
-          }
-        }
-        if (!what || bestT > 2999) break;
-        px += dx * bestT;
-        py += dy * bestT;
-        points.push({ x: px, y: py });
-        if (what.type === 'target') {
-          hit = true;
-          break;
-        }
-        if (what.type === 'solid') break;
-        // Snap to the mirror centre so the new segment runs cleanly.
-        px = what.m.x;
-        py = what.m.y;
-        points[points.length - 1] = { x: px, y: py };
-        const r = reflect(dx, dy, what.m.angle);
-        dx = r.x;
-        dy = r.y;
-        what.m.glow = 1;
-        skip = what.m;
-        px += dx * 6;
-        py += dy * 6;
-        points.push({ x: px, y: py });
-      }
-      path.push(points);
-    }
-    this.beamPath = path;
-    if (hit !== st.beamHit) {
-      st.beamHit = hit;
-      if (hit) this.stuck = 0;
-    }
-  }
-
-  /* --------------------------------------------------------------- echo */
-
-  updateEcho(dt) {
-    const st = this.state;
-    const e = st.echo;
-    if (!e) return;
-    const p = this.player;
-
-    if (e.recording) {
-      e.t += dt;
-      e.frames.push({ x: p.body.cx, y: p.body.bottom, facing: p.facing });
-      if (e.t >= e.duration) {
-        e.recording = false;
-        e.playing = e.frames.length > 2;
-        e.playT = 0;
-        this.whisper('Glim: Ekot minns dig nu.');
-        this.cb.onEcho?.('play');
-      }
-    }
-
-    if (e.playing && e.frames.length) {
-      e.playT += dt;
-      const total = e.duration;
-      const at = e.playT % total;
-      const idx = clamp(Math.floor((at / total) * e.frames.length), 0, e.frames.length - 1);
-      e.pos = e.frames[idx];
-    }
-  }
-
-  startEchoRecording() {
-    const e = this.state.echo;
-    e.recording = true;
-    e.playing = false;
-    e.t = 0;
-    e.frames = [];
-    e.pos = null;
-    this.whisper('Glim: Gå. Jag minns vart du går.');
-    this.cb.onEcho?.('record');
-  }
-
-  /* -------------------------------------------------------------- midges */
-
-  updateMidges(dt) {
-    const st = this.state;
-    const p = this.player.body;
-    const speed = 46 + this.adapt * 52;
-    for (const m of st.midges) {
-      if (m.dead) continue;
-      m.t += dt;
-      const d = dist(m.x, m.y, p.cx, p.cy);
-      if (d < 430) m.alert = true;
-      if (m.alert && d > 34) {
-        const a = Math.atan2(p.cy - m.y, p.cx - m.x);
-        m.x += Math.cos(a) * speed * dt;
-        m.y += Math.sin(a) * speed * dt;
-        m.x += Math.cos(m.t * 2.2 + m.phase) * 22 * dt;
-        m.y += Math.sin(m.t * 2.6 + m.phase) * 26 * dt;
-      } else if (!m.alert) {
-        m.x = lerp(m.x, m.hx + Math.cos(m.t * 0.8 + m.phase) * 60, dt);
-        m.y = lerp(m.y, m.hy + Math.sin(m.t * 1.1 + m.phase) * 40, dt);
-      }
-      if (this.mode === 'play' && p.invuln <= 0 && rectsOverlap(p.rect(), { x: m.x - 14, y: m.y - 14, w: 28, h: 28 })) {
-        this.hurt(1, sign(p.cx - m.x));
-        m.alert = false;
-        m.x = m.hx;
-        m.y = m.hy;
-      }
-    }
-  }
-
-  killMidge(m) {
-    m.dead = true;
-    this.burst(m.x, m.y, 12, '#cfe6ff', 150);
-    this.cb.onMidgeDeath?.();
-  }
-
-  /* --------------------------------------------------------------- orbs */
-
-  updateOrbs(dt) {
-    const st = this.state;
-    for (const o of this.orbs) {
-      o.life -= dt;
-      o.x += o.vx * dt;
-      o.y += o.vy * dt;
-      if (Math.random() < 0.7) this.particles.push(this.particle(o.x, o.y, rand(-20, 20), rand(-20, 20), 0.28, rand(1.4, 2.6), '#fff0c8'));
-
-      for (const l of st.lamps) {
-        if (dist(o.x, o.y, l.x, l.y - 20) < 26) {
-          this.lightLamp(l);
-          o.life = 0;
-        }
-      }
-      for (const m of st.midges) {
-        if (!m.dead && dist(o.x, o.y, m.x, m.y) < 24) {
-          this.killMidge(m);
-          o.life = 0;
-        }
-      }
-      for (const v of st.vines) {
-        if (v.burnt) continue;
-        if (rectsOverlap({ x: o.x - o.r, y: o.y - o.r, w: o.r * 2, h: o.r * 2 }, v)) {
-          v.singed = (v.singed || 0) + 1;
-          o.life = 0;
-          this.burst(o.x, o.y, 8, '#ffcf8a', 120);
-          if (v.singed >= 3) this.burnVine(v);
-          else this.whisper('Glim: Det fräser. Lite till.');
-          break;
-        }
-      }
-      for (const c of st.crates) {
-        if (rectsOverlap({ x: o.x - o.r, y: o.y - o.r, w: o.r * 2, h: o.r * 2 }, c.body)) {
-          c.vx += sign(o.vx) * 300;
-          c.vy -= 80;
-          c.glow = 1;
-          o.life = 0;
-          this.burst(o.x, o.y, 10, '#ffe9b0', 130);
-        }
-      }
-      for (const s of this.solids()) {
-        if (o.x > s.x && o.x < s.x + s.w && o.y > s.y && o.y < s.y + s.h) {
-          o.life = 0;
-          this.burst(o.x, o.y, 6, '#ffe9b0', 90);
-          break;
-        }
-      }
-      if (o.x < 0 || o.x > this.roomDef.w || o.y < 0 || o.y > 940) o.life = 0;
-    }
-    this.orbs = this.orbs.filter((o) => o.life > 0);
-  }
-
-  /* ------------------------------------------------------------ pickups */
-
-  lightLamp(lamp) {
-    if (lamp.lit) return;
-    lamp.lit = true;
-    this.burst(lamp.x, lamp.y - 20, 18, '#ffe6a6', 160);
-    this.cb.onLamp?.();
-    this.stuck = 0;
-    const lit = this.state.lamps.filter((l) => l.lit).length;
-    if (this.state.lamps.length > 1) {
-      this.whisper(`Glim: ${lit} av ${this.state.lamps.length} eldar.`);
-    }
-  }
-
-  burnVine(vine) {
-    if (vine.burnt) return;
-    vine.burnt = true;
-    this.burst(vine.x + vine.w / 2, vine.y + vine.h / 2, 22, '#ffd08a', 190);
-    this.cb.onBurn?.();
-    this.stuck = 0;
-  }
-
-  checkPickups() {
-    const st = this.state;
-    const p = this.player.body;
-
-    if (st.shard && !st.shard.taken && dist(p.cx, p.cy, st.shard.x, st.shard.y - 20) < 46) {
-      st.shard.taken = true;
-      const memory = MEMORIES[this.shards.length] || MEMORIES[MEMORIES.length - 1];
-      this.shards.push(memory);
-      this.burst(st.shard.x, st.shard.y - 20, 40, '#fff2c8', 240);
-      this.flash = 0.6;
-      this.shake = 0.5;
-      this.cb.onShard?.(memory, this.shards.length);
-      this.stuck = 0;
-    }
-
-    if (this.roomDef.mirror && dist(p.cx, p.cy, this.roomDef.mirror.x, this.roomDef.mirror.y - 40) < 90) {
-      if (this.mode === 'play') {
-        this.mode = 'end';
-        this.cb.onEnd?.({ shards: this.shards.length, deaths: this.deaths, time: this.time });
-      }
-    }
+    const tx = clamp(p.cx - this.viewW / 2, 0, Math.max(0, this.zoneDef.w - this.viewW));
+    const ty = clamp(p.cy - this.viewH / 2, 0, Math.max(0, this.zoneDef.h - this.viewH));
+    const k = 1 - Math.pow(0.0009, dt);
+    this.cam.x = lerp(this.cam.x, tx, k);
+    this.cam.y = lerp(this.cam.y, ty, k);
   }
 
   checkExits() {
     if (this.exitLock > 0) return;
     const p = this.player.body;
-    for (const ex of this.roomDef.exits) {
+    for (const ex of this.zoneDef.exits || []) {
       if (!rectsOverlap(p.rect(), ex)) continue;
-      this.loadRoom(ex.to, ex.spawn);
-      this.cb.onTransition?.(ex.to);
+      if (ex.to.startsWith('crypt') && !this.flags.cryptKey) {
+        this.showHint('Dörren är låst. Hedda har nyckeln.');
+        return;
+      }
+      this.loadZone(ex.to, ex.spawn);
       return;
     }
+  }
+
+  /* ------------------------------------------------------------- interaction */
+
+  nearby() {
+    const p = this.player.body;
+    const list = [];
+    // Useful things win over scenery when both are close.
+    for (const n of this.z.npcs) list.push({ kind: 'npc', prio: 0, d: dist(p.cx, p.cy, n.x, n.y), o: n });
+    for (const b of this.z.braziers) list.push({ kind: 'brazier', prio: 0, d: dist(p.cx, p.cy, b.x, b.y), o: b });
+    for (const c of this.z.chests) if (!c.opened) list.push({ kind: 'chest', prio: 0, d: dist(p.cx, p.cy, c.x, c.y), o: c });
+    for (const s of this.z.statues) list.push({ kind: 'statue', prio: 2, d: dist(p.cx, p.cy, s.x, s.y), o: s });
+    if (this.z.altar && !this.z.altar.lit) list.push({ kind: 'altar', prio: 0, d: dist(p.cx, p.cy, this.z.altar.x, this.z.altar.y), o: this.z.altar });
+    if (this.zoneDef.cryptDoor) {
+      const cd = this.zoneDef.cryptDoor;
+      list.push({ kind: 'cryptDoor', prio: 0, d: dist(p.cx, p.cy, cd.x + cd.w / 2, cd.y + cd.h / 2), o: cd });
+    }
+    for (const r of this.z.rubble) if (!r.broken) list.push({ kind: 'rubble', prio: 1, d: dist(p.cx, p.cy, r.x + r.w / 2, r.y + r.h / 2), o: r });
+    list.sort((a, b) => (a.prio ?? 1) - (b.prio ?? 1) || a.d - b.d);
+    return list.find((x) => x.d < 74) || null;
   }
 
   interact() {
-    if (this.mode !== 'play') return;
-    const it = this.interactable();
-    if (!it) return;
-    if (it.type === 'mirror') {
-      it.obj.angle = (it.obj.angle + it.obj.step) % TAU;
-      it.obj.glow = 1;
-      this.cb.onMirror?.();
-      this.stuck = 0;
-    } else if (it.type === 'echo') {
-      if (it.obj.recording) {
-        it.obj.recording = false;
-        it.obj.playing = it.obj.frames.length > 2;
-        it.obj.playT = 0;
-        this.cb.onEcho?.('play');
-      } else {
-        this.startEchoRecording();
-      }
-    } else if (it.type === 'hearth') {
-      this.player.hp = this.player.maxHp;
-      this.mode = 'rest';
-      this.cb.onRest?.();
-    } else if (it.type === 'altar') {
-      if (this.shards.length >= 3) {
-        this.loadRoom('hollow', ROOMS.hollow.spawn);
-        this.cb.onTransition?.('hollow');
-      } else {
-        this.cb.onAltarLocked?.(3 - this.shards.length);
-      }
-    }
-  }
-
-  resume() {
-    if (this.mode === 'rest' || this.mode === 'memory') this.mode = 'play';
-  }
-
-  /* ------------------------------------------------------------- damage */
-
-  hurt(amount, dirX = 0, fell = false) {
-    if (this.mode !== 'play' || this.player.invuln > 0) return;
+    const near = this.nearby();
+    if (!near) return;
     const p = this.player;
-    p.hp = Math.max(0, p.hp - amount);
-    p.invuln = 1.1;
-    p.body.vx = dirX * 240;
-    if (!fell) p.body.vy = -320;
-    this.shake = Math.max(this.shake, 0.7);
-    this.flash = Math.max(this.flash, 0.6);
-    this.burst(p.body.cx, p.body.cy, 16, '#ffb0c8', 200);
-    this.cb.onHurt?.();
-    if (p.hp <= 0) this.die();
-  }
-
-  die() {
-    this.mode = 'dead';
-    this.deaths += 1;
-    this.adapt = Math.max(0, this.adapt - 0.16);
-    this.burst(this.player.body.cx, this.player.body.cy, 34, '#ffe9c0', 260);
-    this.shake = 1.1;
-    this.cb.onDeath?.({ deaths: this.deaths, adapt: this.adapt });
-  }
-
-  respawn() {
-    this.player.hp = this.player.maxHp;
-    this.player.invuln = 1.2;
-    for (const id of Object.keys(this.world)) {
-      for (const m of this.world[id].midges) {
-        m.dead = false;
-        m.x = m.hx;
-        m.y = m.hy;
-        m.alert = false;
-      }
+    if (near.kind === 'npc') return this.talkTo(near.o);
+    if (near.kind === 'brazier') return this.tryLightBrazier(near.o);
+    if (near.kind === 'chest') return this.openChest(near.o);
+    if (near.kind === 'statue') {
+      return this.say(near.o.name, ['…hon sover i sten. Ljuset kan väcka henne.']);
     }
-    this.mode = 'play';
-    this.loadRoom('hub', ROOMS.hub.spawn);
-    this.mode = 'play';
-  }
-
-  /* ------------------------------------------------------------- camera */
-
-  updateCamera(dt) {
-    const b = this.player.body;
-    const targetX = clamp(b.cx + b.vx * 0.25 - this.viewW / 2, 0, Math.max(0, this.roomDef.w - this.viewW));
-    const targetY = clamp(b.cy - this.viewH * 0.56 + clamp(b.vy * 0.08, -40, 80), 0, Math.max(0, 900 - this.viewH));
-    const k = Math.min(1, dt * 5.2);
-    this.cam.x = lerp(this.cam.x, targetX, k);
-    this.cam.y = lerp(this.cam.y, targetY, k);
-  }
-
-  /* -------------------------------------------------------------- hints */
-
-  whisper(text) {
-    if (this.whisperCooldown > 0) return;
-    this.whisperCooldown = 1.4;
-    this.whispers.push(text);
-    if (this.whispers.length > 4) this.whispers.shift();
-    this.cb.onWhisper?.(text);
-  }
-
-  contextHints(dt) {
-    this.ctxHintCd = Math.max(0, (this.ctxHintCd || 0) - dt);
-    if (this.ctxHintCd > 0) return;
-    const p = this.player.body;
-    const st = this.state;
-
-    // Pressing up against a thorn vine? Say exactly how to burn it.
-    for (const v of st.vines) {
-      if (v.burnt) continue;
-      const nearX = Math.abs(p.cx - (v.x + v.w / 2)) < 110;
-      const nearY = p.cy > v.y - 40;
-      if (nearX && nearY) {
-        this.ctxHintCd = 9;
-        this.whisper('Glim: Rankorna tål inte ljus. Håll in J — släpp när staven glöder.');
-        return;
-      }
-    }
-
-    // Standing by an unlit brazier.
-    for (const l of st.lamps) {
-      if (l.lit) continue;
-      if (dist(p.cx, p.cy, l.x, l.y - 30) < 120) {
-        this.ctxHintCd = 9;
-        this.whisper('Glim: Ett kort tryck räcker för att tända. Rikta ljuset mot elden.');
-        return;
-      }
-    }
-
-    // Near a mirror.
-    for (const m of st.mirrors) {
-      if (dist(p.cx, p.cy, m.x, m.y) < 110) {
-        this.ctxHintCd = 9;
-        this.whisper('Glim: Tryck E för att vrida spegeln ett kvarts varv.');
-        return;
-      }
-    }
-
-    // Near the echo crystal.
-    if (st.echo && dist(p.cx, p.cy, st.echo.x, st.echo.y - 30) < 120) {
-      this.ctxHintCd = 9;
-      this.whisper('Glim: E spelar in dina steg. Spela upp dig själv på en platta.');
+    if (near.kind === 'altar') {
+      if (!this.flags.bossDead) return this.say('Lågan', ['Något håller lågan fången. Det andas i mörkret.']);
+      this.z.altar.lit = true;
+      this.flags.flameLit = true;
+      this.flash = 1;
+      this.shake = 0.6;
+      this.sound?.win();
+      this.burst(this.z.altar.x, this.z.altar.y, 40, '#ffd98a', 260);
+      this.setQuest('done');
+      this.save();
+      this.cb.onWin?.(this.serialize());
       return;
     }
-
-    // Lost at the start of a room? Point at the way onward.
-    if (this.stuck > 14) {
-      this.stuck = 0;
-      const target = this.objective();
-      this.whisper(`Glim: ${target.label}. Följ ljuset.`);
+    if (near.kind === 'cryptDoor') {
+      if (!this.flags.cryptKey) return this.say('Kyrkdörren', ['Låst. Hedda har nyckeln till graven.']);
+      return this.loadZone('crypt1', ZONES.crypt1.spawn);
+    }
+    if (near.kind === 'rubble') {
+      return this.showHint('Rasmassor. Bara en explosion kan flytta dem.');
     }
   }
 
-  updateHints(dt) {
-    const delay = 7 + (1 - this.adapt) * 16;
-    const hints = this.roomDef.hints || [];
-    if (!hints.length) return;
-    if (this.stuck > delay) {
-      this.stuck = 0;
-      this.hintIndex = (this.hintIndex + 1) % hints.length;
-      this.whisper(hints[this.hintIndex]);
+  talkTo(npc) {
+    if (npc.shop) return this.openShop();
+    const f = this.flags;
+    if (npc.id === 'hedda') {
+      const lit = f.braziers.fields && f.braziers.forest && f.braziers.river;
+      if (!f.torch) {
+        f.torch = true;
+        this.player.items = ['torch'];
+        this.player.item = 0;
+        this.cb.onItem?.('torch');
+        return this.say('Hedda', [
+          'Ta den här. Den har legat i min hand i tre nätter.',
+          'Facklan tänder det som en gång brann. Tryck L för att kasta en flamma.',
+          'Börja med Fälten västerut. Sune är där ute, förstenad som de andra.',
+        ]);
+      }
+      if (!lit) {
+        return this.say('Hedda', [
+          `Ljusen: Fälten ${f.braziers.fields ? '✓' : '—'}, Skogen ${f.braziers.forest ? '✓' : '—'}, Bäcken ${f.braziers.river ? '✓' : '—'}.`,
+          'Varje ljus väcker en av dem. Skynda dig, mitt hjärta orkar inte vänta länge.',
+        ]);
+      }
+      if (!f.cryptKey) {
+        f.cryptKey = true;
+        this.save();
+        return this.say('Hedda', [
+          'Alla tre brinner. Jag känner värmen ända hit.',
+          'Ta nyckeln. Graven ligger under kyrkan, öster om torget.',
+          'Den första lågan finns längst ner. Tänd den, och byn är vår igen.',
+        ]);
+      }
+      if (f.flameLit) return this.say('Hedda', ['Lågan brinner. Hör du? Hela byn andas igen.']);
+      return this.say('Hedda', ['Ner i graven med dig. Jag håller hjärtat vid liv så länge jag kan.']);
+    }
+    if (npc.id === 'smed') return this.openShop();
+    if (npc.id === 'barn') {
+      return this.say('Lilla Ester', ['Mamma säger att solen finns bakom berget.', 'Kan du hämta den?']);
+    }
+    if (npc.id === 'sune') return this.say('Sune', ['Bomberna var mina. Nu är de dina.', 'Spräng rasmassorna i kyrkan — jag orkar inte gå dit själv.']);
+    if (npc.id === 'alva') return this.say('Alva', ['Jag hörde pilen innan jag såg bågen.', 'Skjut något långt bort åt mig också.']);
+    if (npc.id === 'vidar') return this.say('Vidar', ['Vattnet gav mig tillbaka hjärtat.', 'Ta det. Du behöver det mer än jag.']);
+    return this.say(npc.name, ['…']);
+  }
+
+  tryLightBrazier(b) {
+    if (b.lit) return this.say(b.name || 'Ljuset', ['Det brinner redan.']);
+    if (!this.flags.torch) return this.showHint('Du har inget att tända med.');
+    return this.lightBrazier(b);
+  }
+
+  lightBrazier(b) {
+    if (b.lit) return;
+    b.lit = true;
+    if (b.hearth) {
+      this.flags.braziersHearth = true;
+    } else {
+      this.flags.braziers[b.id] = true;
+    }
+    this.sound?.lightBrazier();
+    this.flash = 0.4;
+    this.shake = 0.3;
+    this.burst(b.x, b.y - 10, 24, '#ffd98a', 200);
+    this.cb.onLight?.(b);
+    this.onBrazierLit(b);
+    this.save();
+  }
+
+  onBrazierLit(b) {
+    const f = this.flags;
+    const statue = this.z.statues.find((s) => Math.abs(s.x - b.x) < 220 && Math.abs(s.y - b.y) < 240);
+    if (statue) this.freeStatue(statue);
+    const litAll = f.braziers.fields && f.braziers.forest && f.braziers.river;
+    if (litAll && !f.cryptKey) {
+      this.showHint('Alla tre ljusen brinner. Hedda väntar i byn.');
+    } else if (!litAll) {
+      const left = 3 - [f.braziers.fields, f.braziers.forest, f.braziers.river].filter(Boolean).length;
+      this.showHint(`${left} ljus kvar.`);
+    }
+    this.setQuest(litAll ? 'crypt' : 'torch');
+  }
+
+  freeStatue(statue) {
+    const f = this.flags;
+    f.freed[statue.id] = true;
+    this.z.statues = this.z.statues.filter((s) => s !== statue);
+    this.burst(statue.x, statue.y, 30, '#ffe1a8', 180);
+    this.sound?.pickup();
+    if (statue.id === 'sune') {
+      f.bombs = true;
+      if (!this.player.items.includes('bomb')) this.player.items.push('bomb');
+      this.say('Sune', ['Jag… lever? Du tände ljuset.', 'Ta bomberna. De spränger det som sten inte klarar.', 'Tryck 2 för att välja dem, L för att lägga en.']);
+      this.setQuest('fields');
+    } else if (statue.id === 'alva') {
+      f.bow = true;
+      if (!this.player.items.includes('bow')) this.player.items.push('bow');
+      this.say('Alva', ['Jag hörde elden i sömnen.', 'Ta bågen. Den når dit armen inte räcker.', 'Tryck 3 för att välja den, L för att skjuta.']);
+      this.setQuest('forest');
+    } else if (statue.id === 'vidar') {
+      this.player.maxHp += 1;
+      this.player.hp = this.player.maxHp;
+      this.say('Vidar', ['Vattnet släppte mig.', 'Och jag har ett hjärta över. Ta det.']);
+      this.setQuest('river');
+    }
+    this.cb.onItem?.(statue.id);
+    this.cb.onHud?.();
+    this.save();
+  }
+
+  openChest(c) {
+    c.opened = true;
+    this.flags.chests[c.id] = true;
+    const loot = c.loot || {};
+    if (loot.glow) {
+      this.flags.embers += loot.glow;
+      this.showHint(`+${loot.glow} glöd`);
+      this.cb.onEmbers?.(this.flags.embers);
+    }
+    this.sound?.pickup();
+    this.burst(c.x, c.y - 10, 14, '#ffe9a8', 150);
+    this.save();
+  }
+
+  burnBramble(b, source) {
+    if (b.burnt) return;
+    b.burnt = true;
+    this.flags.bramble[`${this.zoneId}:${b.idx}`] = true;
+    this.burst(b.x + b.w / 2, b.y + b.h / 2, 18, '#ffbe72', 160);
+    this.sound?.fire();
+    if (source === 'svärd') this.showHint('Svärdet rår inte på törnen. Eld tar dem.');
+  }
+
+  breakRubble(r) {
+    if (r.broken) return;
+    r.broken = true;
+    this.flags.rubble[`${this.zoneId}:${r.idx}`] = true;
+    this.burst(r.x + r.w / 2, r.y + r.h / 2, 30, '#c9c2b4', 240);
+    this.sound?.door();
+    this.showHint('Vägen är öppen.');
+    this.save();
+  }
+
+  openGates(key) {
+    for (const g of this.z.gates) {
+      if (g.key !== key || g.open) continue;
+      g.open = true;
+      this.sound?.door();
+      this.burst(g.x + g.w / 2, g.y + g.h / 2, 16, '#ffe9a8', 160);
     }
   }
 
-  /* ----------------------------------------------------------------- fx */
+  /* ------------------------------------------------------------------- shop */
+
+  openShop() {
+    this.mode = 'shop';
+    this.shop = { index: 0, items: SHOP, message: '' };
+    this.sound?.ui();
+    this.cb.onShop?.(this.shop);
+  }
+
+  updateShop() {
+    const s = this.shop;
+    if (!s) {
+      this.mode = 'play';
+      return;
+    }
+    if (this.input.hit('down')) {
+      s.index = (s.index + 1) % s.items.length;
+      this.sound?.ui();
+    }
+    if (this.input.hit('up')) {
+      s.index = (s.index + s.items.length - 1) % s.items.length;
+      this.sound?.ui();
+    }
+    if (this.input.hit('interact') || this.input.hit('attack')) {
+      this.buy(s.items[s.index]);
+    }
+    if (this.input.hit('pause') || this.input.hit('cycle')) this.closeShop();
+    this.cb.onShop?.(s);
+  }
+
+  buy(item) {
+    const f = this.flags;
+    if (!item) return;
+    if (f[`bought-${item.id}`] && !item.repeat) {
+      this.shop.message = 'Redan köpt.';
+      return;
+    }
+    if (f.embers < item.cost) {
+      this.shop.message = 'Du har inte tillräckligt med glöd.';
+      this.sound?.block();
+      return;
+    }
+    f.embers -= item.cost;
+    f[`bought-${item.id}`] = true;
+    if (item.id === 'heart') {
+      this.player.maxHp += 1;
+      this.player.hp = this.player.maxHp;
+    } else if (item.id === 'edge') {
+      f.edge = 1;
+    } else if (item.id === 'light') {
+      f.lantern = 1;
+    } else if (item.id === 'heal') {
+      this.player.hp = this.player.maxHp;
+    }
+    this.sound?.pickup();
+    this.shop.message = `${item.name} — klart.`;
+    this.cb.onEmbers?.(f.embers);
+    this.cb.onHud?.();
+    this.save();
+  }
+
+  closeShop() {
+    this.shop = null;
+    this.mode = 'play';
+    this.cb.onShop?.(null);
+  }
+
+  /* ----------------------------------------------------------------- dialog */
+
+  say(name, lines) {
+    this.dialog = { name, lines, i: 0 };
+    this.mode = 'dialog';
+    this.cb.onDialog?.(this.dialog);
+    this.sound?.ui();
+  }
+
+  updateDialog() {
+    if (this.input.hit('interact') || this.input.hit('attack')) {
+      const d = this.dialog;
+      if (!d) {
+        this.mode = 'play';
+        return;
+      }
+      if (d.i < d.lines.length - 1) {
+        d.i++;
+        this.sound?.ui();
+        this.cb.onDialog?.(d);
+      } else {
+        this.dialog = null;
+        this.mode = 'play';
+        this.cb.onDialog?.(null);
+      }
+    }
+  }
+
+  /* ------------------------------------------------------------- fx helpers */
 
   particle(x, y, vx, vy, life, size, color, gravity = 0) {
     return { x, y, vx, vy, life, max: life, size, color, gravity };
   }
 
-  burst(x, y, n, color, speed = 200) {
+  dust(x, y, scale = 1) {
+    this.particles.push(this.particle(x + rand(-6, 6), y, rand(-30, 30), rand(-18, 4), rand(0.3, 0.6), rand(2, 5) * scale, 'rgba(214,205,180,0.5)'));
+  }
+
+  spark(x, y, n, color = '#ffe9a8') {
     for (let i = 0; i < n; i++) {
       const a = rand(0, TAU);
-      const s = rand(speed * 0.25, speed);
-      this.particles.push(this.particle(x, y, Math.cos(a) * s, Math.sin(a) * s, rand(0.3, 0.8), rand(1.4, 3.2), color, 320));
+      const s = rand(60, 260);
+      this.particles.push(this.particle(x, y, Math.cos(a) * s, Math.sin(a) * s, rand(0.2, 0.5), rand(1.5, 3), color, 260));
     }
   }
 
-  puff(x, y, n, color) {
+  burst(x, y, n, color = '#ffd98a', speed = 200) {
     for (let i = 0; i < n; i++) {
-      const a = -Math.PI / 2 + rand(-1.2, 1.2);
-      this.particles.push(this.particle(x + rand(-8, 8), y, Math.cos(a) * rand(30, 110), Math.sin(a) * rand(20, 80), rand(0.2, 0.45), rand(1.4, 2.8), color, 240));
+      const a = rand(0, TAU);
+      const s = rand(speed * 0.25, speed);
+      this.particles.push(this.particle(x, y, Math.cos(a) * s, Math.sin(a) * s, rand(0.35, 0.9), rand(2, 5), color, 90));
+    }
+  }
+
+  dissolve(x, y, r, color = '#9a8ac8') {
+    for (let i = 0; i < 18; i++) {
+      const a = rand(0, TAU);
+      const s = rand(20, 120);
+      this.particles.push(this.particle(x + Math.cos(a) * r * 0.6, y + Math.sin(a) * r * 0.6, Math.cos(a) * s, Math.sin(a) * s - 30, rand(0.4, 1), rand(2, 5), color, -40));
     }
   }
 
   updateParticles(dt) {
     for (const p of this.particles) {
       p.life -= dt;
-      p.vy += (p.gravity || 0) * dt;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
-      p.vx *= Math.pow(0.1, dt);
+      p.vy += (p.gravity || 0) * dt;
+      p.vx *= Math.pow(0.4, dt);
     }
     this.particles = this.particles.filter((p) => p.life > 0);
-    if (this.particles.length > 800) this.particles.splice(0, this.particles.length - 800);
-    for (const f of this.fx) f.life -= dt;
-    this.fx = this.fx.filter((f) => f.life > 0);
   }
 
-  /* ================================================================ draw */
+  updateEffects(dt) {
+    for (const e of this.effects) e.life -= dt;
+    this.effects = this.effects.filter((e) => e.life > 0);
+  }
+
+  showHint(text) {
+    this.hint = text;
+    this.hintTimer = 3;
+    this.cb.onToast?.(text);
+  }
+
+  /* ------------------------------------------------------------------- draw */
 
   draw() {
     const ctx = this.ctx;
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.w, this.h);
-
-    const shake = this.shake * this.shake * 9;
+    const shake = this.shake * this.shake * 10;
     const camX = Math.round(this.cam.x + rand(-shake, shake));
     const camY = Math.round(this.cam.y + rand(-shake, shake));
-    const z = this.zoom;
-
-    this.drawBackdrop(ctx, camX * z, camY * z);
-
-    ctx.save();
-    ctx.setTransform(this.dpr * z, 0, 0, this.dpr * z, -camX * z * this.dpr, -camY * z * this.dpr);
-    this.drawSolids(ctx, camX, camY);
-    this.drawDecor(ctx);
-    this.drawDoors(ctx, camX, camY);
-    this.drawObjects(ctx);
-    this.drawCrates(ctx);
-    this.drawEcho(ctx);
-    this.drawMidges(ctx);
-    this.drawPlayer(ctx);
-    this.drawOrbs(ctx);
-    this.drawFx(ctx);
-    this.drawParticles(ctx);
-    this.drawBeamLight(ctx);
-    ctx.restore();
-
-    this.drawLighting(ctx, camX, camY, z);
-    this.drawGlowPass(ctx, camX, camY, z);
-    this.drawOverlay(ctx);
-    this.drawObjectiveMarker(ctx, camX, camY, z);
-  }
-
-  /* ---------------------------------------------------------- background */
-
-  drawBackdrop(ctx, camX, camY) {
-    const m = this.mood;
-    const g = ctx.createLinearGradient(0, 0, 0, this.h);
-    g.addColorStop(0, m.sky);
-    g.addColorStop(0.6, m.deep);
-    g.addColorStop(1, '#04070b');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, this.w, this.h);
-
-    // Pale band of the never-setting dusk.
-    const band = ctx.createRadialGradient(this.w * 0.72, this.h * 0.12, 10, this.w * 0.72, this.h * 0.12, this.w * 0.7);
-    band.addColorStop(0, this.alpha(m.rim, 0.1));
-    band.addColorStop(1, this.alpha(m.rim, 0));
-    ctx.fillStyle = band;
-    ctx.fillRect(0, 0, this.w, this.h);
-
-    // Three layers of trees.
-    const layers = [
-      { k: 0.14, step: 260, w: 150, col: this.alpha(m.rock, 0.55), y: 0.34 },
-      { k: 0.26, step: 210, w: 120, col: this.alpha(m.rock, 0.75), y: 0.44 },
-      { k: 0.4, step: 170, w: 96, col: this.alpha('#050b10', 0.72), y: 0.54 },
-    ];
-    for (const layer of layers) {
-      const shift = camX * layer.k;
-      const baseY = this.h * layer.y - camY * layer.k;
-      ctx.fillStyle = layer.col;
-      for (let i = 0; i < 30; i++) {
-        const wx = i * layer.step + ((i * 137) % 90);
-        const sx = wx - shift;
-        if (sx < -layer.w * 2 || sx > this.w + layer.w * 2) continue;
-        const tall = 220 + ((i * 71) % 180);
-        const trunkW = layer.w * 0.16;
-        // trunk
-        ctx.fillRect(sx - trunkW / 2, baseY - tall * 0.2, trunkW, this.h);
-        // canopy: stack of lobes
-        for (let j = 0; j < 4; j++) {
-          const cw = layer.w * (1 - j * 0.16);
-          const cy = baseY - tall * (0.1 + j * 0.22);
-          ctx.beginPath();
-          ctx.ellipse(sx, cy, cw * 0.6, cw * 0.34, 0, 0, TAU);
-          ctx.fill();
-        }
-      }
-    }
-
-    // Drifting mist.
-    ctx.save();
-    for (let i = 0; i < 5; i++) {
-      const y = this.h * (0.45 + i * 0.1);
-      const x = ((this.time * (8 + i * 5) + i * 260) % (this.w + 700)) - 350;
-      const mg = ctx.createRadialGradient(x, y, 10, x, y, 340);
-      mg.addColorStop(0, this.alpha(m.rim, 0.045));
-      mg.addColorStop(1, this.alpha(m.rim, 0));
-      ctx.fillStyle = mg;
-      ctx.fillRect(x - 340, y - 160, 680, 320);
-    }
-    ctx.restore();
-  }
-
-  alpha(hex, a) {
-    const n = parseInt(hex.replace('#', ''), 16);
-    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
-  }
-
-  visible(x, y, w, h, camX, camY, pad = 120) {
-    return x + w > camX - pad && x < camX + this.viewW + pad && y + h > camY - pad && y < camY + this.viewH + pad;
-  }
-
-  /* -------------------------------------------------------------- terrain */
-
-  drawSolids(ctx, camX, camY) {
-    const m = this.mood;
-    for (const s of this.roomDef.solids) {
-      if (!this.visible(s.x, s.y, s.w, s.h, camX, camY)) continue;
-      const isFloor = s.h > 60 || s.y + s.h >= 880;
-      const g = ctx.createLinearGradient(0, s.y, 0, s.y + Math.min(s.h, 200));
-      g.addColorStop(0, m.rock);
-      g.addColorStop(1, this.alpha('#050a0f', 0.96));
-      ctx.fillStyle = g;
-      ctx.fillRect(s.x, s.y, s.w, s.h);
-
-      // Mossy top with a soft rim light.
-      if (s.h <= 30 || isFloor) {
-        ctx.fillStyle = this.alpha(m.moss, 0.9);
-        ctx.fillRect(s.x, s.y, s.w, 5);
-        ctx.fillStyle = this.alpha(m.rim, 0.35);
-        ctx.fillRect(s.x, s.y, s.w, 1.6);
-        // moss tufts
-        ctx.fillStyle = this.alpha(m.moss, 0.55);
-        for (let x = s.x + 10; x < s.x + s.w - 6; x += 24 + ((x * 13) % 19)) {
-          const hgt = 3 + ((x * 7) % 8);
-          ctx.fillRect(x, s.y - hgt, 3 + ((x * 3) % 5), hgt);
-        }
-      }
-
-      if (isFloor) {
-        // roots hanging into the soil
-        ctx.strokeStyle = this.alpha(m.moss, 0.25);
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (let x = s.x + 30; x < s.x + s.w; x += 90 + ((x * 7) % 60)) {
-          const len = 20 + ((x * 11) % 70);
-          ctx.moveTo(x, s.y + 6);
-          ctx.quadraticCurveTo(x + 12, s.y + len * 0.6, x + Math.sin(x) * 10, s.y + len);
-        }
-        ctx.stroke();
-      } else if (s.h > 30 && s.w <= 70) {
-        // Vertical wall: a soft edge on the side that faces the room.
-        const inner = s.x <= 60 ? s.x + s.w : s.x;
-        const grad2 = ctx.createLinearGradient(inner - 20, 0, inner + 20, 0);
-        grad2.addColorStop(0, this.alpha(m.rim, 0.16));
-        grad2.addColorStop(1, this.alpha(m.rim, 0));
-        ctx.fillStyle = grad2;
-        ctx.fillRect(inner - 20, s.y, 40, s.h);
-        ctx.strokeStyle = this.alpha(m.rim, 0.18);
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(inner, s.y);
-        ctx.lineTo(inner, s.y + s.h);
-        ctx.stroke();
-      } else if (s.h > 30) {
-        // ceiling stalactites / hanging roots
-        ctx.strokeStyle = this.alpha(m.moss, 0.3);
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        for (let x = s.x + 26; x < s.x + s.w; x += 60 + ((x * 17) % 40)) {
-          const len = 14 + ((x * 13) % 44);
-          ctx.moveTo(x, s.y + s.h);
-          ctx.lineTo(x + 4, s.y + s.h + len);
-        }
-        ctx.stroke();
-      }
-    }
-  }
-
-  drawDecor(ctx) {
-    const m = this.mood;
-    // Glowing mushrooms and grass tufts, deterministic per room.
-    const seed = this.roomId.length * 977 + this.roomDef.w;
-    const layers = this.roomDef.solids.filter((s) => s.h <= 30 || s.y + s.h >= 880);
-    for (const s of layers) {
-      for (let i = 0; i < 8; i++) {
-        const x = s.x + ((i * 173 + seed) % Math.max(1, s.w - 20)) + 10;
-        const kind = (i + seed) % 3;
-        if (kind === 0) {
-          // mushroom
-          ctx.fillStyle = this.alpha(m.rim, 0.5);
-          ctx.beginPath();
-          ctx.ellipse(x, s.y - 6, 6, 4, 0, Math.PI, TAU);
-          ctx.fill();
-          ctx.fillRect(x - 1, s.y - 6, 2, 6);
-        } else if (kind === 1) {
-          // grass
-          ctx.strokeStyle = this.alpha(m.moss, 0.6);
-          ctx.lineWidth = 1.5;
-          ctx.beginPath();
-          for (let k = 0; k < 4; k++) {
-            ctx.moveTo(x + k * 3, s.y);
-            ctx.quadraticCurveTo(x + k * 3 + 4, s.y - 8, x + k * 3 + Math.sin(this.time + k) * 3, s.y - 14 - k);
-          }
-          ctx.stroke();
-        } else {
-          // pebbles
-          ctx.fillStyle = this.alpha('#0a141c', 0.8);
-          ctx.beginPath();
-          ctx.ellipse(x, s.y - 2, 7, 3, 0, 0, TAU);
-          ctx.fill();
-        }
-      }
-    }
-  }
-
-  /* ------------------------------------------------------------- objects */
-
-  drawObjects(ctx) {
-    const st = this.state;
-    const m = this.mood;
-
-    // Braziers / hearth lanterns.
-    for (const l of st.lamps) this.drawLamp(ctx, l);
-
-    // Vines.
-    for (const v of st.vines) {
-      if (v.burnt) continue;
-      const sway = Math.sin(this.time * 1.6 + v.x) * 4;
-      const singe = (v.singed || 0) / 3;
-      ctx.strokeStyle = this.alpha(singe > 0 ? '#7a5a3a' : '#2f6b52', 0.95);
-      ctx.lineWidth = 5;
-      ctx.lineCap = 'round';
-      for (let i = 0; i < 4; i++) {
-        const x = v.x + 4 + i * (v.w / 4);
-        ctx.beginPath();
-        ctx.moveTo(x, v.y);
-        ctx.bezierCurveTo(x + sway, v.y + v.h * 0.3, x - sway, v.y + v.h * 0.7, x + sway * 0.6, v.y + v.h);
-        ctx.stroke();
-      }
-      ctx.lineCap = 'butt';
-      // The vine itself smoulders faintly: a hint that light undoes it.
-      const ember = 0.35 + 0.25 * Math.sin(this.time * 2.4 + v.x * 0.01);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const vg = ctx.createLinearGradient(v.x, v.y, v.x + v.w, v.y + v.h);
-      vg.addColorStop(0, `rgba(255, 210, 140, ${0.10 * ember})`);
-      vg.addColorStop(0.5, `rgba(255, 180, 110, ${0.20 * ember})`);
-      vg.addColorStop(1, `rgba(255, 210, 140, ${0.10 * ember})`);
-      ctx.fillStyle = vg;
-      ctx.fillRect(v.x - 6, v.y, v.w + 12, v.h);
-      ctx.restore();
-
-      // thorns
-      ctx.fillStyle = this.alpha('#8fdcb4', 0.8);
-      for (let i = 0; i < 7; i++) {
-        const y = v.y + 10 + i * (v.h / 7);
-        const side = i % 2 ? 1 : -1;
-        ctx.beginPath();
-        ctx.moveTo(v.x + v.w / 2, y);
-        ctx.lineTo(v.x + v.w / 2 + side * 12, y - 5);
-        ctx.lineTo(v.x + v.w / 2 + side * 4, y + 3);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-
-    // Gates: thorn curtains with runes.
-    for (const g of st.gates) {
-      if (g.open) continue;
-      const pulse = 0.5 + 0.2 * Math.sin(this.time * 2 + g.x);
-      ctx.strokeStyle = this.alpha(m.rim, 0.75);
-      ctx.lineWidth = 3;
-      for (let i = 0; i < 5; i++) {
-        const x = g.x + 3 + i * (g.w / 5);
-        ctx.beginPath();
-        ctx.moveTo(x, g.y);
-        ctx.bezierCurveTo(x + 8, g.y + g.h * 0.4, x - 8, g.y + g.h * 0.6, x, g.y + g.h);
-        ctx.stroke();
-      }
-      ctx.strokeStyle = this.alpha(m.accent, pulse);
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(g.x - 3, g.y, g.w + 6, g.h);
-      ctx.fillStyle = this.alpha(m.accent, pulse * 0.8);
-      ctx.beginPath();
-      ctx.arc(g.x + g.w / 2, g.y + 18, 4, 0, TAU);
-      ctx.fill();
-    }
-
-    // Mirrors.
-    for (const mir of st.mirrors) {
-      const glow = mir.glow || 0;
-      ctx.save();
-      ctx.translate(mir.x, mir.y);
-      ctx.rotate(mir.angle);
-      ctx.strokeStyle = this.alpha('#dfe6ff', 0.85 + glow * 0.15);
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(-18, 0);
-      ctx.lineTo(18, 0);
-      ctx.stroke();
-      ctx.strokeStyle = this.alpha(m.rim, 0.5);
-      ctx.lineWidth = 10;
-      ctx.globalAlpha = 0.3;
-      ctx.beginPath();
-      ctx.moveTo(-18, 0);
-      ctx.lineTo(18, 0);
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.restore();
-      // stand
-      ctx.strokeStyle = this.alpha('#1a2a33', 0.95);
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(mir.x, mir.y + 6);
-      ctx.lineTo(mir.x, mir.y + 34);
-      ctx.stroke();
-      mir.glow = Math.max(0, (mir.glow || 0) - 0.02);
-    }
-
-    // Emitters.
-    for (const em of this.roomDef.emitters) {
-      ctx.fillStyle = this.alpha('#0d1a22', 0.95);
-      ctx.beginPath();
-      ctx.arc(em.x, em.y, 14, 0, TAU);
-      ctx.fill();
-      ctx.strokeStyle = this.alpha(m.rim, 0.9);
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      ctx.fillStyle = '#eaffff';
-      ctx.beginPath();
-      ctx.arc(em.x, em.y, 6, 0, TAU);
-      ctx.fill();
-    }
-
-    // Targets (receptacles).
-    for (const t of this.roomDef.targets) {
-      const hit = st.beamHit;
-      ctx.strokeStyle = this.alpha(hit ? '#fff2c8' : m.rim, hit ? 1 : 0.5);
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.roundRect(t.x, t.y, t.w, t.h, 8);
-      ctx.stroke();
-      if (hit) {
-        ctx.fillStyle = 'rgba(255, 242, 200, 0.22)';
-        ctx.fill();
-      }
-    }
-
-    // Plates: shallow hollows cut into the floor.
-    for (const p of st.plates) {
-      const lift = p.anim * 3;
-      const g = ctx.createLinearGradient(0, p.y - lift - 2, 0, p.y + 9);
-      g.addColorStop(0, this.alpha('#0a1418', 0.95));
-      g.addColorStop(1, this.alpha('#16282e', 0.95));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.roundRect(p.x - 2, p.y - lift - 2, p.w + 4, 12, 5);
-      ctx.fill();
-
-      ctx.strokeStyle = this.alpha(p.pressed ? '#ffe6a6' : m.rim, p.pressed ? 0.55 : 0.42);
-      ctx.lineWidth = 1.6;
-      ctx.stroke();
-
-      // Rim of the hollow.
-      ctx.fillStyle = this.alpha(m.rim, 0.28);
-      ctx.fillRect(p.x - 2, p.y - lift - 2, p.w + 4, 1.6);
-
-      // Guide light so the hollow is findable from across the room.
-      const bob = Math.sin(this.time * 2 + p.x * 0.01) * 0.5 + 0.5;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const beam = ctx.createLinearGradient(0, p.y - 92, 0, p.y);
-      beam.addColorStop(0, 'rgba(255, 226, 160, 0)');
-      beam.addColorStop(1, `rgba(255, 226, 160, ${(p.pressed ? 0.16 : 0.07) * (0.6 + bob * 0.4)})`);
-      ctx.fillStyle = beam;
-      ctx.fillRect(p.x + 4, p.y - 92, p.w - 8, 92);
-      ctx.restore();
-    }
-
-    // Echo crystal.
-    if (st.echo) {
-      const e = st.echo;
-      const bob = Math.sin(this.time * 2) * 3;
-      ctx.save();
-      ctx.translate(e.x, e.y - 34 + bob);
-      ctx.rotate(Math.sin(this.time * 0.6) * 0.2);
-      ctx.fillStyle = this.alpha(e.recording ? '#ffd6a0' : '#bfe9ff', 0.9);
-      ctx.beginPath();
-      ctx.moveTo(0, -20);
-      ctx.lineTo(11, 0);
-      ctx.lineTo(0, 22);
-      ctx.lineTo(-11, 0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.restore();
-      ctx.fillStyle = this.alpha('#0c161c', 0.95);
-      ctx.fillRect(e.x - 16, e.y - 8, 32, 10);
-    }
-
-    // Altar with three sockets.
-    if (this.roomDef.altar) {
-      const a = this.roomDef.altar;
-      ctx.fillStyle = this.alpha('#101c22', 0.98);
-      ctx.beginPath();
-      ctx.roundRect(a.x, a.y, a.w, a.h, 6);
-      ctx.fill();
-      ctx.strokeStyle = this.alpha(m.rim, 0.5);
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      for (let i = 0; i < 3; i++) {
-        const cx = a.x + 26 + i * 29;
-        const filled = i < this.shards.length;
-        ctx.beginPath();
-        ctx.moveTo(cx, a.y + 22);
-        ctx.lineTo(cx + 9, a.y + 38);
-        ctx.lineTo(cx, a.y + 54);
-        ctx.lineTo(cx - 9, a.y + 38);
-        ctx.closePath();
-        ctx.fillStyle = filled ? '#fff0c0' : 'rgba(120, 180, 200, 0.16)';
-        ctx.fill();
-        ctx.strokeStyle = this.alpha(m.rim, filled ? 0.9 : 0.35);
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
-      }
-    }
-
-    // Memory shard: a small eight-rayed star of light.
-    if (st.shard && !st.shard.taken) {
-      const sh = st.shard;
-      const bob = Math.sin(sh.t * 2.2) * 5;
-      const x = sh.x;
-      const y = sh.y - 34 + bob;
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(sh.t * 0.4);
-      ctx.fillStyle = '#fff6d8';
-      ctx.beginPath();
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * TAU - Math.PI / 2;
-        const r = i % 2 === 0 ? 20 : 7;
-        if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
-        else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.lineWidth = 1.2;
-      ctx.stroke();
-      ctx.restore();
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const sg = ctx.createRadialGradient(x, y, 2, x, y, 70);
-      sg.addColorStop(0, 'rgba(255, 244, 210, 0.55)');
-      sg.addColorStop(1, 'rgba(255, 230, 170, 0)');
-      ctx.fillStyle = sg;
-      ctx.beginPath();
-      ctx.arc(x, y, 70, 0, TAU);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    // The hollow room's mirror.
-    if (this.roomDef.mirror) {
-      const mr = this.roomDef.mirror;
-      ctx.save();
-      ctx.translate(mr.x, mr.y);
-      ctx.strokeStyle = this.alpha('#f3e8ff', 0.85);
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.ellipse(0, -60, 46, 78, 0, 0, TAU);
-      ctx.stroke();
-      const mg = ctx.createRadialGradient(0, -60, 4, 0, -60, 90);
-      mg.addColorStop(0, 'rgba(255, 250, 235, 0.30)');
-      mg.addColorStop(1, 'rgba(255, 250, 235, 0)');
-      ctx.fillStyle = mg;
-      ctx.beginPath();
-      ctx.ellipse(0, -60, 46, 78, 0, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = this.alpha('#1a2430', 0.95);
-      ctx.fillRect(-16, 14, 32, 20);
-      ctx.restore();
-    }
-  }
-
-  drawDoors(ctx, camX, camY) {
-    const m = this.mood;
-    const p = this.player.body;
-    for (const ex of this.roomDef.exits) {
-      if (!this.visible(ex.x, ex.y, ex.w, ex.h, camX, camY, 40)) continue;
-      const near = dist(p.cx, p.cy, ex.x + ex.w / 2, ex.y + ex.h / 2) < 240;
-      const pulse = 0.55 + 0.2 * Math.sin(this.time * 2.2);
-      const a = near ? 1 : 0.65;
-
-      // Archway: two pillars and a rounded top.
-      ctx.strokeStyle = this.alpha(m.rim, 0.5 * a);
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(ex.x + 2, ex.y + ex.h);
-      ctx.lineTo(ex.x + 2, ex.y + 26);
-      ctx.quadraticCurveTo(ex.x + ex.w / 2, ex.y - 18, ex.x + ex.w - 2, ex.y + 26);
-      ctx.lineTo(ex.x + ex.w - 2, ex.y + ex.h);
-      ctx.stroke();
-
-      // Inside glow.
-      const g = ctx.createLinearGradient(0, ex.y, 0, ex.y + ex.h);
-      g.addColorStop(0, this.alpha(m.accent, 0.03 + (near ? 0.1 : 0.05) * pulse));
-      g.addColorStop(1, this.alpha(m.accent, 0.16 + (near ? 0.16 : 0.08) * pulse));
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.moveTo(ex.x + 4, ex.y + ex.h);
-      ctx.lineTo(ex.x + 4, ex.y + 26);
-      ctx.quadraticCurveTo(ex.x + ex.w / 2, ex.y - 14, ex.x + ex.w - 4, ex.y + 26);
-      ctx.lineTo(ex.x + ex.w - 4, ex.y + ex.h);
-      ctx.closePath();
-      ctx.fill();
-
-      // Fireflies marking the way.
-      for (let i = 0; i < 4; i++) {
-        const f = (this.time * 0.35 + i * 0.25) % 1;
-        const fx = ex.x + 10 + i * ((ex.w - 20) / 3);
-        const fy = ex.y + ex.h - f * (ex.h - 20);
-        ctx.fillStyle = `rgba(255, 240, 200, ${(1 - f) * 0.7 * a})`;
-        ctx.beginPath();
-        ctx.arc(fx, fy, 1.8, 0, TAU);
-        ctx.fill();
-      }
-
-      // Name plate above the arch.
-      const label = ex.label || 'Vidare';
-      ctx.font = '600 13px "Segoe UI", system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillStyle = this.alpha(m.accent, near ? 0.95 : 0.5);
-      const ly = (ex.labelAt ? ex.labelAt.y : ex.y - 26);
-      const lx = ex.labelAt ? ex.labelAt.x : ex.x + ex.w / 2;
-      ctx.fillText(label, lx, ly);
-      ctx.textAlign = 'left';
-    }
-  }
-
-  drawObjectiveMarker(ctx, camX, camY, z) {
-    if (this.mode !== 'play') return;
-    const target = this.objective();
-    if (!target) return;
-    const sx = (target.x - camX) * z;
-    const sy = (target.y - camY) * z;
-    const pad = 120; // partially visible goals still count as on screen
-    const onScreen = sx > -pad && sx < this.w + pad && sy > -pad && sy < this.h + pad;
-    const pulse = 0.6 + 0.4 * Math.sin(this.time * 3);
-
-    // Right on top of the goal? The glow in the world is enough.
-    const p = this.player.body;
-    if (target.kind !== 'door' && dist(p.cx, p.cy, target.x, target.y) < 46) return;
-
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    if (onScreen) {
-      // Pulsing diamond floating above the goal.
-      const yy = sy - (target.kind === 'door' ? 96 : 46);
-      ctx.strokeStyle = `rgba(255, 236, 180, ${0.75 * pulse})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(sx, yy - 9);
-      ctx.lineTo(sx + 8, yy);
-      ctx.lineTo(sx, yy + 9);
-      ctx.lineTo(sx - 8, yy);
-      ctx.closePath();
-      ctx.stroke();
-      const g = ctx.createRadialGradient(sx, yy, 2, sx, yy, 34);
-      g.addColorStop(0, `rgba(255, 236, 180, ${0.3 * pulse})`);
-      g.addColorStop(1, 'rgba(255, 236, 180, 0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(sx, yy, 34, 0, TAU);
-      ctx.fill();
-    } else {
-      // Off-screen: an arrow on the edge pointing the way.
-      const cx = this.w / 2;
-      const cy = this.h / 2;
-      const dx = sx - cx;
-      const dy = sy - cy;
-      const ang = Math.atan2(dy, dx);
-      const rx = (this.w / 2 - pad) / Math.max(0.0001, Math.abs(Math.cos(ang)));
-      const ry = (this.h / 2 - pad) / Math.max(0.0001, Math.abs(Math.sin(ang)));
-      const r = Math.min(rx, ry);
-      const ax = cx + Math.cos(ang) * r;
-      const ay = cy + Math.sin(ang) * r;
-      ctx.translate(ax, ay);
-      ctx.rotate(ang);
-      ctx.fillStyle = `rgba(255, 236, 180, ${0.55 + 0.35 * pulse})`;
-      ctx.beginPath();
-      ctx.moveTo(14, 0);
-      ctx.lineTo(-6, -9);
-      ctx.lineTo(-2, 0);
-      ctx.lineTo(-6, 9);
-      ctx.closePath();
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  drawLamp(ctx, l) {
-    const m = this.mood;
-    const lit = l.lit;
-    const flicker = 0.9 + Math.sin(this.time * 8 + l.x) * 0.06;
-    const cy = l.y - 26;
-    if (l.hearth) {
-      // Lantern post of the hub.
-      ctx.strokeStyle = this.alpha('#16242c', 1);
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(l.x, l.y);
-      ctx.lineTo(l.x, l.y - 74);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(l.x, l.y - 74);
-      ctx.quadraticCurveTo(l.x + 20, l.y - 84, l.x + 26, l.y - 60);
-      ctx.stroke();
-      ctx.fillStyle = this.alpha('#0d181e', 1);
-      ctx.fillRect(l.x + 16, l.y - 62, 22, 26);
-      ctx.fillStyle = lit ? '#ffd79a' : 'rgba(90, 120, 130, 0.35)';
-      ctx.fillRect(l.x + 19, l.y - 59, 16, 19);
-    } else {
-      // Brazier.
-      ctx.fillStyle = this.alpha('#122026', 1);
-      ctx.beginPath();
-      ctx.moveTo(l.x - 14, l.y);
-      ctx.lineTo(l.x - 8, l.y - 22);
-      ctx.lineTo(l.x + 8, l.y - 22);
-      ctx.lineTo(l.x + 14, l.y);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle = this.alpha(m.rim, 0.4);
-      ctx.lineWidth = 1.5;
-      ctx.stroke();
-      if (lit) {
-        for (let i = 0; i < 3; i++) {
-          const h = 16 + Math.sin(this.time * 9 + i * 2) * 4;
-          ctx.fillStyle = i === 1 ? '#fff6d0' : '#ffbe6a';
-          ctx.beginPath();
-          ctx.ellipse(l.x + (i - 1) * 5, l.y - 26 - h * 0.3, 6 - i, h * 0.5, 0, 0, TAU);
-          ctx.fill();
-        }
-      }
-    }
-    if (lit) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createRadialGradient(l.x, cy, 4, l.x, cy, 90 * flicker);
-      g.addColorStop(0, 'rgba(255, 226, 160, 0.35)');
-      g.addColorStop(1, 'rgba(255, 200, 120, 0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(l.x, cy, 90 * flicker, 0, TAU);
-      ctx.fill();
-      ctx.restore();
-    }
-  }
-
-  drawCrates(ctx) {
-    const m = this.mood;
-    for (const c of this.state.crates) {
-      const b = c.body;
-      if (!c.specks) {
-        let seed = 7919 + Math.round(b.x) * 31;
-        const rnd = () => {
-          seed = (seed * 16807) % 2147483647;
-          return seed / 2147483647;
-        };
-        c.specks = Array.from({ length: 10 }, () => ({
-          x: 7 + rnd() * (b.w - 14),
-          y: 10 + rnd() * (b.h - 20),
-          r: 0.9 + rnd() * 2.1,
-        }));
-      }
-
-      // Stone body: cool grey, worn round corners.
-      const g = ctx.createLinearGradient(b.x, b.y, b.x + b.w * 0.4, b.y + b.h);
-      g.addColorStop(0, '#54707c');
-      g.addColorStop(0.55, '#31474f');
-      g.addColorStop(1, '#16232a');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.roundRect(b.x, b.y, b.w, b.h, 9);
-      ctx.fill();
-
-      // Speckles + a hairline crack so it reads as stone, not a box.
-      ctx.fillStyle = 'rgba(10, 18, 22, 0.35)';
-      for (const sp of c.specks) {
-        ctx.beginPath();
-        ctx.ellipse(b.x + sp.x, b.y + sp.y, sp.r, sp.r * 0.75, 0, 0, TAU);
-        ctx.fill();
-      }
-      ctx.strokeStyle = 'rgba(9, 16, 20, 0.5)';
-      ctx.lineWidth = 1.1;
-      ctx.beginPath();
-      ctx.moveTo(b.x + 10, b.y + 8);
-      ctx.lineTo(b.x + 18, b.y + 19);
-      ctx.lineTo(b.x + 13, b.y + 29);
-      ctx.moveTo(b.x + 30, b.y + b.h - 8);
-      ctx.lineTo(b.x + 24, b.y + 30);
-      ctx.stroke();
-
-      // Moss along the top, lit rim.
-      ctx.fillStyle = 'rgba(110, 176, 138, 0.3)';
-      ctx.beginPath();
-      ctx.roundRect(b.x + 2, b.y + 1, b.w - 4, 7, 4);
-      ctx.fill();
-      ctx.strokeStyle = this.alpha(m.rim, 0.5 + c.glow * 0.5);
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.roundRect(b.x + 0.5, b.y + 0.5, b.w - 1, b.h - 1, 9);
-      ctx.stroke();
-
-      // Carved rune: what makes it something the light can move.
-      const pulse = 0.55 + 0.25 * Math.sin(this.time * 2 + b.x * 0.02);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const glow = ctx.createRadialGradient(b.cx, b.cy, 2, b.cx, b.cy, 24);
-      glow.addColorStop(0, `rgba(255, 232, 176, ${(0.14 + c.glow * 0.4) * pulse})`);
-      glow.addColorStop(1, 'rgba(255, 232, 176, 0)');
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.arc(b.cx, b.cy, 24, 0, TAU);
-      ctx.fill();
-      ctx.restore();
-
-      ctx.strokeStyle = `rgba(255, 238, 194, ${0.5 + c.glow * 0.5})`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(b.cx, b.cy - 10);
-      ctx.lineTo(b.cx + 8, b.cy - 2);
-      ctx.lineTo(b.cx + 2, b.cy + 10);
-      ctx.moveTo(b.cx, b.cy - 10);
-      ctx.lineTo(b.cx - 8, b.cy + 1);
-      ctx.lineTo(b.cx - 2, b.cy + 10);
-      ctx.stroke();
-
-      // Contact shadow.
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.beginPath();
-      ctx.ellipse(b.cx, b.bottom + 2, b.w * 0.45, 4.5, 0, 0, TAU);
-      ctx.fill();
-    }
-  }
-
-  drawMidges(ctx) {
-    for (const m of this.state.midges) {
-      if (m.dead) continue;
-      const bob = Math.sin(m.t * 7) * 3;
-      ctx.save();
-      ctx.translate(m.x, m.y + bob);
-      ctx.fillStyle = 'rgba(10, 14, 20, 0.9)';
-      ctx.beginPath();
-      ctx.ellipse(0, 0, 11, 8, 0, 0, TAU);
-      ctx.fill();
-      // wings
-      const flap = Math.sin(m.t * 22) * 0.5;
-      ctx.fillStyle = 'rgba(170, 210, 235, 0.25)';
-      ctx.beginPath();
-      ctx.ellipse(-7, -4, 9, 4, -0.5 + flap, 0, TAU);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(7, -4, 9, 4, 0.5 - flap, 0, TAU);
-      ctx.fill();
-      // eyes
-      ctx.fillStyle = m.alert ? '#ffd0a0' : '#9fe8ff';
-      ctx.beginPath();
-      ctx.arc(-4, -1, 1.8, 0, TAU);
-      ctx.arc(4, -1, 1.8, 0, TAU);
-      ctx.fill();
-      ctx.restore();
-    }
-  }
-
-  drawEcho(ctx) {
-    const e = this.state.echo;
-    if (!e || !e.playing || !e.pos) return;
-    const { x, y } = e.pos;
-    ctx.save();
-    ctx.globalAlpha = 0.42;
-    ctx.fillStyle = '#bfe9ff';
-    ctx.beginPath();
-    ctx.ellipse(x, y - 22, 12, 20, 0, 0, TAU);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(x, y - 42, 9, 0, TAU);
-    ctx.fill();
-    ctx.globalAlpha = 0.16;
-    ctx.beginPath();
-    ctx.ellipse(x, y - 22, 18, 26, 0, 0, TAU);
-    ctx.fill();
-    ctx.restore();
-  }
-
-  /* --------------------------------------------------------------- player */
-
-  drawPlayer(ctx) {
-    const p = this.player;
-    const b = p.body;
-    const f = p.facing;
-    const walking = b.onGround && Math.abs(b.vx) > 30;
-    const bob = walking ? Math.sin(p.anim * 12) * 1.6 : Math.sin(p.anim * 2.2) * 0.8;
-
-    ctx.save();
-    ctx.translate(b.cx, b.bottom);
-
-    // shadow
-    ctx.fillStyle = 'rgba(0,0,0,0.36)';
-    ctx.beginPath();
-    ctx.ellipse(0, 2, 15, 5, 0, 0, TAU);
-    ctx.fill();
-
-    if (p.invuln > 0 && Math.floor(p.anim * 20) % 2 === 0) ctx.globalAlpha = 0.45;
-
-    const squash = p.land * 0.1;
-    ctx.scale(f * (1 + squash * 0.4), 1 - squash);
-
-    // Pushing: lean into the stone and stretch a hand forward.
-    const push = p.pushAmt;
-    if (push > 0.001) {
-      ctx.translate(push * 3.2, 0);
-      ctx.rotate(push * 0.05);
-    }
-
-    // cloak
-    ctx.beginPath();
-    ctx.moveTo(-1, -46);
-    ctx.quadraticCurveTo(-17, -28, -16, -1);
-    ctx.quadraticCurveTo(-4, 4, 0, 2);
-    ctx.quadraticCurveTo(8, 4, 15, -2);
-    ctx.quadraticCurveTo(16, -28, 2, -46);
-    ctx.closePath();
-    const cg = ctx.createLinearGradient(0, -46, 0, 2);
-    cg.addColorStop(0, '#1b2a34');
-    cg.addColorStop(0.55, '#101a22');
-    cg.addColorStop(1, '#22333d');
-    ctx.fillStyle = cg;
-    ctx.fill();
-    ctx.strokeStyle = this.alpha(this.mood.rim, 0.32);
-    ctx.lineWidth = 1.4;
-    ctx.stroke();
-
-    // feet
-    ctx.strokeStyle = '#0a1218';
-    ctx.lineWidth = 4;
-    ctx.lineCap = 'round';
-    const swing = walking ? Math.sin(p.anim * 12) * 4 : 0;
-    ctx.beginPath();
-    ctx.moveTo(-4, -12);
-    ctx.lineTo(-5 + swing, 1);
-    ctx.moveTo(4, -12);
-    ctx.lineTo(5 - swing, 1);
-    ctx.stroke();
-    ctx.lineCap = 'butt';
-
-    // head + wide hat
-    ctx.save();
-    ctx.translate(0, -46 + bob);
-    ctx.beginPath();
-    ctx.ellipse(0, -6, 9, 10, 0, 0, TAU);
-    ctx.fillStyle = '#e9f6ff';
-    ctx.fill();
-    ctx.fillStyle = '#0a1620';
-    ctx.beginPath();
-    ctx.ellipse(-3.4, -6, 1.7, 2.6, 0, 0, TAU);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(3.4, -6, 1.7, 2.6, 0, 0, TAU);
-    ctx.fill();
-    // hat brim
-    ctx.beginPath();
-    ctx.ellipse(0, -12, 15, 4.4, -0.06, 0, TAU);
-    ctx.fillStyle = '#16222c';
-    ctx.fill();
-    ctx.strokeStyle = this.alpha(this.mood.rim, 0.4);
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(-7, -13);
-    ctx.quadraticCurveTo(-4, -26, 3, -25);
-    ctx.quadraticCurveTo(6, -18, 7, -13);
-    ctx.closePath();
-    ctx.fillStyle = '#16222c';
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
-
-    // Staff + lantern in the leading hand. While shoving, the lantern is
-    // hung on the belt behind so both little hands are free.
-    const pt = p.pushAmt;
-    if (pt < 0.35) {
-      const staffX = 12;
-      ctx.strokeStyle = '#2b3d46';
-      ctx.lineWidth = 2.4;
-      ctx.beginPath();
-      ctx.moveTo(staffX - 3, -34);
-      ctx.lineTo(staffX + 4, 0);
-      ctx.stroke();
-
-      const lx = staffX + 4;
-      const ly = -40;
-      ctx.fillStyle = '#0f1a20';
-      ctx.fillRect(lx - 6, ly - 2, 12, 14);
-      ctx.strokeStyle = this.alpha(this.mood.accent, 0.85);
-      ctx.lineWidth = 1.4;
-      ctx.strokeRect(lx - 6, ly - 2, 12, 14);
-      const flick = 0.8 + Math.sin(this.time * 9) * 0.2;
-      ctx.fillStyle = `rgba(255, 226, 160, ${0.7 + flick * 0.3})`;
-      ctx.fillRect(lx - 4, ly, 8, 10);
-      this.handLantern = { x: lx, y: ly };
-    } else {
-      // Belt lantern, tucked behind the hip.
-      const bx = -15;
-      const by = -20;
-      const flick = 0.8 + Math.sin(this.time * 9) * 0.2;
-      ctx.fillStyle = '#0f1a20';
-      ctx.roundRect(bx - 4.5, by - 1, 9, 11, 2);
-      ctx.fill();
-      ctx.strokeStyle = this.alpha(this.mood.accent, 0.6);
-      ctx.lineWidth = 1.1;
-      ctx.stroke();
-      ctx.fillStyle = `rgba(255, 226, 160, ${0.55 + flick * 0.3})`;
-      ctx.fillRect(bx - 2.5, by + 0.8, 5, 7);
-      this.handLantern = { x: bx, y: by };
-    }
-
-    // charge ring
-    if (p.charging) {
-      const { x: lx, y: ly } = this.handLantern || { x: 16, y: -40 };
-      const t = p.chargeT / CHARGE.max;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const color = this.tierColor();
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(lx, ly + 4, 16 + t * 10, -Math.PI / 2, -Math.PI / 2 + TAU * Math.min(1, t));
-      ctx.stroke();
-      const g = ctx.createRadialGradient(lx, ly + 4, 2, lx, ly + 4, 40 + t * 26);
-      g.addColorStop(0, color);
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.globalAlpha = 0.28 + t * 0.3;
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(lx, ly + 4, 40 + t * 26, 0, TAU);
-      ctx.fill();
-      ctx.restore();
-    }
-
-    if (push > 0.001) this.drawPushHands(ctx, push);
-
-    ctx.restore();
-
-    // Companion firefly.
-    this.drawGlim(ctx);
-  }
-
-  /** Two small mitts braced against the stone, drawn over everything. */
-  drawPushHands(ctx, push) {
-    {
-      const p = this.player;
-      const strain = 0.5 + 0.5 * Math.sin(p.anim * 9);
-      const wobble = Math.sin(p.anim * 21) * 0.9 * push;
-      const reach = lerp(9, 21 + strain * 3, push);
-      const sleeve = '#3b5b69';
-
-      ctx.lineCap = 'round';
-      // Shoulders, so the arms grow out of the cloak.
-      ctx.fillStyle = '#3b5b69';
-      ctx.beginPath();
-      ctx.ellipse(1, -32, 5, 6.5, -0.2, 0, TAU);
-      ctx.fill();
-      // Upper arm: shoulder -> elbow, elbow -> hand.
-      ctx.strokeStyle = sleeve;
-      ctx.lineWidth = 5.4;
-      ctx.beginPath();
-      ctx.moveTo(1, -34);
-      ctx.lineTo(reach * 0.55, -31 - wobble);
-      ctx.moveTo(0, -22);
-      ctx.lineTo(reach * 0.5, -21 + wobble);
-      ctx.stroke();
-
-      ctx.strokeStyle = '#4d7182';
-      ctx.lineWidth = 4.4;
-      ctx.beginPath();
-      ctx.moveTo(reach * 0.55, -31 - wobble);
-      ctx.lineTo(reach, -30 - wobble);
-      ctx.moveTo(reach * 0.5, -21 + wobble);
-      ctx.lineTo(reach - 2, -20 + wobble);
-      ctx.stroke();
-
-      // Hands: small pale mitts, flat against the stone.
-      ctx.fillStyle = '#eaf7ff';
-      ctx.beginPath();
-      ctx.ellipse(reach + 1, -30 - wobble, 4.2, 3.6, 0.25, 0, TAU);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.ellipse(reach - 1, -20 + wobble, 4, 3.4, 0.25, 0, TAU);
-      ctx.fill();
-
-      // Warm rim so the hands read against a dark stone.
-      ctx.strokeStyle = `rgba(255, 226, 168, ${0.5 * push})`;
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.arc(reach + 1, -30 - wobble, 4.6, -1.1, 1.2);
-      ctx.moveTo(reach + 3.2, -20 + wobble);
-      ctx.arc(reach - 1, -20 + wobble, 4.4, -1.1, 1.2);
-      ctx.stroke();
-      ctx.lineCap = 'butt';
-    }
-  }
-
-  drawGlim(ctx) {
-    const b = this.player.body;
-    const t = this.time;
-    const x = b.cx + Math.cos(t * 0.9) * 34 - this.player.facing * 10;
-    const y = b.cy - 58 + Math.sin(t * 1.6) * 9;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    const g = ctx.createRadialGradient(x, y, 1, x, y, 26);
-    g.addColorStop(0, 'rgba(210, 255, 240, 0.95)');
-    g.addColorStop(0.3, 'rgba(140, 240, 220, 0.45)');
-    g.addColorStop(1, 'rgba(120, 230, 200, 0)');
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, 26, 0, TAU);
-    ctx.fill();
-    ctx.restore();
-    ctx.fillStyle = '#f2fffb';
-    ctx.beginPath();
-    ctx.arc(x, y, 2.6, 0, TAU);
-    ctx.fill();
-  }
-
-  drawOrbs(ctx) {
-    for (const o of this.orbs) {
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      const g = ctx.createRadialGradient(o.x, o.y, 1, o.x, o.y, 26);
-      g.addColorStop(0, 'rgba(255, 250, 230, 0.95)');
-      g.addColorStop(0.4, 'rgba(255, 214, 150, 0.5)');
-      g.addColorStop(1, 'rgba(255, 190, 120, 0)');
-      ctx.fillStyle = g;
-      ctx.beginPath();
-      ctx.arc(o.x, o.y, 26, 0, TAU);
-      ctx.fill();
-      ctx.restore();
-      ctx.fillStyle = '#fffdf4';
-      ctx.beginPath();
-      ctx.arc(o.x, o.y, 4, 0, TAU);
-      ctx.fill();
-    }
-  }
-
-  drawFx(ctx) {
-    for (const f of this.fx) {
-      const k = 1 - f.life / f.max;
-      if (f.type === 'beam') {
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = `rgba(230, 250, 255, ${(1 - k) * 0.9})`;
-        ctx.lineWidth = 10 * (1 - k) + 2;
-        ctx.beginPath();
-        ctx.moveTo(f.x1, f.y1);
-        ctx.lineTo(f.x2, f.y2);
-        ctx.stroke();
-        ctx.strokeStyle = `rgba(255, 255, 255, ${1 - k})`;
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-        ctx.restore();
-      } else if (f.type === 'bomb') {
-        const r = f.r + (f.max - f.r) * k;
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.strokeStyle = `rgba(255, 236, 190, ${(1 - k) * 0.9})`;
-        ctx.lineWidth = 4 * (1 - k) + 1;
-        ctx.beginPath();
-        ctx.arc(f.x, f.y, r, 0, TAU);
-        ctx.stroke();
-        ctx.fillStyle = `rgba(255, 220, 150, ${(1 - k) * 0.1})`;
-        ctx.beginPath();
-        ctx.arc(f.x, f.y, r, 0, TAU);
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-  }
-
-  drawParticles(ctx) {
-    for (const p of this.particles) {
-      const t = clamp(p.life / p.max, 0, 1);
-      ctx.globalAlpha = t;
-      ctx.fillStyle = p.color;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.size * (0.5 + t * 0.6), 0, TAU);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-  }
-
-  drawBeamLight(ctx) {
-    if (!this.beamPath) return;
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (const points of this.beamPath) {
-      if (!points || points.length < 2) continue;
-      ctx.strokeStyle = 'rgba(180, 245, 255, 0.35)';
-      ctx.lineWidth = 9;
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-      ctx.stroke();
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-      ctx.lineWidth = 2;
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  /* ------------------------------------------------------------- lighting */
-
-  drawLighting(ctx, camX, camY, z = 1) {
-    const lc = this.lightCtx;
-    const dpr = this.dpr;
-    lc.setTransform(dpr, 0, 0, dpr, 0, 0);
-    lc.clearRect(0, 0, this.w, this.h);
-    lc.fillStyle = 'rgba(5, 10, 16, 0.74)';
-    lc.fillRect(0, 0, this.w, this.h);
-    lc.globalCompositeOperation = 'destination-out';
-
-    const toScreen = (x, y) => ({ x: (x - camX) * z, y: (y - camY) * z });
-    const holes = [];
-    const b = this.player.body;
-    const p = toScreen(b.cx, b.cy);
-    holes.push({ ...p, r: 430 * z, a: 0.98 });
-    holes.push({ ...p, r: 210 * z, a: 0.9 });
-
-    for (const l of this.state.lamps) {
-      if (!l.lit) continue;
-      const s2 = toScreen(l.x, l.y - 26);
-      holes.push({ ...s2, r: (l.hearth ? 330 : 230) * z, a: 0.95 });
-    }
-    for (const em of this.roomDef.emitters) {
-      const s2 = toScreen(em.x, em.y);
-      holes.push({ ...s2, r: 190 * z, a: 0.75 });
-    }
-    for (const g of this.state.gates) if (!g.open) {
-      const s2 = toScreen(g.x, g.y + 60);
-      holes.push({ ...s2, r: 110 * z, a: 0.4 });
-    }
-    if (this.state.shard && !this.state.shard.taken) {
-      const s2 = toScreen(this.state.shard.x, this.state.shard.y - 30);
-      holes.push({ ...s2, r: 190 * z, a: 0.85 });
-    }
-    if (this.roomDef.mirror) {
-      const s2 = toScreen(this.roomDef.mirror.x, this.roomDef.mirror.y - 60);
-      holes.push({ ...s2, r: 270 * z, a: 0.85 });
-    }
-    if (this.roomDef.altar) {
-      const s2 = toScreen(this.roomDef.altar.x + 55, this.roomDef.altar.y + 40);
-      holes.push({ ...s2, r: 160 * z, a: 0.55 });
-    }
-    if (this.state.echo) {
-      const s2 = toScreen(this.state.echo.x, this.state.echo.y - 30);
-      holes.push({ ...s2, r: 130 * z, a: 0.5 });
-    }
-    for (const t of this.roomDef.targets) {
-      const s2 = toScreen(t.x + t.w / 2, t.y + t.h / 2);
-      holes.push({ ...s2, r: 140 * z, a: this.state.beamHit ? 0.85 : 0.35 });
-    }
-    if (this.player.charging) {
-      const t = this.player.chargeT / CHARGE.max;
-      holes.push({ ...p, r: (170 + t * 110) * z, a: 0.7 + t * 0.3 });
-    }
-    for (const o of this.orbs) {
-      const s2 = toScreen(o.x, o.y);
-      holes.push({ ...s2, r: 120 * z, a: 0.75 });
-    }
-    for (const m of this.state.midges) if (!m.dead) {
-      const s2 = toScreen(m.x, m.y);
-      holes.push({ ...s2, r: 55 * z, a: 0.3 });
-    }
-    for (const c of this.state.crates) {
-      const s2 = toScreen(c.body.cx, c.body.cy);
-      holes.push({ ...s2, r: 130 * z, a: 0.5 });
-    }
-    for (const pl of this.state.plates) {
-      const s2 = toScreen(pl.x + pl.w / 2, pl.y - 40);
-      holes.push({ ...s2, r: 160 * z, a: pl.pressed ? 0.55 : 0.42 });
-    }
-    for (const ex of this.roomDef.exits) {
-      const s2 = toScreen(ex.x + ex.w / 2, ex.y + ex.h * 0.6);
-      holes.push({ ...s2, r: 150 * z, a: 0.5 });
-    }
-
-    for (const h of holes) {
-      const g = lc.createRadialGradient(h.x, h.y, 2, h.x, h.y, h.r);
-      g.addColorStop(0, `rgba(0,0,0,${h.a})`);
-      g.addColorStop(0.5, `rgba(0,0,0,${h.a * 0.7})`);
-      g.addColorStop(1, 'rgba(0,0,0,0)');
-      lc.fillStyle = g;
-      lc.beginPath();
-      lc.arc(h.x, h.y, h.r, 0, TAU);
-      lc.fill();
-    }
-    lc.globalCompositeOperation = 'source-over';
-    ctx.drawImage(this.lightCanvas, 0, 0, this.w, this.h);
-  }
-
-  drawGlowPass(ctx, camX, camY, z = 1) {
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-
-    // Stones and their hollows glow just enough to be found in the dark.
-    for (const c of this.state.crates) {
-      const x = (c.body.cx - camX) * z;
-      const y = (c.body.cy - camY) * z;
-      const r = 46 * z;
-      const gg = ctx.createRadialGradient(x, y, 2, x, y, r);
-      gg.addColorStop(0, `rgba(255, 228, 170, ${0.05 + c.glow * 0.12})`);
-      gg.addColorStop(1, 'rgba(255, 228, 170, 0)');
-      ctx.fillStyle = gg;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, TAU);
-      ctx.fill();
-    }
-    for (const pl of this.state.plates) {
-      const x = (pl.x + pl.w / 2 - camX) * z;
-      const y = (pl.y - 6 - camY) * z;
-      const r = 78 * z;
-      const gg = ctx.createRadialGradient(x, y, 2, x, y, r);
-      gg.addColorStop(0, `rgba(255, 220, 150, ${pl.pressed ? 0.3 : 0.12})`);
-      gg.addColorStop(1, 'rgba(255, 220, 150, 0)');
-      ctx.fillStyle = gg;
-      ctx.beginPath();
-      ctx.ellipse(x, y, r, r * 0.5, 0, 0, TAU);
-      ctx.fill();
-    }
-
-    // Lantern halo around the player.
-    const b = this.player.body;
-    const px = (b.cx - camX) * z;
-    const py = (b.cy - camY) * z;
-    const g = ctx.createRadialGradient(px, py, 10, px, py, 320);
-    g.addColorStop(0, 'rgba(255, 226, 170, 0.13)');
-    g.addColorStop(0.5, 'rgba(255, 210, 150, 0.05)');
-    g.addColorStop(1, 'rgba(255, 200, 140, 0)');
-    ctx.fillStyle = g;
-    ctx.fillRect(px - 320, py - 320, 640, 640);
-
-    // Fireflies drifting in the room.
-    for (let i = 0; i < 14; i++) {
-      const seed = i * 97 + this.roomId.length * 31;
-      const x = (((seed * 13 + Math.sin(this.time * 0.5 + i) * 60) % Math.max(1, this.roomDef.w)) - camX) * z;
-      const y = ((((seed * 29 + Math.cos(this.time * 0.4 + i * 1.7) * 40) % 700) + 90) - camY) * z;
-      if (x < -20 || x > this.w + 20) continue;
-      const tw = 0.35 + 0.35 * Math.sin(this.time * 2 + i);
-      ctx.fillStyle = `rgba(200, 255, 235, ${tw * 0.5})`;
-      ctx.beginPath();
-      ctx.arc(x, y, 1.8, 0, TAU);
-      ctx.fill();
-      ctx.fillStyle = `rgba(160, 250, 220, ${tw * 0.12})`;
-      ctx.beginPath();
-      ctx.arc(x, y, 7, 0, TAU);
-      ctx.fill();
-    }
-    ctx.restore();
-  }
-
-  drawOverlay(ctx) {
-    const v = ctx.createRadialGradient(this.w / 2, this.h / 2, Math.min(this.w, this.h) * 0.34, this.w / 2, this.h / 2, Math.max(this.w, this.h) * 0.78);
-    v.addColorStop(0, 'rgba(0,0,0,0)');
-    v.addColorStop(1, 'rgba(0,0,0,0.62)');
-    ctx.fillStyle = v;
-    ctx.fillRect(0, 0, this.w, this.h);
-
-    if (this.flash > 0.25) {
-      ctx.fillStyle = `rgba(255, 240, 200, ${(this.flash - 0.25) * 0.18})`;
-      ctx.fillRect(0, 0, this.w, this.h);
-    }
-
-    // Low health vignette.
-    if (this.player.hp === 1 && this.mode === 'play') {
-      ctx.fillStyle = `rgba(40, 6, 14, ${0.18 + Math.sin(this.time * 4) * 0.05})`;
-      ctx.fillRect(0, 0, this.w, this.h);
-    }
+    this.ensureLightCanvas();
+    drawScene(ctx, this, camX, camY);
+    drawLighting(ctx, this, camX, camY);
+    drawEffectLayer(ctx, this, camX, camY);
   }
 }
