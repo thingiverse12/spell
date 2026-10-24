@@ -1,0 +1,13 @@
+{
+  "name": "spell",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SPELL — ett 2D-arenaspel i ren HTML, CSS och JavaScript.",
+  "scripts": {
+    "dev": "node server.mjs",
+    "start": "node server.mjs",
+    "test": "node tests/smoke.mjs",
+    "shots": "node tests/render.mjs ./shots"
+  }
+}
