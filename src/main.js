@@ -345,16 +345,6 @@ function frame(now) {
     if (game.mode === 'play') renderHud();
   }
 
-  // Item hotkeys 1-3.
-  if (game.mode === 'play') {
-    for (const [i, id] of game.player.items.entries()) {
-      if (input.hit(`slot${i}`)) {
-        game.player.item = i;
-        renderItems();
-      }
-    }
-  }
-
   requestAnimationFrame(frame);
 }
 

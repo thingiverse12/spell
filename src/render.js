@@ -451,7 +451,9 @@ function drawTree(ctx, p, pal, t) {
     }
   }
   // Canopy: several overlapping blobs, lit from the upper left.
-  const base = p.kind === 'birch' ? ['#40603f', '#517a4c', '#2e4a33', '#628c58'] : ['#1f3b2a', '#2b4d33', '#162b1f', '#365c3c'];
+  const base = p.kind === 'birch'
+    ? ['#52764e', '#65905c', '#3c5a3f', '#77a067']
+    : ['#2c5238', '#396344', '#1d3a29', '#456f4c'];
   const blobs = [
     { x: 0, y: -44, r: 26 },
     { x: -16, y: -36, r: 18 },
@@ -461,10 +463,21 @@ function drawTree(ctx, p, pal, t) {
   ];
   for (let i = 0; i < blobs.length; i++) {
     const b = blobs[i];
+    const bx = p.x + b.x * s + sway * (0.4 + i * 0.15);
+    const by = p.y + b.y * s;
     ctx.fillStyle = base[i % base.length];
     ctx.beginPath();
-    ctx.ellipse(p.x + b.x * s + sway * (0.4 + i * 0.15), p.y + b.y * s, b.r * s, b.r * 0.82 * s, 0, 0, TAU);
+    ctx.ellipse(bx, by, b.r * s, b.r * 0.82 * s, 0, 0, TAU);
     ctx.fill();
+    // A dark outline and a cool rim keep the canopy readable in the dark.
+    ctx.strokeStyle = 'rgba(8, 14, 12, 0.5)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(170, 210, 170, 0.12)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.ellipse(bx - 2 * s, by - 2 * s, b.r * s * 0.92, b.r * 0.74 * s, 0, Math.PI * 1.05, Math.PI * 1.95);
+    ctx.stroke();
   }
   // Light catching the top-left of the canopy.
   ctx.save();

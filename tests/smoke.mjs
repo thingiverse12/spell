@@ -320,6 +320,82 @@ assert.equal(game2.player.items.length, data.items.length, 'items survive a relo
 assert.equal(game2.player.maxHp, data.maxHp, 'hearts survive a reload');
 assert.equal(game2.zoneId, data.zone, 'the zone survives a reload');
 
+/* --------------------------------------------------- world reachability */
+
+// Every exit, light, statue, chest and door must be walkable to from the
+// zone's own entrance. This is the "nobody gets stuck" guarantee.
+const CELL = 9;
+function reachability(zoneId) {
+  const def = ZONES[zoneId];
+  game.loadZone(zoneId, def.spawn);
+  game.mode = 'play';
+  const solids = game.solids();
+  const w = 22;
+  const h = 26;
+  const cols = Math.ceil(def.w / CELL);
+  const rows = Math.ceil(def.h / CELL);
+  const blocked = (cx, cy) => {
+    const r = { x: cx * CELL, y: cy * CELL, w, h };
+    if (r.x < 0 || r.y < 0 || r.x + w > def.w || r.y + h > def.h) return true;
+    return solids.some((s) => r.x < s.x + s.w && r.x + w > s.x && r.y < s.y + s.h && r.y + h > s.y);
+  };
+  const sx = Math.floor(def.spawn.x / CELL);
+  const sy = Math.floor(def.spawn.y / CELL);
+  const seen = new Uint8Array(cols * rows);
+  const queue = [[sx, sy]];
+  seen[sy * cols + sx] = 1;
+  while (queue.length) {
+    const [cx, cy] = queue.pop();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= cols || ny >= rows) continue;
+      const i = ny * cols + nx;
+      if (seen[i]) continue;
+      if (blocked(nx, ny)) {
+        seen[i] = 2;
+        continue;
+      }
+      seen[i] = 1;
+      queue.push([nx, ny]);
+    }
+  }
+  return (x, y) => {
+    const range = 46;
+    for (let cx = Math.floor((x - range) / CELL); cx <= Math.ceil((x + range) / CELL); cx++) {
+      for (let cy = Math.floor((y - range) / CELL); cy <= Math.ceil((y + range) / CELL); cy++) {
+        if (cx < 0 || cy < 0 || cx >= cols || cy >= rows) continue;
+        if (seen[cy * cols + cx] !== 1) continue;
+        const px = cx * CELL;
+        const py = cy * CELL;
+        const nx = Math.max(px, Math.min(x, px + w));
+        const ny = Math.max(py, Math.min(y, py + h));
+        if (Math.hypot(nx - x, ny - y) <= range) return true;
+      }
+    }
+    return false;
+  };
+}
+
+for (const zoneId of Object.keys(ZONES)) {
+  const def = ZONES[zoneId];
+  const canReach = reachability(zoneId);
+  const targets = [];
+  for (const e of def.exits || []) targets.push([`utgång till ${e.to}`, e.x + e.w / 2, e.y + e.h / 2]);
+  if (def.brazier) targets.push(['eldstaden', def.brazier.x, def.brazier.y]);
+  for (const b of def.braziers || []) targets.push([`eldstad ${b.id}`, b.x, b.y]);
+  for (const st of def.statues || []) targets.push([`stenen ${st.id}`, st.x, st.y]);
+  for (const n of def.npcs || []) targets.push([`${n.id}`, n.x, n.y]);
+  for (const c of def.chests || []) targets.push([`kistan ${c.id}`, c.x, c.y]);
+  for (const g of def.gates || []) targets.push([`grinden ${g.id}`, g.x + g.w / 2, g.y + g.h / 2]);
+  for (const sw of def.switches || []) targets.push([`brytaren ${sw.id}`, sw.x, sw.y]);
+  for (const rb of def.rubble || []) targets.push(['rasmassorna', rb.x + rb.w / 2, rb.y + rb.h / 2]);
+  if (def.cryptDoor) targets.push(['kryptodörren', def.cryptDoor.x + def.cryptDoor.w / 2, def.cryptDoor.y + def.cryptDoor.h]);
+  for (const [label, x, y] of targets) {
+    assert.ok(canReach(x, y), `${zoneId}: ${label} går att nå till fots`);
+  }
+}
+
 /* ------------------------------------------------------------- rendering */
 
 game.mode = 'play';
