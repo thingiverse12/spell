@@ -1,0 +1,13 @@
+{
+  "name": "plugghornan",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Plugghörnan – studeapp med dold spelhall (endast spelmynt)",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
