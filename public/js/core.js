@@ -267,6 +267,8 @@ async function request(path, { method = 'GET', body } = {}) {
     const err = new Error(data.error || 'Något gick fel');
     err.status = res.status;
     err.data = data;
+    // 5xx betyder att backend/databasen inte svarar -> använd lokal lagring
+    if (res.status >= 500) err.offline = true;
     throw err;
   }
   return data;
@@ -302,6 +304,16 @@ function saveLocal(p) {
   return p;
 }
 
+function localTx(kind, game, amount, balance) {
+  const list = store.get('ph.tx', []) || [];
+  list.unshift({ t: Date.now(), kind, game, amount, balance, playerName: (store.get(K.local) || {}).name || 'Gäst' });
+  store.set('ph.tx', list.slice(0, 120));
+}
+
+function localSettings() {
+  return { ...DEFAULT_SETTINGS, ...(store.get('ph.settings', {}) || {}) };
+}
+
 function localFail(err) {
   if (!err || !err.offline) throw err;
   state.offline = true;
@@ -322,6 +334,8 @@ export const api = {
       const p = localPlayer();
       if (name) p.name = name;
       state.player = saveLocal(p);
+      state.settings = localSettings();
+      state.broadcast = store.get('ph.broadcast', '') || '';
       return state.player;
     }
   },
@@ -340,6 +354,8 @@ export const api = {
       }
       if (!localFail(err)) throw err;
       state.player = localPlayer();
+      state.settings = localSettings();
+      state.broadcast = store.get('ph.broadcast', '') || '';
       return state.player;
     }
   },
@@ -392,6 +408,7 @@ export const api = {
       p.wagered = (p.wagered || 0) + amount;
       p.rounds = (p.rounds || 0) + 1;
       saveLocal(p);
+      localTx('insats', game, -amount, p.balance);
       state.player = p;
       return p.balance;
     }
@@ -410,6 +427,7 @@ export const api = {
       p.won = (p.won || 0) + amount;
       if (game === 'quiz') p.quizCorrect = (p.quizCorrect || 0) + 1;
       saveLocal(p);
+      localTx('vinst', game, amount, p.balance);
       state.player = p;
       return p.balance;
     }
@@ -428,6 +446,7 @@ export const api = {
       p.balance += bonus;
       p.lastBonus = Date.now();
       saveLocal(p);
+      localTx('bonus', 'daglig bonus', bonus, p.balance);
       state.player = p;
       return { balance: p.balance, bonus };
     }
@@ -464,6 +483,91 @@ export const api = {
   adminLogout() {
     state.adminToken = null;
     store.del(K.admin);
+  }
+};
+
+/* ------------------------------ Lokal admin ------------------------------ */
+/* Används när servern/databasen inte svarar (t.ex. statisk publicering).
+   Servern kontrollerar koden själv när den finns tillgänglig. */
+
+const LOCAL_ADMIN_CODE = 'Vincent12';
+
+function bogusCodeError() {
+  const err = new Error('Fel kod');
+  err.status = 401;
+  return err;
+}
+
+export const localAdmin = {
+  login(code) {
+    if (String(code || '').trim().toLowerCase() !== LOCAL_ADMIN_CODE.toLowerCase()) throw bogusCodeError();
+    state.adminLocal = true;
+    return true;
+  },
+
+  overview() {
+    const p = localPlayer();
+    const settings = localSettings();
+    const players = [
+      {
+        id: p.id,
+        name: p.name,
+        balance: p.balance,
+        createdAt: p.createdAt,
+        lastSeen: p.lastSeen || Date.now(),
+        wagered: p.wagered || 0,
+        won: p.won || 0,
+        rounds: p.rounds || 0,
+        quizCorrect: p.quizCorrect || 0,
+        hasPin: !!p.hasPin,
+        banned: !!p.banned
+      }
+    ];
+    return {
+      players,
+      totals: {
+        wagered: p.wagered || 0,
+        won: p.won || 0,
+        balance: p.balance || 0,
+        rounds: p.rounds || 0,
+        active24h: 1
+      },
+      settings,
+      transactions: store.get('ph.tx', []) || [],
+      broadcast: store.get('ph.broadcast', '') || '',
+      storage: 'local'
+    };
+  },
+
+  player(id, action, value) {
+    const p = localPlayer();
+    if (action === 'setBalance') p.balance = Math.max(0, Math.min(1e7, Math.round(Number(value) || 0)));
+    else if (action === 'add') p.balance = Math.max(0, p.balance + Math.round(Number(value) || 0));
+    else if (action === 'ban') p.banned = !!value;
+    else if (action === 'reset') {
+      p.balance = localSettings().startBalance;
+      p.wagered = 0;
+      p.won = 0;
+      p.rounds = 0;
+    }
+    saveLocal(p);
+    state.player = p;
+    localTx('admin', 'saldo ändrat', 0, p.balance);
+    return { player: p };
+  },
+
+  settings(next) {
+    const merged = { ...localSettings(), ...next };
+    if (merged.maxBet < merged.minBet) merged.maxBet = merged.minBet;
+    store.set('ph.settings', merged);
+    state.settings = merged;
+    return { settings: merged };
+  },
+
+  broadcast(message) {
+    store.set('ph.broadcast', message);
+    state.broadcast = message;
+    return { broadcast: message };
   }
 };
 

@@ -4,10 +4,50 @@
    ===================================================================== */
 
 import {
-  registerView, state, api, sfx, toast, kr, num, esc, navigate, openModal, closeModal, confirmModal, storage
+  registerView, state, api, sfx, toast, kr, num, esc, navigate, openModal, confirmModal, storage, localAdmin
 } from './core.js';
 
 let tab = 'oversikt';
+
+/* All data går via dessa helpers så att panelen fungerar både mot
+   servern och i lokalt läge (när API:t inte svarar). */
+
+async function loginWithCode(code) {
+  try {
+    await api.adminLogin(code);
+    state.adminLocal = false;
+    return 'cloud';
+  } catch (err) {
+    if (err.offline) {
+      localAdmin.login(code); // kastar Fel kod
+      state.adminLocal = true;
+      return 'local';
+    }
+    throw err;
+  }
+}
+
+async function loadOverview() {
+  if (state.adminLocal) return localAdmin.overview();
+  try {
+    return await api.adminOverview();
+  } catch (err) {
+    if (err.offline) {
+      state.adminLocal = true;
+      return localAdmin.overview();
+    }
+    throw err;
+  }
+}
+
+const playerAction = (id, action, value) =>
+  state.adminLocal ? Promise.resolve(localAdmin.player(id, action, value)) : api.adminPlayer(id, action, value);
+
+const saveSettings = (settings) =>
+  state.adminLocal ? Promise.resolve(localAdmin.settings(settings)) : api.adminSettings(settings);
+
+const sendBroadcast = (message) =>
+  state.adminLocal ? Promise.resolve(localAdmin.broadcast(message)) : api.adminBroadcast(message);
 
 const TABS = [
   { key: 'oversikt', label: 'Översikt' },
@@ -42,7 +82,7 @@ export function openAdminCode() {
           const code = input.value.trim();
           if (!code) return;
           try {
-            await api.adminLogin(code);
+            await loginWithCode(code);
             close();
             sfx.win();
             toast('Välkommen, chef!', 'gold');
@@ -94,9 +134,9 @@ function renderLogin(root, message = '') {
     if (!code) return;
     btn.disabled = true;
     try {
-      await api.adminLogin(code);
+      await loginWithCode(code);
       sfx.win();
-      toast('Inloggad', 'ok');
+      toast(state.adminLocal ? 'Inloggad lokalt' : 'Inloggad', 'ok');
       renderAdmin(root);
     } catch (err) {
       root.querySelector('#admin-login-err').innerHTML =
@@ -118,21 +158,26 @@ function renderLogin(root, message = '') {
 /* ------------------------------ Dashboard ------------------------------ */
 
 async function renderAdmin(root) {
-  if (!state.adminToken) {
-    const saved = storage.get('ph.admin', null);
-    if (saved) state.adminToken = saved;
+  if (!state.adminLocal) {
+    if (!state.adminToken) {
+      const saved = storage.get('ph.admin', null);
+      if (saved) state.adminToken = saved;
+    }
+    if (!state.adminToken) return renderLogin(root);
   }
-  if (!state.adminToken) return renderLogin(root);
 
   root.innerHTML = `<div class="wrap"><p class="muted" style="padding:60px 0">Laddar panelen …</p></div>`;
 
   let data;
   try {
-    data = await api.adminOverview();
+    data = await loadOverview();
   } catch (err) {
-    state.adminToken = null;
-    storage.del('ph.admin');
-    return renderLogin(root, err.status === 401 ? 'Sessionen har gått ut.' : err.message);
+    if (err.status === 401) {
+      state.adminToken = null;
+      storage.del('ph.admin');
+      return renderLogin(root, 'Sessionen har gått ut.');
+    }
+    return renderLogin(root, err.message);
   }
 
   state.adminData = data;
@@ -160,7 +205,10 @@ async function renderAdmin(root) {
           <h2 style="font-size:18px">Casinochef</h2>
           <p class="small muted">Du ser allt som händer i spelhallen. Ändringar slår igenom direkt för spelarna.</p>
         </div>
-        ${settings.maintenance ? '<span class="chip" style="background:rgba(220,47,72,.18);color:#ff8a9b">🔧 Underhållsläge på</span>' : '<span class="chip chip--mint">● Online</span>'}
+        ${settings.maintenance ? '<span class="chip" style="background:rgba(220,47,72,.18);color:#ff8a9b">🔧 Underhållsläge på</span>' : ''}
+        ${data.storage === 'local'
+          ? '<span class="chip chip--amber" title="Servern svarar inte – panelen styr den här enhetens spelare">● Lokalt läge</span>'
+          : '<span class="chip chip--mint">● Online</span>'}
       </div>
 
       <div class="admin-stats">
@@ -190,6 +238,7 @@ async function renderAdmin(root) {
     const ok = await confirmModal({ title: 'Logga ut?', text: 'Du måste ange koden igen för att komma tillbaka.', confirmLabel: 'Logga ut', danger: true });
     if (!ok) return;
     api.adminLogout();
+    state.adminLocal = false;
     navigate('/kasino');
   });
 
@@ -293,7 +342,7 @@ function renderSpelare(content, root, data) {
             onClick: async (close, modal) => {
               const value = Number(modal.querySelector('#bal-input').value);
               try {
-                await api.adminPlayer(player.id, 'setBalance', value);
+                await playerAction(player.id, 'setBalance', value);
                 close();
                 toast('Saldot uppdaterat', 'ok');
                 renderAdmin(root);
@@ -319,7 +368,7 @@ function renderSpelare(content, root, data) {
     btn.addEventListener('click', async () => {
       const player = data.players.find((p) => p.id === btn.dataset.ban);
       try {
-        await api.adminPlayer(player.id, 'ban', !player.banned);
+        await playerAction(player.id, 'ban', !player.banned);
         toast(player.banned ? 'Spelaren släppt' : 'Spelaren avstängd', 'ok');
         renderAdmin(root);
       } catch (err) {
@@ -339,7 +388,7 @@ function renderSpelare(content, root, data) {
       });
       if (!ok) return;
       try {
-        await api.adminPlayer(player.id, 'reset');
+        await playerAction(player.id, 'reset');
         toast('Spelaren nollställd', 'ok');
         renderAdmin(root);
       } catch (err) {
@@ -428,7 +477,7 @@ function renderInstallningar(content, root, data) {
       ...state2
     };
     try {
-      await api.adminSettings(payload);
+      await saveSettings(payload);
       sfx.correct();
       toast('Inställningar sparade', 'ok');
       renderAdmin(root);
@@ -469,7 +518,7 @@ function renderMeddelande(content, root, data) {
 
   const send = async (message) => {
     try {
-      await api.adminBroadcast(message);
+      await sendBroadcast(message);
       state.broadcast = message;
       sfx.correct();
       toast(message ? 'Meddelandet skickat' : 'Meddelandet borttaget', 'ok');
