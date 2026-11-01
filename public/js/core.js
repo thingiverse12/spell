@@ -257,6 +257,14 @@ async function request(path, { method = 'GET', body } = {}) {
     offlineError.offline = true;
     throw offlineError;
   }
+  const contentType = res.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    // Ingen API-server på adressen (t.ex. ren statisk host) -> lokalt läge
+    const offlineError = new Error('Ingen API-server');
+    offlineError.offline = true;
+    throw offlineError;
+  }
+
   let data = {};
   try {
     data = await res.json();
