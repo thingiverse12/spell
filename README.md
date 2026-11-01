@@ -3,6 +3,37 @@
 En studeapp för **matte, engelska och svenska** – med en dold spelhall bakom kulisserna.
 Allt spel sker med **spelmynt**: inga riktiga pengar, inga insättningar, inga uttag.
 
+**Publicerad:** https://plugghornan.vercel.app
+
+---
+
+## Publicering (Vercel)
+
+Appen ligger som projektet `plugghornan` på Vercel och byggs från grenen
+`arena/79083637-spell` i det här repot.
+
+| Del | Hur det körs |
+| --- | --- |
+| Frontend | Statiska filer ur `public/` (output directory: `public`, ingen build) |
+| API | Serverless-funktion `api/[...path].js` |
+| Lagring | Supabase-projekt `spell-casino`, tabellen `public.casino_state` (en JSON-rad med versionslåsning) |
+
+Miljövariabler som måste finnas i Vercel-projektet:
+
+```
+SUPABASE_URL=https://<projektref>.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=<service role-nyckel>
+ADMIN_CODE=Vincent12
+```
+
+Saknas eller fallerar lagringen svarar API:t `503` och appen fortsätter i
+**lokalt läge**: spel, saldo och adminpanel fungerar då per enhet via localStorage.
+
+> **Viktigt:** Vercel-kontot har *Deployment Protection* påslaget, vilket gör att
+> även produktionsadressen kräver Vercel-inloggning. Stäng av det under
+> **Project → Settings → Deployment Protection → Vercel Authentication → Disabled**
+> för att adressen ska bli publik för alla.
+
 ---
 
 ## Kom igång
