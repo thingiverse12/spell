@@ -29,10 +29,13 @@ ADMIN_CODE=Vincent12
 Saknas eller fallerar lagringen svarar API:t `503` och appen fortsätter i
 **lokalt läge**: spel, saldo och adminpanel fungerar då per enhet via localStorage.
 
-> **Viktigt:** Vercel-kontot har *Deployment Protection* påslaget, vilket gör att
-> även produktionsadressen kräver Vercel-inloggning. Stäng av det under
-> **Project → Settings → Deployment Protection → Vercel Authentication → Disabled**
-> för att adressen ska bli publik för alla.
+> Adressen är publik (Deployment Protection avstängt i projektet).
+
+### Självtest av driften
+
+`GET /api/selftest?key=<ADMIN_CODE>` kör igenom hela kedjan i skarp miljö –
+skapa konto, insats, vinst, bonus, admininloggning, saldoändring, avstängning
+och radering – och städar bort testdatan efteråt. Svarar `{"ok": true, "steps": [...]}`.
 
 ---
 
