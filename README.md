@@ -126,8 +126,8 @@ som visar vilka källor som provats och varför de inte gav några matcher.
 
 ### Låtsasreklam
 
-Sajten har en påhittad annonsplats: en fejkannons glider in nere till vänster några sekunder
-efter att sidan laddats (tre varianter – Snabbspin Casino, Kryptokungen och AI-Plugg Pro).
+Sajten har en påhittad annonsplats: ett litet popup-fönster (246 px, med låtsad fönsterlist)
+glider in nere till vänster några sekunder efter att sidan laddats (tre varianter – Snabbspin Casino, Kryptokungen och AI-Plugg Pro).
 Klickar man på den öppnas en egen annonssida på `#/reklam` med nedräkning, påhittade omdömen och
 en knapp som delar ut den vanliga bonusen med spelmynt. Annonsen går att stänga (då vilar den i
 45 minuter), försvinner av sig själv efter 22 sekunder och visas aldrig på annonssidan eller i

@@ -122,19 +122,18 @@ function mountAd(ad) {
   el.setAttribute('role', 'complementary');
   el.setAttribute('aria-label', 'Annons (påhittad)');
   el.innerHTML = `
-    <div class="ad-pop__grain"></div>
-    <div class="ad-pop__top">
+    <div class="ad-pop__bar">
       <span class="ad-pop__tag">Annons</span>
       <span class="ad-pop__fake">påhittad</span>
       <button class="ad-pop__close" type="button" aria-label="Stäng annonsen">✕</button>
     </div>
     <button class="ad-pop__body" type="button">
-      <span class="ad-pop__emoji" aria-hidden="true">${ad.emoji}</span>
-      <span class="ad-pop__brand">${esc(ad.brand)} <em>${esc(ad.brandSub)}</em></span>
-      <span class="ad-pop__claim">${esc(ad.claim)}</span>
-      <span class="ad-pop__teaser">${esc(ad.teaser)}</span>
-      <span class="ad-pop__cta">${esc(ad.cta)} <span aria-hidden="true">→</span></span>
-      <span class="ad-pop__dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="ad-pop__thumb" aria-hidden="true">${ad.emoji}</span>
+      <span>
+        <span class="ad-pop__brand">${esc(ad.brand)} <em>${esc(ad.brandSub)}</em></span>
+        <span class="ad-pop__claim">${esc(ad.claim)}</span>
+        <span class="ad-pop__cta">${esc(ad.cta)} →</span>
+      </span>
     </button>`;
 
   el.querySelector('.ad-pop__close').addEventListener('click', (e) => {
