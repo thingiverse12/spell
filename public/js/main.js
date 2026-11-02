@@ -4,7 +4,7 @@
 
 import {
   state, hooks, storage, renderRoute, navigate, ensureSession, api, unlockCasino,
-  sfx, toast, kr, esc, openModal, updateBalanceUI, avatarLetter, toggleMute
+  sfx, toast, kr, esc, openModal, updateBalanceUI, avatarLetter, toggleMute, watchSettings
 } from './core.js';
 
 import './learn.js';
@@ -210,6 +210,9 @@ async function boot() {
   renderTopbar();
   renderRoute();
   initReklam();
+
+  // Ladda om sidan när admin ändrar inställningarna.
+  watchSettings();
 
   // Uppdatera saldo med jämna mellanrum om fliken ligger öppen
   setInterval(async () => {

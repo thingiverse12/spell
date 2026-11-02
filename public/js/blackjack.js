@@ -3,7 +3,8 @@
    ===================================================================== */
 
 import {
-  registerView, state, api, sfx, toast, kr, num, esc, sleep, navigate, setBalance, updateBalanceUI, openModal
+  registerView, state, api, sfx, toast, kr, num, esc, sleep, navigate, setBalance, updateBalanceUI, openModal,
+  guardRound
 } from './core.js';
 import { cardHTML, newDeck, rankValue } from './cards.js';
 import { currentLuck, luckPayout, luckPill, luckText } from './luck.js';
@@ -24,6 +25,23 @@ const game = {
   payoutLast: 0,
   luckFactor: 1
 };
+
+/* En pågående giv får inte avbrytas av en omladdning – insatsen är dragen
+   och vinsten kanske inte utbetald än. */
+let creditPending = false;
+
+guardRound(
+  () => state.route.name === 'blackjack' && (game.phase === 'player' || game.phase === 'dealer' || game.busy || creditPending)
+);
+
+async function creditBlackjack(amount) {
+  creditPending = true;
+  try {
+    return await api.credit('blackjack', amount);
+  } finally {
+    creditPending = false;
+  }
+}
 
 function handTotal(cards) {
   let total = 0;
@@ -381,7 +399,7 @@ async function startRound(root) {
       game.payoutLast = bet;
       game.netLast = 0;
       game.message = `Båda har blackjack – ${kr(bet)} tillbaka`;
-      await api.credit('blackjack', bet);
+      await creditBlackjack(bet);
     } else if (playerBJ) {
       game.hands[0].result = 'blackjack';
       const win = luckPayout(bet, 1 + payoutRatio(), game.luckFactor);
@@ -389,7 +407,7 @@ async function startRound(root) {
       game.netLast = win - bet;
       game.message = `Blackjack! ${kr(win)} tillbaka (+${kr(win - bet)} i vinst)`;
       sfx.win();
-      await api.credit('blackjack', win);
+      await creditBlackjack(win);
     } else {
       game.hands[0].result = 'lose';
       game.message = 'Dealern har blackjack';
@@ -571,7 +589,7 @@ async function settle(root) {
 
   if (totalWin > 0) {
     try {
-      await api.credit('blackjack', totalWin);
+      await creditBlackjack(totalWin);
     } catch (err) {
       toast(err.message, 'bad');
     }

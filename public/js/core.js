@@ -820,6 +820,137 @@ export async function ensureSession() {
   await api.guest();
 }
 
+/* --------------------- Inställningar live --------------------- */
+
+/* Spelen kan säga "en runda pågår" så att en omladdning väntar tills
+   rundan är klar – annars skulle insatsen kunna försvinna. */
+const roundGuards = [];
+
+export function guardRound(check) {
+  if (typeof check === 'function') roundGuards.push(check);
+}
+
+function roundInProgress() {
+  return roundGuards.some((check) => {
+    try {
+      return !!check();
+    } catch (e) {
+      return false;
+    }
+  });
+}
+
+let settingsWatch = null;
+
+function applyRemoteSettings(settings) {
+  if (settings) state.settings = { ...DEFAULT_SETTINGS, ...settings };
+}
+
+async function readSettingsVersion() {
+  const res = await fetch('/api/settings?t=' + Date.now(), {
+    headers: { accept: 'application/json' },
+    cache: 'no-store'
+  });
+  if (!res.ok) return null;
+  const type = res.headers.get('content-type') || '';
+  if (!type.includes('application/json')) return null; // statisk host – inget att jämföra
+  const data = await res.json();
+  if (!data || !data.version) return null;
+  return data;
+}
+
+/**
+ * Håller koll på om admin ändrar inställningarna. När versionen ändras
+ * laddas sidan om för alla spelare (admin själv får bara nya värden).
+ * Väntar med omladdningen om en runda pågår eller en modal är öppen.
+ */
+export function watchSettings(interval = 5000) {
+  if (settingsWatch) return settingsWatch;
+
+  const watch = {
+    version: null,
+    timer: null,
+    ticker: null,
+    pending: false
+  };
+  settingsWatch = watch;
+
+  const stopTicker = () => {
+    if (watch.ticker) {
+      clearInterval(watch.ticker);
+      watch.ticker = null;
+    }
+  };
+
+  const reloadNow = () => {
+    stopTicker();
+    watch.pending = false;
+    location.reload();
+  };
+
+  const busy = () => roundInProgress() || !!document.querySelector('.modal-backdrop');
+
+  const waitThenReload = () => {
+    stopTicker();
+    watch.ticker = setInterval(() => {
+      if (busy()) return;
+      reloadNow();
+    }, 1000);
+  };
+
+  const changed = (data) => {
+    applyRemoteSettings(data.settings);
+    watch.version = String(data.version);
+
+    if (state.adminToken) {
+      // Adminens egen flik ska inte kastas ut ur panelen.
+      toast('Inställningarna uppdaterades');
+      return;
+    }
+
+    if (watch.pending) return;
+    watch.pending = true;
+
+    if (roundInProgress()) {
+      toast('Admin ändrade inställningarna – sidan laddas om när rundan är klar', 'gold', 4200);
+      waitThenReload();
+      return;
+    }
+
+    toast('Inställningarna uppdaterades – sidan laddas om …', 'gold', 2600);
+    setTimeout(() => {
+      if (busy()) waitThenReload();
+      else reloadNow();
+    }, 1400);
+  };
+
+  const poll = async () => {
+    if (watch.pending || document.hidden) return;
+    let data;
+    try {
+      data = await readSettingsVersion();
+    } catch (err) {
+      return; // offline – försök igen nästa gång
+    }
+    if (!data) return;
+    const version = String(data.version);
+    if (!watch.version) {
+      watch.version = version;
+      applyRemoteSettings(data.settings);
+      return;
+    }
+    if (version !== watch.version) changed(data);
+  };
+
+  poll();
+  watch.timer = setInterval(poll, interval);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) poll();
+  });
+
+  return watch;
+}
+
 /* ------------------------------ Router ------------------------------ */
 
 const views = new Map();

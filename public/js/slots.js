@@ -2,7 +2,7 @@
    Star Fortune – 5 hjul, 3 rader, 20 vinstlinjer.
    ===================================================================== */
 
-import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI } from './core.js';
+import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI, guardRound } from './core.js';
 import { currentLuck, luckPayout, luckPill } from './luck.js';
 
 const SYMBOLS = {
@@ -67,6 +67,9 @@ const game = {
   winLines: [],
   muted: false
 };
+
+/* En snurr får inte avbrytas av en omladdning – insatsen är redan dragen. */
+guardRound(() => state.route.name === 'slots' && game.spinning);
 
 function randomSymbol() {
   return WEIGHTED[Math.floor(Math.random() * WEIGHTED.length)];

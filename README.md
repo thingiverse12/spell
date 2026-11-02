@@ -247,6 +247,20 @@ I panelen kan admin:
 - underhållsläge,
 - läsa hela transaktionsloggen och skicka meddelande till studiestartsidan.
 
+### Ändringar slår igenom direkt
+Klienten frågar servern var femte sekund (bara när fliken är synlig) om inställningarna har
+ändrats – `GET /api/settings` svarar med en kort **version** som räknas fram ur inställningarna.
+När versionen skiljer sig:
+
+- **spelarnas sidor laddas om automatiskt** (inom ~5 sekunder) med notisen
+  *"Inställningarna uppdaterades – sidan laddas om …"*, så nya insatsgränser, bonusar,
+  quizbelöning, gummiband och underhållsläge gäller direkt,
+- omladdningen **väntar** om en runda pågår (blackjack-hand, snurr, videopokerbyte, köpt men
+  oskrapat lott) eller om en modal är öppen – den sker först när rundan är klar och vinsten
+  är utbetald,
+- **adminens egen flik laddas inte om** (då skulle panelen stängas) – den får bara de nya
+  värdena och en liten notis.
+
 ---
 
 ## Hemlig ingång till spelhallen
@@ -281,7 +295,9 @@ snabbt kan växla tillbaka till studiematerialet.
 
 - Spelarnas saldon och loggar ligger i `data/db.json` (skapas automatiskt, git-ignoreras).
 - Klienten har en lokal fallback i `localStorage` om servern inte skulle svara.
-- API: `POST /api/guest`, `GET /api/me`, `POST /api/bet`, `POST /api/credit`,
+- `watchSettings()` i `core.js` pollar inställningarnas version och laddar om sidan när admin
+  sparar; spelen anmäler pågående rundor med `guardRound()` så att omladdningen väntar.
+- API: `GET /api/settings` (med `version`), `POST /api/guest`, `GET /api/me`, `POST /api/bet`, `POST /api/credit`,
   `POST /api/bonus`, `POST /api/admin/login`, `GET /api/admin/overview`,
   `POST /api/admin/player`, `POST /api/admin/settings`, `POST /api/admin/broadcast`.
 

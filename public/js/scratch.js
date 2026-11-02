@@ -5,7 +5,7 @@
    alltid mer än lotten kostade.
    ===================================================================== */
 
-import { registerView, state, api, sfx, toast, kr, navigate, openModal, updateBalanceUI } from './core.js';
+import { registerView, state, api, sfx, toast, kr, navigate, openModal, updateBalanceUI, guardRound } from './core.js';
 import { currentLuck, luckPayout, luckPill } from './luck.js';
 
 /* Vinsttrappan: multiplar av lottpriset och hur många av 10 000 lott
@@ -30,6 +30,7 @@ const game = {
   card: null,
   revealed: new Set(),
   done: false,
+  settling: false,
   busy: false,
   scratchTick: 0
 };
@@ -37,6 +38,12 @@ const game = {
 /* Statistik som hunnit hända sedan spelaren hämtades från servern –
    så att panelen räknar upp direkt i stället för vid nästa omladdning. */
 const session = { rounds: 0, won: 0, best: 0 };
+
+/* Ett köpt men oskrapat lott får inte försvinna vid omladdning – och inte
+   heller en vinst som är på väg att betalas ut. */
+guardRound(
+  () => state.route.name === 'scratch' && !!game.card && (!game.done || game.settling)
+);
 
 /* ------------------------------ Lottet ------------------------------ */
 
@@ -383,6 +390,7 @@ async function buy(root, price) {
 async function settle(root) {
   if (!game.card || game.done) return;
   game.done = true;
+  game.settling = true;
   const { win, price } = game.card;
 
   if (win > 0) {
@@ -402,6 +410,7 @@ async function settle(root) {
     sfx.lose();
   }
 
+  game.settling = false;
   renderScratch(root);
 }
 

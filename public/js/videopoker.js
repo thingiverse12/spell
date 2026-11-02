@@ -2,7 +2,7 @@
    Videopoker – Jacks or Better med hela kortleken.
    ===================================================================== */
 
-import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI } from './core.js';
+import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI, guardRound } from './core.js';
 import { currentLuck, luckPayout, luckPill } from './luck.js';
 import { cardHTML, newDeck, rankValue } from './cards.js';
 
@@ -208,6 +208,22 @@ function render(root) {
   };
 }
 
+/* Korten är utdelade men ännu inte bytta, eller vinsten inte utbetald. */
+let creditPending = false;
+
+guardRound(
+  () => state.route.name === 'videopoker' && (game.phase === 'draw' || game.busy || creditPending)
+);
+
+async function creditVideoPoker(amount) {
+  creditPending = true;
+  try {
+    return await api.credit('videopoker', amount);
+  } finally {
+    creditPending = false;
+  }
+}
+
 async function deal(root) {
   if (game.busy) return;
   const bet = game.bet;
@@ -262,7 +278,7 @@ async function drawCards(root) {
   const win = result.mult > 0 ? luckPayout(bet, result.mult * luck(), game.luckFactor) : 0;
   if (win > 0) {
     try {
-      await api.credit('videopoker', win);
+      await creditVideoPoker(win);
     } catch (err) {
       toast(err.message, 'bad');
     }
