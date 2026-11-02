@@ -562,6 +562,7 @@ function renderInstallningar(content, root, data) {
       <p class="chance-hint">Kryssa i nivån – ändringen sparas direkt, ingen spara-knapp behövs.</p>
       ${chanceBox('slotLuck', 'Slots – tur', s.slotLuck)}
       ${chanceBox('videoPokerLuck', 'Videopoker – tur', s.videoPokerLuck)}
+      ${chanceBox('scratchLuck', 'Skraplotter – tur', s.scratchLuck)}
 
       <div class="switch">
         <div><div class="switch__label">Dealer tar kort på mjuk 17</div><div class="switch__hint">Gör blackjack lite tuffare</div></div>
@@ -617,7 +618,7 @@ function renderInstallningar(content, root, data) {
     });
     const out = group.querySelector('[data-chance-val]');
     if (out) out.textContent = chanceFmt(value);
-    const name = key === 'slotLuck' ? 'Slots' : 'Videopoker';
+    const name = key === 'slotLuck' ? 'Slots' : key === 'scratchLuck' ? 'Skraplotter' : 'Videopoker';
     try {
       await saveSettings({ [key]: value });
       sfx.click();

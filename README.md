@@ -70,6 +70,9 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 - **Blackjack** – sex kortlekar, hit/stanna/dubbel/splitta, blackjack 3:2.
 - **Star Fortune (slots)** – 5 hjul, 3 rader, 20 vinstlinjer, autospel (RTP ≈ 94 %).
 - **Videopoker** – Jacks or Better med håll-kort.
+- **Skraplotter** – köp ett lott (10–500 kr), skrapa de nio rutorna med musen eller
+  fingret och få vinst på tre lika belopp. Vinsttrappan går från 1,5× till 50× lottpriset
+  (RTP ≈ 90 %), och ett lott visar alltid "Netto +X kr" när det ger vinst.
 - **Kortleken** – alla 52 kort + 2 jokrar med svenska och engelska namn.
 - Daglig bonus, saldo och insatsgränser.
 
@@ -91,7 +94,7 @@ Insatsen begränsas av saldot och av admin-inställningen **högsta insats** (st
 Fliken **Vinster** visar:
 
 - utbetalt, satsat, netto och största enskilda vinst,
-- tabell **per spel** (Blackjack, Star Fortune, Videopoker, Quiz) med insatser, utbetalningar och netto,
+- tabell **per spel** (Blackjack, Star Fortune, Videopoker, Skraplotter, Quiz) med insatser, utbetalningar och netto,
 - tabell **per spelare** med vunnet, satsat, netto och största vinst,
 - lista över de senaste utbetalningarna.
 
@@ -174,6 +177,7 @@ aldrig går att missta insatsen för en vinst:
 | Blackjack (lika) | 1× insatsen | 250 kr tillbaka, netto 0 kr |
 | Slots | lägst 1,45× insatsen, högst 85× | alla vinster ger plus |
 | Videopoker | lägst 1,2× insatsen (par i knekt), högst 250× (royal flush) | 300 kr tillbaka, netto +50 kr |
+| Skraplotter | lägst 1,5× lottpriset, högst 50× | 375 kr tillbaka på ett 250 kr-lott, netto +125 kr |
 | Live Sport | insats × odds | 500 kr tillbaka på odds 2,00, netto +250 kr |
 
 Blackjack visar en kvittorad under bordet – *Insats · Utbetalning · Netto* – efter varje runda,
@@ -181,8 +185,8 @@ Blackjack visar en kvittorad under bordet – *Insats · Utbetalning · Netto* �
 ut både utbetalning och vinst.
 
 `npm run audit` kontrollerar utbetalningarna i alla spel: att varje vinst ger mer än insatsen,
-att blackjack betalar 2×/2,5×/1×, att vinsttabellerna är sorterade och att slotsens RTP ligger
-mellan 88 och 97 procent.
+att blackjack betalar 2×/2,5×/1×, att vinsttabellerna är sorterade, att slotsens RTP ligger
+mellan 88 och 97 procent och att skraplotternas RTP ligger mellan 85 och 93 procent.
 
 ### Gummiband – turen följer saldot
 
@@ -270,6 +274,7 @@ snabbt kan växla tillbaka till studiematerialet.
 | `public/js/blackjack.js` | Blackjack-bordet |
 | `public/js/slots.js` | Star Fortune |
 | `public/js/videopoker.js` | Videopoker |
+| `public/js/scratch.js` | Skraplotter |
 | `public/js/casino.js` | Spelhallen (lobby) |
 | `public/js/admin.js` | Adminpanelen |
 | `public/js/main.js` | Skal, navigation, hemlig upplåsning |

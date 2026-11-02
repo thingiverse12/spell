@@ -1090,3 +1090,156 @@
   .ad-steps, .ad-reviews__grid { grid-template-columns: 1fr; }
   .ad-pop { left: 10px; right: auto; bottom: 10px; width: min(232px, calc(100vw - 20px)); }
 }
+
+/* ------------------------------ Skraplotter ------------------------------ */
+
+.tile--scratch { --tile-bg: radial-gradient(120% 120% at 20% 0%, #e6bb57 0%, #8a5a12 45%, #1b1002 100%); }
+
+.scratch-layout { display: grid; grid-template-columns: 1.05fr .95fr; gap: 20px; margin-top: 18px; align-items: start; }
+
+.scratch-card {
+  position: relative; overflow: hidden;
+  padding: 20px; border-radius: 24px;
+  border: 1px solid var(--line-strong);
+  background:
+    radial-gradient(120% 90% at 50% -10%, rgba(255,255,255,.10), transparent 60%),
+    linear-gradient(180deg, #14161d, #0a0b10 70%);
+  box-shadow: 0 40px 90px -50px #000, inset 0 1px 0 rgba(255,255,255,.06);
+}
+.scratch-card__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.scratch-card__kicker { display: block; font-size: 10px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
+.scratch-card__price { font-family: var(--font-serif); font-size: 26px; letter-spacing: .04em; color: #f6e7b0; }
+.scratch-card__tag {
+  font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+  padding: 5px 10px; border-radius: 99px;
+  color: #f4e6b8; border: 1px solid rgba(244,230,184,.35); background: rgba(0,0,0,.4);
+}
+
+.scratch-grid {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none;
+}
+.scratch-cell {
+  position: relative; overflow: hidden;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  border: 1px solid rgba(231,196,106,.22);
+  background: linear-gradient(160deg, #10251a, #071610 70%);
+  display: grid; place-items: center;
+  padding: 0;
+  cursor: default;
+  font: inherit;
+  color: inherit;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+  transition: border-color .25s var(--ease), box-shadow .25s var(--ease), transform .2s var(--ease);
+}
+.scratch-grid.is-live .scratch-cell { cursor: crosshair; }
+.scratch-grid.is-live .scratch-cell:hover { border-color: rgba(231,196,106,.6); }
+.scratch-grid.is-live .scratch-cell:focus-visible { outline: 2px solid #f6e7b0; outline-offset: 2px; }
+
+.scratch-cell__prize {
+  font-family: var(--font-serif);
+  font-size: clamp(15px, 3.1vw, 22px);
+  letter-spacing: .02em;
+  color: #ffe9a6;
+  text-shadow: 0 2px 12px rgba(0,0,0,.6);
+}
+.scratch-cell.is-locked .scratch-cell__prize { color: rgba(255,255,255,.14); }
+
+.scratch-cell__foil {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 9px; font-weight: 900; letter-spacing: .18em; text-transform: uppercase;
+  color: rgba(50,32,4,.62);
+  background:
+    repeating-linear-gradient(115deg, rgba(255,255,255,.35) 0 2px, rgba(255,255,255,0) 2px 7px),
+    linear-gradient(150deg, #f7e7b4, #d9b96a 38%, #b48f3c 62%, #f0dca0);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7), inset 0 -2px 6px rgba(90,60,10,.35);
+  transition: opacity .3s var(--ease), transform .35s var(--ease), filter .3s;
+  transform-origin: center;
+}
+.scratch-cell:hover .scratch-cell__foil { filter: brightness(1.06); }
+.scratch-cell.is-open .scratch-cell__foil {
+  opacity: 0; transform: scale(1.5) rotate(4deg); pointer-events: none;
+}
+.scratch-cell.is-locked .scratch-cell__foil {
+  background:
+    repeating-linear-gradient(125deg, rgba(255,255,255,.06) 0 2px, rgba(255,255,255,0) 2px 8px),
+    linear-gradient(150deg, #2a2f3a, #171b23 60%, #232833);
+  color: rgba(255,255,255,.22);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+}
+
+.scratch-card__rule { margin: 14px 0 0; font-size: 12.5px; color: var(--muted); text-align: center; }
+.scratch-card__rule strong { color: #f6e7b0; }
+
+.scratch-result {
+  margin-top: 14px; padding: 14px 16px; border-radius: 16px;
+  display: flex; flex-direction: column; gap: 3px; align-items: center; text-align: center;
+  border: 1px solid var(--line-strong);
+  animation: scratch-pop .35s var(--ease);
+}
+.scratch-result.is-win {
+  border-color: rgba(124,255,203,.5);
+  background: radial-gradient(120% 120% at 50% 0%, rgba(124,255,203,.20), rgba(124,255,203,.04));
+  box-shadow: 0 20px 50px -30px #7cffcb;
+}
+.scratch-result.is-loss { background: rgba(255,255,255,.03); }
+.scratch-result__label { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; font-weight: 800; color: var(--muted); }
+.scratch-result.is-win .scratch-result__label { color: #7cffcb; }
+.scratch-result__amount { font-family: var(--font-serif); font-size: 34px; letter-spacing: .03em; color: #fff6d2; }
+.scratch-result__net { font-size: 12.5px; color: rgba(255,255,255,.72); }
+
+@keyframes scratch-pop {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+
+.scratch-actions { margin-top: 16px; display: flex; justify-content: center; }
+.scratch-buy { min-width: 240px; justify-content: center; }
+
+.scratch-side { display: grid; gap: 14px; }
+.scratch-panel {
+  padding: 16px; border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.scratch-panel__label {
+  display: block; font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
+  font-weight: 800; color: var(--muted); margin-bottom: 10px;
+}
+.scratch-prices { display: flex; flex-wrap: wrap; gap: 8px; }
+.scratch-price {
+  padding: 8px 13px; border-radius: 99px; cursor: pointer;
+  font-size: 13px; font-weight: 700; font-family: inherit;
+  color: var(--text-soft); background: rgba(255,255,255,.04);
+  border: 1px solid var(--line);
+  transition: all .2s var(--ease);
+}
+.scratch-price:hover { border-color: var(--line-strong); color: #fff; }
+.scratch-price.is-active {
+  color: #08130c; border-color: transparent;
+  background: linear-gradient(96deg, #f6e7b0, #d9b96a);
+  box-shadow: 0 10px 24px -14px #f6e7b0;
+}
+.scratch-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+.scratch-stats div { display: flex; flex-direction: column; gap: 2px; }
+.scratch-stats strong { font-size: 16px; color: #f6e7b0; }
+.scratch-stats span { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.scratch-balance { font-size: 24px; font-weight: 800; color: #fff; }
+
+.scratch-rules { margin: 0 0 14px; padding-left: 18px; display: grid; gap: 7px; font-size: 13.5px; line-height: 1.55; color: var(--text-soft); }
+.scratch-rules strong { color: #f6e7b0; }
+
+@media (max-width: 900px) {
+  .scratch-layout { grid-template-columns: 1fr; }
+  .scratch-card { padding: 16px; border-radius: 20px; }
+  .scratch-grid { gap: 8px; }
+}
+
+.scratch-cell.is-win {
+  border-color: rgba(124,255,203,.65);
+  background: linear-gradient(160deg, #143a2a, #082018 70%);
+  box-shadow: inset 0 0 0 1px rgba(124,255,203,.25), 0 0 26px -10px #7cffcb;
+}
+.scratch-cell.is-win .scratch-cell__prize { color: #b8ffe4; }

@@ -267,6 +267,53 @@ const allLow = [sports.demoFeed(Date.now(), 6), sports.hockeyDemoFeed(Date.now()
 if (!allLow.length) ok('alla spelbara odds är minst 1,01');
 else bad('odds under 1,01 hittade', String(allLow.length));
 
+/* ----------------------------- skraplotter ----------------------------- */
+
+console.log('\nSkraplotter – tre lika belopp');
+
+const scratchSrc = read('public/js/scratch.js');
+const tiers = literal(scratchSrc, 'const TIERS = [');
+const noWinWeight = Number(/const NO_WIN_WEIGHT = (\d+);/.exec(scratchSrc)?.[1]);
+const totalWeight = tiers.reduce((sum, tier) => sum + tier.weight, 0) + noWinWeight;
+
+const minScratchMult = Math.min(...tiers.map((tier) => tier.mult));
+if (minScratchMult > 1) ok('varje vinstnivå ger mer än lottpriset', `lägsta ${minScratchMult}×`);
+else bad('en vinst kan ge mindre än lottpriset', `${minScratchMult}×`);
+
+const sortedTiers = tiers.every((tier, i) => i === 0 || tier.mult > tiers[i - 1].mult);
+if (sortedTiers) ok('vinsttrappan är sorterad stigande');
+else bad('vinsttrappan är inte sorterad');
+
+const scratchRtp = (factor) => {
+  const price = 100;
+  const sum = tiers.reduce((acc, tier) => acc + tier.weight * luckPayout(price, tier.mult, factor), 0);
+  return (sum / (totalWeight * price)) * 100;
+};
+
+const neutralRtp = scratchRtp(1);
+if (neutralRtp > 85 && neutralRtp < 93) ok('RTP ligger i intervallet vid neutral tur', `${neutralRtp.toFixed(1)} %`);
+else bad('RTP utanför intervallet 85–93 %', `${neutralRtp.toFixed(1)} %`);
+
+const happyScratch = scratchRtp(LUCK_MAX);
+const sadScratch = scratchRtp(LUCK_MIN);
+if (happyScratch > neutralRtp && sadScratch < neutralRtp) {
+  ok('lågt saldo ger högre RTP, högt saldo lägre', `${sadScratch.toFixed(1)} % → ${happyScratch.toFixed(1)} %`);
+} else bad('gummibandet påverkar inte skraplotterna', `${sadScratch.toFixed(1)} / ${neutralRtp.toFixed(1)} / ${happyScratch.toFixed(1)}`);
+if (sadScratch > 60 && happyScratch < 130) {
+  ok('RTP stannar inom gummibandets spann', `${sadScratch.toFixed(1)}–${happyScratch.toFixed(1)} %`);
+} else bad('RTP blir orimligt vid någon tur', `${sadScratch.toFixed(1)}–${happyScratch.toFixed(1)} %`);
+
+const hitRate = ((totalWeight - noWinWeight) / totalWeight) * 100;
+if (hitRate > 20 && hitRate < 50) ok('lagom många lott ger vinst', `${hitRate.toFixed(1)} %`);
+else bad('andelen vinstlott är orimlig', `${hitRate.toFixed(1)} %`);
+
+const lousiestScratch = luckPayout(100, minScratchMult, LUCK_MIN);
+if (lousiestScratch > 100) ok('sämsta vinstnivån ger ändå plus', `100 kr → ${lousiestScratch} kr`);
+else bad('sämsta vinstnivån ger inte plus', `${lousiestScratch} kr`);
+
+if (/scratchLuck/.test(read('lib/api.js'))) ok('skraplotternas tur kan ställas in i adminpanelen');
+else bad('skraplotternas tur saknas i admin-inställningarna');
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

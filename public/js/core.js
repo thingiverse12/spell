@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS = {
   doubleAfterSplit: true,
   slotLuck: 1,
   videoPokerLuck: 1,
+  scratchLuck: 1,
   quizReward: 25,
   dailyBonus: 500,
   maintenance: false,

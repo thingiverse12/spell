@@ -12,6 +12,7 @@ import './casino.js';
 import './cards.js';
 import './blackjack.js';
 import './slots.js';
+import './scratch.js';
 import './videopoker.js';
 import './sport.js';
 import './admin.js';
@@ -33,6 +34,7 @@ const CASINO_NAV = [
   { path: '/kasino', label: 'Spelhallen' },
   { path: '/kasino/blackjack', label: 'Blackjack' },
   { path: '/kasino/slots', label: 'Star Fortune' },
+  { path: '/kasino/scratch', label: 'Skraplotter' },
   { path: '/kasino/videopoker', label: 'Videopoker' },
   { path: '/kasino/sport', label: 'Live Sport' },
   { path: '/kasino/kortleken', label: 'Kortleken' }
