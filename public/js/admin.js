@@ -612,6 +612,7 @@ async function renderFotboll(content, root) {
   const SOURCE_LABELS = {
     allsportsapi: 'AllSportsAPI (live)',
     thesportsdb: 'TheSportsDB (öppen)',
+    fotmob: 'FotMob (öppen)',
     espn: 'ESPN (öppen)',
     openligadb: 'OpenLigaDB (öppen)',
     demo: 'Demoliga'
@@ -684,7 +685,7 @@ async function renderFotboll(content, root) {
       <div class="settings-grid">
         <label class="field"><span>Datakälla</span>
           <select class="select" id="sport-source">
-            ${['auto', 'allsportsapi', 'espn', 'thesportsdb', 'openligadb', 'demo']
+            ${['auto', 'allsportsapi', 'fotmob', 'espn', 'thesportsdb', 'openligadb', 'demo']
               .map(
                 (src) =>
                   `<option value="${src}" ${(s.source || 'auto') === src ? 'selected' : ''}>${
@@ -692,8 +693,10 @@ async function renderFotboll(content, root) {
                       ? 'Automatisk (bästa tillgängliga)'
                       : src === 'allsportsapi'
                         ? 'AllSportsAPI (kräver nyckel)'
-                        : src === 'espn'
-                          ? 'ESPN (öppen, rekommenderas)'
+                        : src === 'fotmob'
+                          ? 'FotMob (öppen, rekommenderas)'
+                          : src === 'espn'
+                          ? 'ESPN (öppen)'
                           : src === 'thesportsdb'
                           ? 'TheSportsDB (öppen)'
                           : src === 'openligadb'

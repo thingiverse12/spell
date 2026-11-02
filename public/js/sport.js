@@ -300,6 +300,7 @@ function renderStatus() {
   const live = (feed.matches || []).filter((m) => m.live).length;
   const SOURCE_LABELS = {
     allsportsapi: 'AllSportsAPI · live',
+    fotmob: 'FotMob · live',
     espn: 'ESPN · live',
     thesportsdb: 'TheSportsDB · live',
     openligadb: 'OpenLigaDB · live',
