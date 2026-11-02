@@ -4,7 +4,7 @@
    ===================================================================== */
 
 import {
-  registerView, state, api, sfx, toast, kr, num, esc, navigate, openModal, confirmModal, storage, localAdmin
+  registerView, state, api, sfx, toast, kr, num, esc, navigate, openModal, confirmModal, storage, localAdmin, sleep
 } from './core.js';
 
 let tab = 'oversikt';
@@ -81,6 +81,11 @@ function timeText(t) {
 
 /* ------------------------------ Kod-modal ------------------------------ */
 
+const loginErrorText = (err) =>
+  err && err.status === 401
+    ? 'Fel kod.'
+    : 'Kunde inte logga in: ' + ((err && err.message) || 'okänt fel');
+
 export function openAdminCode() {
   openModal({
     title: 'Personal',
@@ -105,7 +110,7 @@ export function openAdminCode() {
             navigate('/admin');
           } catch (err) {
             root.querySelector('#admin-code-err').innerHTML =
-              '<p class="quiz__feedback quiz__feedback--no">Fel kod.</p>';
+              `<p class="quiz__feedback quiz__feedback--no">${esc(loginErrorText(err))}</p>`;
             sfx.wrong();
             input.value = '';
             input.focus();
@@ -156,7 +161,7 @@ function renderLogin(root, message = '') {
       renderAdmin(root);
     } catch (err) {
       root.querySelector('#admin-login-err').innerHTML =
-        '<p class="quiz__feedback quiz__feedback--no">Fel kod.</p>';
+        `<p class="quiz__feedback quiz__feedback--no">${esc(loginErrorText(err))}</p>`;
       sfx.wrong();
       input.value = '';
       input.focus();
@@ -189,11 +194,19 @@ async function renderAdmin(root) {
     data = await loadOverview();
   } catch (err) {
     if (err.status === 401) {
-      state.adminToken = null;
-      storage.del('ph.admin');
-      return renderLogin(root, 'Sessionen har gått ut.');
+      // Kan vara en fördröjning i lagringen precis efter inloggningen –
+      // försök en gång till innan vi loggar ut.
+      try {
+        await sleep(500);
+        data = await loadOverview();
+      } catch (err2) {
+        state.adminToken = null;
+        storage.del('ph.admin');
+        return renderLogin(root, 'Sessionen har gått ut. Logga in igen.');
+      }
+    } else {
+      return renderLogin(root, err.message);
     }
-    return renderLogin(root, err.message);
   }
 
   state.adminData = data;
