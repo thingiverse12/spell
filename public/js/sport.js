@@ -42,6 +42,21 @@ const clockText = (ts) => {
   }
 };
 
+const whenText = (ts) => {
+  try {
+    const date = new Date(ts);
+    const today = new Date();
+    const sameDay =
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate();
+    if (sameDay) return clockText(ts);
+    return date.toLocaleDateString('sv-SE', { day: 'numeric', month: 'short' }) + ' ' + clockText(ts);
+  } catch (e) {
+    return clockText(ts);
+  }
+};
+
 const timeText = (ts) => {
   try {
     return new Date(ts).toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -60,7 +75,7 @@ function statusHTML(match) {
   if (match.status === 'finished') {
     return `<span class="match-status match-status--done">Slut</span>`;
   }
-  return `<span class="match-status match-status--next">${clockText(match.kickoff)}</span>`;
+  return `<span class="match-status match-status--next">${whenText(match.kickoff)}</span>`;
 }
 
 function matchCard(match) {
