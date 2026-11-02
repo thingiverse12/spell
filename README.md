@@ -109,12 +109,20 @@ Datakällor (första som svarar används):
 | Källa | Kräver nyckel | Innehåll |
 | --- | --- | --- |
 | `allsportsapi` | Ja (adminpanelen eller `ALLSPORTS_API_KEY`) | Riktiga matcher, odds från api:t när de finns |
-| `thesportsdb` | Nej – öppen demo-nyckel `3` | Global livescore, dagens matcher |
-| `openligadb` | Nej – helt öppen | Bundesliga 1 & 2 med riktiga mål och halvtidsresultat |
+| `fotmob` | Nej – helt öppen | Globala matcher inkl. Allsvenskan, Superettan och Damallsvenskan, live-resultat |
+| `openligadb` | Nej – helt öppen | Bundesliga 1–3 och DFB-pokalen, hela säsongen, riktiga mål och halvtidsresultat |
+| `espn` | Nej – öppen | Allsvenskan, Europas toppligor och Champions League (blockeras ibland från datacenter) |
+| `thesportsdb` | Nej – öppen demo-nyckel `3` | Global livescore, dagens matcher (blockeras ibland från datacenter) |
 | `demo` | Nej | Inbyggd demoliga som rullar dygnet runt |
 
+FotMob ligger först i autoläget eftersom källan är nyckelfri, global och svarar från Vercel.
+Matcherna sorteras med live-matcher först, därefter svenska ligor och de stora europeiska ligorna.
+Matcher utan känd avsparkstid hoppas över, och listan kapas till 24 matcher för att pollningen
+var 15:e sekund ska vara lätt.
+
 Ordningen går att låsa i adminpanelen (**Fotboll → Datakälla**), annars testas källorna i tur och
-ordning. Svarar ingen visas demoligan, så vyn fungerar alltid.
+ordning. Svarar ingen visas demoligan, så vyn fungerar alltid. Svaret innehåller fältet `tried`
+som visar vilka källor som provats och varför de inte gav några matcher.
 
 Oddsen räknas fram av huset med en Poisson-modell utifrån ställning och återstående tid,
 plus en marginal som admin ställer in (standard 6 %).
