@@ -48,7 +48,9 @@ function matchCard(match) {
   const score = match.status === 'upcoming' ? '<span class="match-score match-score--idle">–</span>' : `<span class="match-score">${match.homeScore}</span>`;
   const scoreAway = match.status === 'upcoming' ? '<span class="match-score match-score--idle">–</span>' : `<span class="match-score">${match.awayScore}</span>`;
 
-  const markets = match.markets
+  const markets = finished
+    ? `<div class="match-done">Slutspelat · ${match.result.home}–${match.result.away}</div>`
+    : match.markets
     .map((market) => {
       const picks = market.selections
         .map((sel) => {
@@ -282,6 +284,11 @@ function renderBets() {
     return;
   }
   box.innerHTML = bets.map(betRow).join('');
+  const counter = sport.root.querySelector('#sport-bets-count');
+  if (counter) {
+    const open = bets.filter((b) => b.status === 'open').length;
+    counter.textContent = open ? open + ' öppna' : '';
+  }
 }
 
 function renderStatus() {

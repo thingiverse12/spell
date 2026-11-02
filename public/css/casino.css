@@ -845,6 +845,7 @@
 .bet-badge--lost { background: rgba(239,68,68,.16); color: #fca5a5; }
 .bet-badge--void { background: rgba(148,163,184,.18); color: #cbd5e1; }
 
+.match-done { font-size: 12px; color: var(--muted, #9aa4b2); font-weight: 700; letter-spacing: .04em; }
 .sport-footnote { margin-top: 22px; }
 .skeleton-line { height: 84px; border-radius: 14px; background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.09), rgba(255,255,255,.05)); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
 @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
