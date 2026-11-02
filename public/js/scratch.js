@@ -111,8 +111,8 @@ function ticketPrices() {
   const min = Math.max(1, Number(state.settings.minBet) || 10);
   const max = Math.max(min, Number(state.settings.maxBet) || 500);
   const list = PRICES.filter((price) => price >= min && price <= max);
-  if (!list.includes(min)) list.unshift(min);
-  return list;
+  // Finns inget standardpris inom gränserna används minsta insatsen.
+  return list.length ? list : [min];
 }
 
 /* ------------------------------ Rendering ------------------------------ */
