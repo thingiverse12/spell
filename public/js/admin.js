@@ -619,11 +619,23 @@ async function renderFotboll(content, root) {
     shl: 'SHL (öppen)',
     demo: 'Demoliga'
   };
-  const sourceLabel = SOURCE_LABELS[feed.source] || feed.source || 'Okänd';
+  const sourceLabel =
+    SOURCE_LABELS[feed.source] ||
+    String(feed.source || '')
+      .split('+')
+      .map((key) => SOURCE_LABELS[key] || key)
+      .join(' + ') ||
+    'Okänd';
   const sourceCls = feed.source && feed.source !== 'demo' ? 'mint' : 'amber';
   const tried = Array.isArray(feed.tried) ? feed.tried : [];
   const hockey = data.hockeyFeed || null;
-  const hockeyLabel = hockey ? SOURCE_LABELS[hockey.source] || hockey.source : 'Ingen data';
+  const hockeyLabel = hockey
+    ? SOURCE_LABELS[hockey.source] ||
+      String(hockey.source || '')
+        .split('+')
+        .map((key) => SOURCE_LABELS[key] || key)
+        .join(' + ')
+    : 'Ingen data';
 
   const openRows = open.length
     ? open

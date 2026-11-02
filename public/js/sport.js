@@ -377,7 +377,13 @@ function renderStatus() {
     shl: 'SHL · live',
     demo: 'Demoliga'
   };
-  const sourceLabel = SOURCE_LABELS[feed.source] || feed.source || 'Okänd källa';
+  const sourceLabel =
+    SOURCE_LABELS[feed.source] ||
+    String(feed.source || '')
+      .split('+')
+      .map((key) => SOURCE_LABELS[key] || key)
+      .join(' + ') ||
+    'Okänd källa';
   const sourceCls = feed.source && feed.source !== 'demo' ? 'ok' : 'demo';
   const notes = [];
   if (feed.source === 'demo') notes.push('Påhittade matcher – riktig data laddas när en extern källa svarar.');
