@@ -192,18 +192,31 @@ function render(root) {
   const classes = ['', 'poker-chip--blue', 'poker-chip--green', 'poker-chip--black', 'poker-chip--gold'];
 
   chips.innerHTML = `
-    <div class="row row--between" style="flex-wrap:wrap;gap:12px">
+    <div class="bet-bar">
+      <div class="bet-field">
+        <span class="bet-field__label">Egen insats</span>
+        <div class="bet-field__row">
+          <input class="bet-field__input" id="bj-bet-input" type="number" inputmode="numeric"
+                 min="${minBet}" max="${Math.max(0, Math.min(balance, maxBet))}" step="${minBet}"
+                 value="${game.bet}" ${game.phase !== 'betting' ? 'disabled' : ''} />
+          <span class="bet-field__unit">kr</span>
+          <button class="chip-mini" data-bet-mult="0.5" ${game.phase !== 'betting' ? 'disabled' : ''}>½</button>
+          <button class="chip-mini" data-bet-mult="2" ${game.phase !== 'betting' ? 'disabled' : ''}>2×</button>
+          <button class="chip-mini" data-bet-max="1" ${game.phase !== 'betting' ? 'disabled' : ''}>Max</button>
+        </div>
+      </div>
+
       <div class="chip-row">
         ${chipValues
           .map(
             (v, i) => `<button class="chip-btn" data-chip="${v}" ${game.phase !== 'betting' ? 'disabled' : ''}>
-              <div class="poker-chip ${classes[i % classes.length]}" style="--chip-size:54px"><span>${v >= 1000 ? v / 1000 + 'k' : v}</span></div>
+              <div class="poker-chip ${classes[i % classes.length]}" style="--chip-size:52px"><span>${v >= 1000 ? v / 1000 + 'k' : v}</span></div>
             </button>`
           )
           .join('')}
-        <button class="btn btn--sm btn--ghost" data-chip="all" ${game.phase !== 'betting' ? 'disabled' : ''}>All in</button>
         <button class="btn btn--sm btn--ghost" id="bj-clear" ${game.phase !== 'betting' || game.bet === 0 ? 'disabled' : ''}>Rensa</button>
       </div>
+
       <div class="row" style="gap:8px;flex-wrap:wrap">
         <span class="mini-pill">Min <strong>${kr(minBet)}</strong></span>
         <span class="mini-pill">Max <strong>${kr(maxBet)}</strong></span>
@@ -243,6 +256,42 @@ function bind(root) {
     game.bet = 0;
     sfx.click();
     render(root);
+  });
+
+  const betField = root.querySelector('#bj-bet-input');
+  if (betField) {
+    betField.addEventListener('change', () => {
+      if (game.phase !== 'betting') return;
+      const balance = state.player?.balance ?? 0;
+      const maxBet = Number(state.settings.maxBet) || 500;
+      const value = Math.round(Number(betField.value) || 0);
+      game.bet = Math.max(0, Math.min(value, balance, maxBet));
+      sfx.click();
+      render(root);
+    });
+  }
+
+  root.querySelectorAll('[data-bet-mult]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (game.phase !== 'betting') return;
+      const balance = state.player?.balance ?? 0;
+      const maxBet = Number(state.settings.maxBet) || 500;
+      const factor = Number(btn.dataset.betMult) || 1;
+      game.bet = Math.max(0, Math.min(Math.round(game.bet * factor), balance, maxBet));
+      sfx.chip();
+      render(root);
+    });
+  });
+
+  root.querySelectorAll('[data-bet-max]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      if (game.phase !== 'betting') return;
+      const balance = state.player?.balance ?? 0;
+      const maxBet = Number(state.settings.maxBet) || 500;
+      game.bet = Math.min(balance, maxBet);
+      sfx.chip();
+      render(root);
+    });
   });
 
   root.querySelectorAll('[data-chip]').forEach((btn) => {

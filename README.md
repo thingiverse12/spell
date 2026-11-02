@@ -68,6 +68,30 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 - **Kortleken** – alla 52 kort + 2 jokrar med svenska och engelska namn.
 - Daglig bonus, saldo och insatsgränser.
 
+### 👤 Konton
+- **Skapa konto** med namn + fyrsiffrig PIN via **Konto** i menyn (gästkontot uppgraderas
+  och behåller saldo och framsteg).
+- **Logga in** med namn + PIN på vilken enhet som helst.
+- Unika namn, PIN-kod och utloggning. Gäster kan spela direkt utan konto.
+
+### 💸 Egna insatser
+Alla tre spelen har ett fält för **egen insats** (utöver marker och snabbknappar):
+
+- Blackjack: skriv valfritt belopp + knapparna ½, 2× och Max.
+- Star Fortune och Videopoker: redigera insatsen direkt i insatsrutan.
+
+Insatsen begränsas av saldot och av admin-inställningen **högsta insats** (standard 5 000 kr).
+
+### 📈 Admin: vinster
+Fliken **Vinster** visar:
+
+- utbetalt, satsat, netto och största enskilda vinst,
+- tabell **per spel** (Blackjack, Star Fortune, Videopoker, Quiz) med insatser, utbetalningar och netto,
+- tabell **per spelare** med vunnet, satsat, netto och största vinst,
+- lista över de senaste utbetalningarna.
+
+Statistiken räknas per spelare i databasen (`gameStats`) och följer med i admin-översikten.
+
 ### ⚙️ Adminpanelen
 Nås på tre sätt:
 1. Länken **Lärarpanel** i sidfoten (koden krävs).
@@ -77,7 +101,8 @@ Nås på tre sätt:
 **Koden är `Vincent12`** (ändra med miljövariabeln `ADMIN_CODE`).
 
 I panelen kan admin:
-- se alla spelare, saldon, omsättning och utbetalningar,
+- se alla spelare, konton/gäster, saldon, omsättning och utbetalningar,
+- följa exakt vad varje spelare vinner, per spel,
 - sätta/justera spelares saldo, stänga av eller nollställa konton,
 - ändra min-/maxinsats, startsaldo, bonus, quizbelöning, blackjack-utbetalning,
 - justera "tur" för slots och videopoker, underhållsläge,

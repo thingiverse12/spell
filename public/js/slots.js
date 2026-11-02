@@ -127,6 +127,7 @@ function renderMachine(root) {
   const maxBet = Number(state.settings.maxBet) || 500;
   const minBet = Number(state.settings.minBet) || 10;
   const step = Math.max(5, Math.round(minBet / 2));
+  const balance = state.player?.balance ?? 0;
   const bet = game.bet;
 
   root.innerHTML = `
@@ -159,7 +160,8 @@ function renderMachine(root) {
             <span class="slot-box__label">Insats</span>
             <div class="bet-stepper">
               <button class="stepper-btn" id="sl-minus" aria-label="Minska insats">−</button>
-              <span class="slot-box__value" id="sl-bet">${num(bet)} kr</span>
+              <input class="bet-field__input bet-field__input--slot" id="sl-bet" type="number" inputmode="numeric"
+                     min="${minBet}" max="${Math.max(minBet, Math.min(balance, maxBet))}" step="${step}" value="${bet}" />
               <button class="stepper-btn" id="sl-plus" aria-label="Öka insats">+</button>
             </div>
           </div>
@@ -196,15 +198,23 @@ function renderMachine(root) {
     navigate('/kasino');
   });
   root.querySelector('#sl-info').addEventListener('click', () => showInfo(root));
+  const betField = root.querySelector('#sl-bet');
+  const setBet = (value) => {
+    game.bet = Math.max(minBet, Math.min(Math.round(value), maxBet, state.player?.balance ?? maxBet));
+    if (betField) betField.value = game.bet;
+  };
+
   root.querySelector('#sl-minus').addEventListener('click', () => {
-    game.bet = Math.max(minBet, game.bet - step);
+    setBet(game.bet - step);
     sfx.click();
-    root.querySelector('#sl-bet').textContent = num(game.bet) + ' kr';
   });
   root.querySelector('#sl-plus').addEventListener('click', () => {
-    game.bet = Math.min(Math.min(maxBet, state.player?.balance ?? maxBet), game.bet + step);
+    setBet(game.bet + step);
+    sfx.chip();
+  });
+  betField.addEventListener('change', () => {
+    setBet(Number(betField.value) || minBet);
     sfx.click();
-    root.querySelector('#sl-bet').textContent = num(game.bet) + ' kr';
   });
   root.querySelector('#sl-spin').addEventListener('click', () => {
     if (game.auto > 0) {

@@ -4,7 +4,7 @@
 
 export const DEFAULT_SETTINGS = {
   minBet: 10,
-  maxBet: 500,
+  maxBet: 5000,
   startBalance: 2500,
   blackjackPayout: 1.5,
   dealerHitsSoft17: false,
@@ -312,6 +312,20 @@ function saveLocal(p) {
   return p;
 }
 
+function localGameStat(player, game, kind, amount) {
+  if (!game || game === 'bonus' || game === 'admin' || game === 'konto') return;
+  player.gameStats = player.gameStats || {};
+  const stat = (player.gameStats[game] = player.gameStats[game] || { wagered: 0, won: 0, rounds: 0, best: 0 });
+  if (kind === 'bet') {
+    stat.wagered += amount;
+    stat.rounds = (stat.rounds || 0) + 1;
+  } else {
+    stat.won += amount;
+    if (amount > (stat.best || 0)) stat.best = amount;
+    if (amount > (player.biggestWin || 0)) player.biggestWin = amount;
+  }
+}
+
 function localTx(kind, game, amount, balance) {
   const list = store.get('ph.tx', []) || [];
   list.unshift({ t: Date.now(), kind, game, amount, balance, playerName: (store.get(K.local) || {}).name || 'Gäst' });
@@ -395,6 +409,39 @@ export const api = {
     }
   },
 
+  async register(name, pin) {
+    try {
+      const data = await request('/api/auth/register', { method: 'POST', body: { name, pin } });
+      store.set(K.token, data.token);
+      state.player = data.player;
+      state.settings = { ...DEFAULT_SETTINGS, ...data.settings };
+      state.offline = false;
+      return data.player;
+    } catch (err) {
+      if (!localFail(err)) throw err;
+      const p = localPlayer();
+      p.name = name;
+      p.hasPin = true;
+      p.isGuest = false;
+      saveLocal(p);
+      state.player = p;
+      return p;
+    }
+  },
+
+  async logout() {
+    try {
+      await request('/api/auth/logout', { method: 'POST' });
+    } catch (err) {
+      /* ignorera */
+    }
+    store.del(K.token);
+    state.player = null;
+    if (state.offline) store.del(K.local);
+    await api.guest();
+    return state.player;
+  },
+
   async login(name, pin) {
     const data = await request('/api/auth/login', { method: 'POST', body: { name, pin } });
     store.set(K.token, data.token);
@@ -415,6 +462,7 @@ export const api = {
       p.balance -= amount;
       p.wagered = (p.wagered || 0) + amount;
       p.rounds = (p.rounds || 0) + 1;
+      localGameStat(p, game, 'bet', amount);
       saveLocal(p);
       localTx('insats', game, -amount, p.balance);
       state.player = p;
@@ -434,6 +482,7 @@ export const api = {
       p.balance += amount;
       p.won = (p.won || 0) + amount;
       if (game === 'quiz') p.quizCorrect = (p.quizCorrect || 0) + 1;
+      localGameStat(p, game, 'win', amount);
       saveLocal(p);
       localTx('vinst', game, amount, p.balance);
       state.player = p;
@@ -531,8 +580,18 @@ export const localAdmin = {
         banned: !!p.banned
       }
     ];
+    const gameTotals = {};
+    Object.entries(p.gameStats || {}).forEach(([game, stat]) => {
+      const row = (gameTotals[game] = gameTotals[game] || { wagered: 0, won: 0, rounds: 0, best: 0 });
+      row.wagered += stat.wagered || 0;
+      row.won += stat.won || 0;
+      row.rounds += stat.rounds || 0;
+      if ((stat.best || 0) > row.best) row.best = stat.best;
+    });
+
     return {
       players,
+      gameTotals,
       totals: {
         wagered: p.wagered || 0,
         won: p.won || 0,
@@ -609,7 +668,8 @@ const ROUTES = {
   svenska: 'svenska',
   utmaning: 'utmaning',
   framsteg: 'framsteg',
-  profil: 'profil',
+  profil: 'konto',
+  konto: 'konto',
   lararpanel: 'lararpanel',
   kasino: 'casino',
   admin: 'admin'

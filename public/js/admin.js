@@ -49,8 +49,22 @@ const saveSettings = (settings) =>
 const sendBroadcast = (message) =>
   state.adminLocal ? Promise.resolve(localAdmin.broadcast(message)) : api.adminBroadcast(message);
 
+const GAME_LABELS = {
+  blackjack: 'Blackjack',
+  slots: 'Star Fortune',
+  videopoker: 'Videopoker',
+  kortleken: 'Kortleken',
+  quiz: 'Quiz',
+  bonus: 'Bonus',
+  admin: 'Admin',
+  konto: 'Konto'
+};
+
+const gameLabel = (key) => GAME_LABELS[key] || key;
+
 const TABS = [
   { key: 'oversikt', label: 'Översikt' },
+  { key: 'vinster', label: 'Vinster' },
   { key: 'spelare', label: 'Spelare' },
   { key: 'installningar', label: 'Spelinställningar' },
   { key: 'logg', label: 'Logg' },
@@ -244,6 +258,7 @@ async function renderAdmin(root) {
 
   const content = root.querySelector('#admin-content');
   if (tab === 'oversikt') renderOversikt(content, data);
+  if (tab === 'vinster') renderVinster(content, data);
   if (tab === 'spelare') renderSpelare(content, root, data);
   if (tab === 'installningar') renderInstallningar(content, root, data);
   if (tab === 'logg') renderLogg(content, data);
@@ -291,13 +306,86 @@ function renderOversikt(content, data) {
     </div>`;
 }
 
+function renderVinster(content, data) {
+  const { players, totals, gameTotals = {}, transactions = [] } = data;
+  const biggest = players.reduce((max, p) => Math.max(max, p.biggestWin || 0), 0);
+  const net = Math.round((totals.won || 0) - (totals.wagered || 0));
+  const games = Object.entries(gameTotals).sort((a, b) => b[1].won - a[1].won);
+  const winners = players.slice().sort((a, b) => (b.won || 0) - (a.won || 0));
+  const payouts = transactions.filter((t) => t.kind === 'vinst').slice(0, 40);
+
+  content.innerHTML = `
+    <div class="admin-stats">
+      <div class="admin-stat"><div class="admin-stat__value">${kr(totals.won)}</div><div class="admin-stat__label">Utbetalt totalt</div></div>
+      <div class="admin-stat"><div class="admin-stat__value">${kr(totals.wagered)}</div><div class="admin-stat__label">Satsat totalt</div></div>
+      <div class="admin-stat"><div class="admin-stat__value" style="color:${net >= 0 ? '#6ff0b8' : '#ff8a9b'}">${net >= 0 ? '+' : ''}${kr(net)}</div><div class="admin-stat__label">Netto till spelarna</div></div>
+      <div class="admin-stat"><div class="admin-stat__value">${kr(biggest)}</div><div class="admin-stat__label">Största enskilda vinst</div></div>
+    </div>
+
+    <div class="grid grid--2">
+      <div class="panel" style="padding:20px">
+        <h3 style="font-size:15px;margin-bottom:14px">Per spel</h3>
+        <div class="table-scroll" style="border:0">
+          <table class="data-table" style="min-width:0">
+            <thead><tr><th>Spel</th><th>Satsat</th><th>Utbetalt</th><th>Netto</th><th>Rundor</th></tr></thead>
+            <tbody>
+              ${games.length ? games.map(([key, g]) => {
+                const diff = Math.round((g.won || 0) - (g.wagered || 0));
+                return `<tr>
+                  <td><b>${esc(gameLabel(key))}</b></td>
+                  <td class="num">${kr(g.wagered || 0)}</td>
+                  <td class="num">${kr(g.won || 0)}</td>
+                  <td class="num" style="color:${diff >= 0 ? '#6ff0b8' : '#ff8a9b'}">${diff >= 0 ? '+' : ''}${kr(diff)}</td>
+                  <td class="num">${g.rounds || 0}</td>
+                </tr>`;
+              }).join('') : '<tr><td colspan="5" class="muted">Inga spel ännu.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="panel" style="padding:20px">
+        <h3 style="font-size:15px;margin-bottom:14px">Vad spelarna vinner</h3>
+        <div class="table-scroll" style="border:0">
+          <table class="data-table" style="min-width:0">
+            <thead><tr><th>Spelare</th><th>Vunnet</th><th>Satsat</th><th>Netto</th><th>Största</th></tr></thead>
+            <tbody>
+              ${winners.length ? winners.slice(0, 12).map((p) => {
+                const n = Math.round((p.won || 0) - (p.wagered || 0));
+                return `<tr>
+                  <td><div class="row" style="gap:8px"><span class="avatar">${esc((p.name || '?')[0])}</span><span>${esc(p.name)}</span></div></td>
+                  <td class="num">${kr(p.won || 0)}</td>
+                  <td class="num">${kr(p.wagered || 0)}</td>
+                  <td class="num" style="color:${n >= 0 ? '#6ff0b8' : '#ff8a9b'}">${n >= 0 ? '+' : ''}${kr(n)}</td>
+                  <td class="num">${kr(p.biggestWin || 0)}</td>
+                </tr>`;
+              }).join('') : '<tr><td colspan="5" class="muted">Inga spelare än.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" style="padding:20px;margin-top:16px">
+      <h3 style="font-size:15px;margin-bottom:14px">Senaste utbetalningarna</h3>
+      <div class="log-list">
+        ${payouts.length ? payouts.map((t) => `
+          <div class="log-row">
+            <span class="log-row__time">${timeText(t.t)}</span>
+            <span><b>${esc(t.playerName || '–')}</b> · ${esc(gameLabel(t.game))}</span>
+            <span class="log-row__amount is-plus">+${kr(t.amount)}</span>
+          </div>`).join('') : '<p class="muted small">Inga vinster loggade än.</p>'}
+      </div>
+    </div>`;
+}
+
 function renderSpelare(content, root, data) {
   content.innerHTML = `
     <div class="table-scroll">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Spelare</th><th>Saldo</th><th>Omsatt</th><th>Vunnet</th><th>Rundor</th><th>Senast</th><th>Status</th><th></th>
+            <th>Spelare</th><th>Saldo</th><th>Omsatt</th><th>Vunnet</th><th>Netto</th><th>Rundor</th><th>Senast</th><th>Status</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -307,9 +395,10 @@ function renderSpelare(content, root, data) {
               <td class="num">${kr(p.balance)}</td>
               <td class="num">${kr(p.wagered)}</td>
               <td class="num">${kr(p.won)}</td>
+              <td class="num" style="color:${(p.won - p.wagered) >= 0 ? '#6ff0b8' : '#ff8a9b'}">${(p.won - p.wagered) >= 0 ? '+' : ''}${kr(p.won - p.wagered)}</td>
               <td class="num">${p.rounds}</td>
               <td class="tiny muted">${timeText(p.lastSeen)}</td>
-              <td>${p.banned ? '<span class="chip" style="background:rgba(220,47,72,.18);color:#ff8a9b">Avstängd</span>' : '<span class="chip chip--mint">Aktiv</span>'}</td>
+              <td>${p.banned ? '<span class="chip" style="background:rgba(220,47,72,.18);color:#ff8a9b">Avstängd</span>' : p.isGuest ? '<span class="chip">Gäst</span>' : '<span class="chip chip--mint">Konto</span>'}</td>
               <td style="white-space:nowrap">
                 <button class="btn btn--sm btn--ghost" data-balance="${p.id}">Saldo</button>
                 <button class="btn btn--sm btn--ghost" data-ban="${p.id}">${p.banned ? 'Släpp' : 'Stäng'}</button>

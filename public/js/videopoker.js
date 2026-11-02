@@ -99,9 +99,10 @@ function render(root) {
           <div class="row row--between" style="flex-wrap:wrap;gap:12px;margin-top:8px">
             <div class="bet-stepper">
               <button class="stepper-btn" id="vp-minus" ${game.phase !== 'betting' ? 'disabled' : ''}>−</button>
-              <div class="slot-box" style="background:transparent;border:0;padding:0 8px">
+              <div class="bet-stepper__field">
                 <span class="slot-box__label">Insats</span>
-                <span class="slot-box__value">${num(game.bet)} kr</span>
+                <input class="bet-field__input bet-field__input--slot" id="vp-bet" type="number" inputmode="numeric"
+                       min="${minBet}" max="${Math.max(minBet, Math.min(balance, maxBet))}" step="${step}" value="${game.bet}" ${game.phase !== 'betting' ? 'disabled' : ''} />
               </div>
               <button class="stepper-btn" id="vp-plus" ${game.phase !== 'betting' ? 'disabled' : ''}>+</button>
             </div>
@@ -165,6 +166,13 @@ function render(root) {
   root.querySelector('#vp-plus').addEventListener('click', () => {
     if (game.phase !== 'betting') return;
     game.bet = Math.min(Math.min(maxBet, balance), game.bet + step);
+    sfx.click();
+    render(root);
+  });
+  root.querySelector('#vp-bet').addEventListener('change', (e) => {
+    if (game.phase !== 'betting') return;
+    const value = Math.round(Number(e.target.value) || 0);
+    game.bet = Math.max(minBet, Math.min(value, Math.min(maxBet, balance)));
     sfx.click();
     render(root);
   });

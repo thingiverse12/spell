@@ -4,7 +4,7 @@
 
 import {
   registerView, state, api, sfx, toast, kr, num, esc, storage, navigate, openModal, updateBalanceUI,
-  avatarLetter, renderRoute
+  avatarLetter, renderRoute, confirmModal
 } from './core.js';
 
 /* ------------------------------ Statistik ------------------------------ */
@@ -479,6 +479,14 @@ function renderHome(root) {
 
       ${state.broadcast ? `<div class="banner-strip" style="margin-top:18px"><span>📢</span><span>${esc(state.broadcast)}</span></div>` : ''}
 
+      ${state.player && !state.player.hasPin
+        ? `<div class="banner-strip" style="margin-top:18px;background:var(--accent-soft);color:var(--accent);border-color:transparent">
+             <span>✨</span>
+             <span style="flex:1">Skapa ett konto med namn och PIN så sparas saldo och vinster – även på mobilen.</span>
+             <button class="btn btn--sm btn--primary" data-go="/konto">Skapa konto</button>
+           </div>`
+        : ''}
+
       <section class="section">
         <div class="section__head">
           <div>
@@ -591,62 +599,98 @@ function renderFramsteg(root) {
   );
 }
 
-function renderProfil(root) {
+function renderKonto(root) {
   const p = state.player || {};
+  const isGuest = !p.hasPin;
+  const stats = getStats();
+  const won = Math.max(0, Math.round(p.won || 0));
+  const biggest = Math.max(0, Math.round(p.biggestWin || 0));
+  const net = Math.round((p.won || 0) - (p.wagered || 0));
+
   root.innerHTML = `
     <div class="wrap">
       <section class="section">
         <div class="section__head">
           <div>
-            <h2 class="section__title">Min profil</h2>
-            <p class="section__sub">Namn och PIN-kod för att komma tillbaka till dina framsteg.</p>
+            <h2 class="section__title">Mitt konto</h2>
+            <p class="section__sub">Med ett konto sparas saldo, vinster och framsteg – även på en annan enhet.</p>
           </div>
           <button class="btn btn--sm btn--ghost" data-go="/">← Tillbaka</button>
         </div>
 
         <div class="grid grid--2">
           <div class="panel" style="padding:24px">
-            <div class="row" style="gap:14px;margin-bottom:20px">
-              <div class="avatar" style="width:52px;height:52px;font-size:20px">${esc(avatarLetter(p.name))}</div>
+            <div class="row" style="gap:14px;margin-bottom:18px">
+              <div class="avatar" style="width:54px;height:54px;font-size:21px">${esc(avatarLetter(p.name))}</div>
               <div>
-                <h3 style="font-size:17px">${esc(p.name || 'Gäst')}</h3>
-                <p class="small muted">${kr(p.balance ?? 0)} · ${p.rounds ?? 0} rundor</p>
+                <h3 style="font-size:18px">${esc(p.name || 'Gäst')}</h3>
+                <div class="wrap-gap" style="margin-top:6px">
+                  ${isGuest
+                    ? '<span class="chip chip--amber">Gästkonto</span>'
+                    : '<span class="chip chip--mint">🔐 Konto med PIN</span>'}
+                  <span class="chip">${kr(p.balance ?? 0)}</span>
+                </div>
               </div>
             </div>
 
-            <label class="field">
-              <span>Visningsnamn</span>
-              <input class="input" id="profile-name" value="${esc(p.name || '')}" maxlength="24" />
-            </label>
-            <button class="btn btn--primary btn--sm" id="profile-save">Spara namn</button>
+            ${isGuest
+              ? `<h3 style="font-size:16px;margin-bottom:6px">Skapa konto</h3>
+                 <p class="small muted" style="margin-bottom:16px">Välj ett namn och en fyrsiffrig PIN-kod. Ditt saldo och dina framsteg flyttas med.</p>
+                 <label class="field"><span>Namn</span>
+                   <input class="input" id="reg-name" maxlength="24" placeholder="T.ex. Vincent" value="${esc(p.name && !/^Gäst/.test(p.name) ? p.name : '')}" />
+                 </label>
+                 <label class="field"><span>PIN-kod (4 siffror)</span>
+                   <input class="input" id="reg-pin" inputmode="numeric" maxlength="4" placeholder="••••" />
+                 </label>
+                 <div id="reg-error"></div>
+                 <button class="btn btn--primary btn--block" id="reg-btn">Skapa konto</button>`
+              : `<p class="small" style="color:var(--text-soft);margin-bottom:16px">
+                   Du är inloggad med namn och PIN. På en annan enhet loggar du in med
+                   <b>${esc(p.name)}</b> och din PIN-kod.
+                 </p>
+                 <div class="row" style="gap:10px;flex-wrap:wrap">
+                   <button class="btn btn--sm btn--ghost" id="logout-btn">Logga ut</button>
+                 </div>`}
 
             <hr style="border:0;border-top:1px solid var(--line);margin:22px 0" />
 
-            <label class="field">
-              <span>${p.hasPin ? 'Byt PIN-kod (4 siffror)' : 'Lås kontot med PIN-kod'}</span>
-              <input class="input" id="profile-pin" inputmode="numeric" maxlength="4" placeholder="••••" />
-            </label>
-            <button class="btn btn--ghost btn--sm" id="profile-pin-save">Spara PIN</button>
-            <p class="tiny muted" style="margin-top:8px">Med namn + PIN kan du logga in på en annan enhet.</p>
-          </div>
-
-          <div class="panel" style="padding:24px">
-            <h3 style="font-size:16px;margin-bottom:14px">Inställningar</h3>
-            <div class="switch">
-              <div><div class="switch__label">Ljud</div><div class="switch__hint">Klick och vinster</div></div>
-              <div class="toggle ${state.muted ? '' : 'is-on'}" id="toggle-sound"></div>
-            </div>
-
-            <h3 style="font-size:16px;margin:22px 0 12px">Logga in på annat konto</h3>
+            <h3 style="font-size:16px;margin-bottom:6px">Logga in på ett annat konto</h3>
+            <p class="small muted" style="margin-bottom:14px">Använd namnet och PIN-koden du valde när kontot skapades.</p>
             <label class="field"><span>Namn</span><input class="input" id="login-name" placeholder="Ditt namn" /></label>
             <label class="field"><span>PIN</span><input class="input" id="login-pin" inputmode="numeric" maxlength="4" placeholder="••••" /></label>
             <button class="btn btn--sm btn--ghost" id="login-btn">Logga in</button>
+          </div>
 
-            <hr style="border:0;border-top:1px solid var(--line);margin:22px 0" />
-            <h3 style="font-size:16px;margin-bottom:8px">Om appen</h3>
-            <p class="small muted">Plugghörnan 2.0 – ett studiestöd för matte, engelska och svenska. Alla mynt är påhittade och har inget värde.
-            <br /><br /><span class="tiny">Tips: spader-symbolen ♠ i logotypen gillar att bli klickad tre gånger.</span></p>
-            <button class="btn btn--sm btn--ghost" id="about-btn" style="margin-top:12px">Läs mer</button>
+          <div>
+            <div class="panel" style="padding:22px;margin-bottom:16px">
+              <h3 style="font-size:16px;margin-bottom:14px">Dina vinster</h3>
+              <div class="grid grid--2" style="gap:12px">
+                <div class="stat-tile" style="background:var(--surface-2)">
+                  <div class="stat-tile__value">${kr(won)}</div><div class="stat-tile__label">Vunnet totalt</div>
+                </div>
+                <div class="stat-tile" style="background:var(--surface-2)">
+                  <div class="stat-tile__value">${kr(biggest)}</div><div class="stat-tile__label">Största vinst</div>
+                </div>
+                <div class="stat-tile" style="background:var(--surface-2)">
+                  <div class="stat-tile__value">${kr(net)}</div><div class="stat-tile__label">Netto</div>
+                </div>
+                <div class="stat-tile" style="background:var(--surface-2)">
+                  <div class="stat-tile__value">${p.rounds ?? 0}</div><div class="stat-tile__label">Rundor</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel" style="padding:22px">
+              <h3 style="font-size:16px;margin-bottom:12px">Plugghörnan</h3>
+              <div class="row row--between" style="margin-bottom:8px"><span class="small muted">Rätt svar</span><b>${stats.totalCorrect}</b></div>
+              <div class="row row--between" style="margin-bottom:8px"><span class="small muted">Bästa streak</span><b>🔥 ${stats.bestStreak}</b></div>
+              <div class="switch" style="margin-top:8px">
+                <div><div class="switch__label">Ljud</div><div class="switch__hint">Klick och vinster</div></div>
+                <div class="toggle ${state.muted ? '' : 'is-on'}" id="toggle-sound"></div>
+              </div>
+              <p class="tiny muted" style="margin-top:14px">Alla mynt är påhittade och har inget värde.
+              <br /><span class="tiny">Tips: spader-symbolen ♠ i logotypen gillar att bli klickad tre gånger.</span></p>
+            </div>
           </div>
         </div>
       </section>
@@ -654,27 +698,65 @@ function renderProfil(root) {
 
   root.querySelectorAll('[data-go]').forEach((el) => el.addEventListener('click', () => navigate(el.dataset.go)));
 
-  root.querySelector('#profile-save').addEventListener('click', async () => {
-    const name = root.querySelector('#profile-name').value.trim();
-    if (name.length < 2) return toast('Namnet är för kort', 'bad');
-    try {
-      await api.rename(name);
-      toast('Namnet sparat', 'ok');
-      renderRoute();
-    } catch (err) {
-      toast(err.message, 'bad');
-    }
-  });
+  const regBtn = root.querySelector('#reg-btn');
+  if (regBtn) {
+    regBtn.addEventListener('click', async () => {
+      const name = root.querySelector('#reg-name').value.trim();
+      const pin = root.querySelector('#reg-pin').value.trim();
+      const errBox = root.querySelector('#reg-error');
+      errBox.innerHTML = '';
+      if (name.length < 2) {
+        errBox.innerHTML = '<p class="quiz__feedback quiz__feedback--no" style="margin-bottom:14px">Namnet måste vara minst två tecken.</p>';
+        return;
+      }
+      if (!/^\d{4}$/.test(pin)) {
+        errBox.innerHTML = '<p class="quiz__feedback quiz__feedback--no" style="margin-bottom:14px">PIN-koden måste vara fyra siffror.</p>';
+        return;
+      }
+      regBtn.disabled = true;
+      try {
+        await api.register(name, pin);
+        sfx.correct();
+        toast('Konto skapat – välkommen!', 'ok');
+        updateBalanceUI();
+        renderRoute();
+      } catch (err) {
+        sfx.wrong();
+        errBox.innerHTML = `<p class="quiz__feedback quiz__feedback--no" style="margin-bottom:14px">${esc(err.message)}</p>`;
+      } finally {
+        regBtn.disabled = false;
+      }
+    });
+  }
 
-  root.querySelector('#profile-pin-save').addEventListener('click', async () => {
-    const pin = root.querySelector('#profile-pin').value.trim();
-    if (!/^\d{4}$/.test(pin)) return toast('PIN måste vara fyra siffror', 'bad');
+  const logoutBtn = root.querySelector('#logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      const ok = await confirmModal({
+        title: 'Logga ut?',
+        text: 'Du fortsätter som gäst med ett nytt konto. Ditt gamla konto finns kvar – logga in igen med namn och PIN.',
+        confirmLabel: 'Logga ut'
+      });
+      if (!ok) return;
+      await api.logout();
+      updateBalanceUI();
+      toast('Du är nu utloggad');
+      navigate('/');
+    });
+  }
+
+  root.querySelector('#login-btn').addEventListener('click', async () => {
+    const name = root.querySelector('#login-name').value.trim();
+    const pin = root.querySelector('#login-pin').value.trim();
+    if (!name || !/^\d{4}$/.test(pin)) return toast('Fyll i namn och fyrsiffrig PIN', 'bad');
     try {
-      await api.setPin(pin);
-      toast('PIN-kod sparad', 'ok');
-      state.player.hasPin = true;
-      renderRoute();
+      await api.login(name, pin);
+      sfx.correct();
+      toast('Inloggad!', 'ok');
+      updateBalanceUI();
+      navigate('/');
     } catch (err) {
+      sfx.wrong();
       toast(err.message, 'bad');
     }
   });
@@ -684,36 +766,6 @@ function renderProfil(root) {
     storage.set('ph.muted', state.muted);
     e.currentTarget.classList.toggle('is-on', !state.muted);
     if (!state.muted) sfx.click();
-  });
-
-  root.querySelector('#login-btn').addEventListener('click', async () => {
-    const name = root.querySelector('#login-name').value.trim();
-    const pin = root.querySelector('#login-pin').value.trim();
-    if (!name || !/^\d{4}$/.test(pin)) return toast('Fyll i namn och fyrsiffrig PIN', 'bad');
-    try {
-      await api.login(name, pin);
-      toast('Inloggad!', 'ok');
-      updateBalanceUI();
-      navigate('/');
-    } catch (err) {
-      toast(err.message, 'bad');
-    }
-  });
-
-  root.querySelector('#about-btn').addEventListener('click', () => {
-    openModal({
-      title: 'Om Plugghörnan',
-      sub: 'Version 2.0',
-      body: `<p class="small" style="line-height:1.8;color:var(--text-soft)">
-        Plugghörnan är en studieapp för dig som vill träna matte, engelska och svenska.
-        Varje rätt svar ger spelmynt som du kan använda i appens belöningsspel.
-        <br><br>
-        <b>Inga riktiga pengar.</b> Mynten är påhittade, kan inte köpas för pengar och kan inte växlas tillbaka.
-        <br><br>
-        <span class="tiny muted">För lärare: panelen nås via sidfoten och kräver lärarkod.</span>
-      </p>`,
-      actions: [{ label: 'Stäng' }]
-    });
   });
 }
 
@@ -785,7 +837,8 @@ registerView('engelska', renderSubject('engelska'));
 registerView('svenska', renderSubject('svenska'));
 registerView('utmaning', renderSubject('utmaning'));
 registerView('framsteg', renderFramsteg);
-registerView('profil', renderProfil);
+registerView('konto', renderKonto);
+registerView('profil', renderKonto);
 registerView('lararpanel', renderLararpanel);
 
 export { SUBJECTS, startQuiz, getStats as getLearnStats };

@@ -22,7 +22,8 @@ const STUDY_NAV = [
   { path: '/matte', label: 'Matematik' },
   { path: '/engelska', label: 'Engelska' },
   { path: '/svenska', label: 'Svenska' },
-  { path: '/framsteg', label: 'Framsteg' }
+  { path: '/framsteg', label: 'Framsteg' },
+  { path: '/konto', label: 'Konto' }
 ];
 
 const CASINO_NAV = [
@@ -46,7 +47,7 @@ function buildShell() {
         </div>
         <div class="footer__links">
           <a href="#/framsteg">Framsteg</a>
-          <a href="#/profil">Min profil</a>
+          <a href="#/konto">Mitt konto</a>
           <a href="#/lararpanel">Lärarpanel</a>
           <span class="footer__dot"></span>
           <span class="tiny">Alla mynt är påhittade · inga riktiga pengar</span>
@@ -114,7 +115,7 @@ function renderTopbar() {
     toast(muted ? 'Ljud av' : 'Ljud på');
   });
   const profileBtn = bar.querySelector('#profile-btn');
-  if (profileBtn) profileBtn.addEventListener('click', () => navigate('/profil'));
+  if (profileBtn) profileBtn.addEventListener('click', () => navigate('/konto'));
   const studyBtn = bar.querySelector('#study-btn');
   if (studyBtn) studyBtn.addEventListener('click', () => {
     sfx.click();
