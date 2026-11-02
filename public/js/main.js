@@ -79,7 +79,7 @@ function renderTopbar() {
       <div class="brand__mark" id="brand-mark">${casino ? '♠' : '♠'}</div>
       <div class="brand__text">
         <span class="brand__name">${casino ? 'Golden Spade' : 'Plugghörnan'}</span>
-        <span class="brand__tag">${casino ? 'Spelmynt · ej riktiga pengar' : 'Matte · Engelska · Svenska'}</span>
+        <span class="brand__tag">${casino ? 'Spelmynt · ej riktiga pengar' : 'Matte · Engelska · Svenska · Geografi'}</span>
       </div>
     </div>
 
