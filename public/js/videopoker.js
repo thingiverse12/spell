@@ -5,16 +5,18 @@
 import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI } from './core.js';
 import { cardHTML, newDeck, rankValue } from './cards.js';
 
+/* Utbetalning i multiplar av insatsen. Lägsta vinsten ger 1,2× insatsen,
+   så en vinst ger alltid mer än du satsade. */
 const PAYS = [
   { key: 'royal', name: 'Royal flush', sv: 'Royal flush', mult: 250 },
   { key: 'straightFlush', name: 'Straight flush', sv: 'Straight flush', mult: 50 },
   { key: 'quads', name: 'Four of a kind', sv: 'Fyrtal', mult: 25 },
-  { key: 'fullHouse', name: 'Full house', sv: 'Kåk', mult: 9 },
-  { key: 'flush', name: 'Flush', sv: 'Färg', mult: 6 },
-  { key: 'straight', name: 'Straight', sv: 'Stege', mult: 4 },
-  { key: 'trips', name: 'Three of a kind', sv: 'Triss', mult: 3 },
+  { key: 'fullHouse', name: 'Full house', sv: 'Kåk', mult: 8 },
+  { key: 'flush', name: 'Flush', sv: 'Färg', mult: 5 },
+  { key: 'straight', name: 'Straight', sv: 'Stege', mult: 3.5 },
+  { key: 'trips', name: 'Three of a kind', sv: 'Triss', mult: 2.5 },
   { key: 'twoPair', name: 'Two pair', sv: 'Två par', mult: 2 },
-  { key: 'jacks', name: 'Jacks or better', sv: 'Par i knekt eller högre', mult: 1 }
+  { key: 'jacks', name: 'Jacks or better', sv: 'Par i knekt eller högre', mult: 1.2 }
 ];
 
 const game = {
@@ -260,10 +262,10 @@ async function drawCards(root) {
     } catch (err) {
       toast(err.message, 'bad');
     }
-    game.message = `${result.sv} – du vinner ${kr(win)}!`;
+    game.message = `${result.sv} – ${kr(win)} tillbaka (+${kr(win - bet)} i vinst)`;
     if (result.mult >= 25) sfx.bigWin();
     else sfx.win();
-    toast(`${result.sv}: +${kr(win)}`, 'gold');
+    toast(`${result.sv}: +${kr(win - bet)}`, 'gold');
   } else {
     game.message = 'Ingen vinst denna gång';
     sfx.lose();

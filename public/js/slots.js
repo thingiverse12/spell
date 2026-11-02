@@ -15,16 +15,18 @@ const SYMBOLS = {
   cherry: { glyph: '🍒', cls: '', weight: 10, name: 'Körsbär' }
 };
 
-/* Vinsttabell: multiplar av total insats för 3 / 4 / 5 i rad från vänster. */
+/* Vinsttabell: multiplar av total insats för 3 / 4 / 5 i rad från vänster.
+   Varje vinst ger minst 1,4× insatsen – en vinst ska alltid ge plus.
+   Låga symboler kräver fyra i rad, annars blir de för små vinster. */
 const PAYTABLE = {
-  wild: { 3: 3, 4: 15, 5: 60 },
-  seven: { 3: 1.5, 4: 6, 5: 30 },
-  diamond: { 3: 1.2, 4: 4, 5: 18 },
-  bell: { 3: 0.85, 4: 2.6, 5: 12 },
-  bar: { 3: 0.7, 4: 2.2, 5: 10 },
-  melon: { 3: 0.55, 4: 1.7, 5: 7 },
-  plum: { 3: 0.45, 4: 1.3, 5: 6 },
-  cherry: { 3: 0.35, 4: 1.1, 5: 5 }
+  wild: { 3: 4.5, 4: 21, 5: 85 },
+  seven: { 3: 2.3, 4: 8.5, 5: 42 },
+  diamond: { 3: 1.9, 4: 5.2, 5: 23 },
+  bell: { 3: 1.45, 4: 3.7, 5: 14 },
+  bar: { 4: 3.2, 5: 12.5 },
+  melon: { 4: 2.5, 5: 8.5 },
+  plum: { 4: 2.1, 5: 6.8 },
+  cherry: { 4: 1.65, 5: 5.2 }
 };
 
 const PAYLINES = [
@@ -333,10 +335,14 @@ async function spin(root) {
   winEl.textContent = kr(result.total);
   if (result.total > 0) winEl.classList.add('is-win');
 
-  root.querySelector('#win-lines').innerHTML = result.lines
-    .slice(0, 8)
-    .map((l) => `<span class="chip">Linje ${l.line} · ${l.count}×${SYMBOLS[l.symbol].glyph} · ${kr(l.win)}</span>`)
-    .join('');
+  root.querySelector('#win-lines').innerHTML = [
+    result.total > 0
+      ? `<span class="chip chip--mint">Netto +${kr(result.total - bet)}</span>`
+      : '',
+    ...result.lines
+      .slice(0, 8)
+      .map((l) => `<span class="chip">Linje ${l.line} · ${l.count}×${SYMBOLS[l.symbol].glyph} · ${kr(l.win)}</span>`)
+  ].join('');
 
   if (result.total > 0) {
     await api.credit('slots', result.total);

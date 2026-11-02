@@ -5,7 +5,8 @@
   "description": "Plugghörnan – studeapp med dold spelhall (endast spelmynt)",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "audit": "node tools/audit-payouts.js"
   },
   "engines": {
     "node": ">=18"

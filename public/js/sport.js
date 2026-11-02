@@ -268,7 +268,8 @@ function renderSlip() {
         <button class="chip-mini" data-quick="${max}" type="button">Max</button>
       </div>
 
-      <div class="slip__row"><span>Möjlig vinst</span><strong class="slip__win">${kr(potential)}</strong></div>
+      <div class="slip__row"><span>Utbetalning vid vinst</span><strong class="slip__win">${kr(potential)}</strong></div>
+      <div class="slip__row slip__row--muted"><span>Netto vid vinst</span><span>+${kr(Math.round((potential - stake) * 100) / 100)}</span></div>
       <div class="slip__row slip__row--muted"><span>Saldo efter spel</span><span>${kr(Math.max(0, balance - stake))}</span></div>
 
       <button class="btn btn--primary slip__place" id="sport-place" ${sport.busy ? 'disabled' : ''}>

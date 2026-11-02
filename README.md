@@ -157,6 +157,28 @@ Koden ligger i `public/js/reklam.js` (vy, banner och annonstexter) och i slutet 
 Oddsen räknas fram av huset med en Poisson-modell utifrån ställning och återstående tid,
 plus en marginal som admin ställer in (standard 6 %).
 
+### Utbetalningar – en vinst ska alltid ge plus
+
+Alla spel visar både **utbetalning** (det du får tillbaka) och **netto** (vad du tjänade), så det
+aldrig går att missta insatsen för en vinst:
+
+| Spel | Utbetalning vid vinst | Exempel (insats 250 kr) |
+| --- | --- | --- |
+| Blackjack | 2× insatsen (insatsen + lika mycket i vinst) | 500 kr tillbaka, netto +250 kr |
+| Blackjack (ess + tio) | 2,5× insatsen | 625 kr tillbaka, netto +375 kr |
+| Blackjack (lika) | 1× insatsen | 250 kr tillbaka, netto 0 kr |
+| Slots | lägst 1,45× insatsen, högst 85× | alla vinster ger plus |
+| Videopoker | lägst 1,2× insatsen (par i knekt), högst 250× (royal flush) | 300 kr tillbaka, netto +50 kr |
+| Live Sport | insats × odds | 500 kr tillbaka på odds 2,00, netto +250 kr |
+
+Blackjack visar en kvittorad under bordet – *Insats · Utbetalning · Netto* – efter varje runda,
+även när handen förlorar. Slots visar "Netto +X kr" ovanför vinstraderna och videopoker skriver
+ut både utbetalning och vinst.
+
+`npm run audit` kontrollerar utbetalningarna i alla spel: att varje vinst ger mer än insatsen,
+att blackjack betalar 2×/2,5×/1×, att vinsttabellerna är sorterade och att slotsens RTP ligger
+mellan 88 och 97 procent.
+
 **Koppla in AllSportsAPI (frivilligt, bara fotboll):** logga in i adminpanelen → fliken **Sport** → klistra in
 din API-nyckel (eller sätt miljövariabeln `ALLSPORTS_API_KEY` i Vercel). Sportfliken visar också
 källa för fotboll respektive hockey, antal live-matcher, vilka källor som testats, öppna spel,

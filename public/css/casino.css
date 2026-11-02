@@ -738,6 +738,17 @@
 .sport-updated { opacity: .8; }
 .sport-note { opacity: .75; font-style: italic; }
 
+.bj-receipt {
+  display: flex; flex-wrap: wrap; gap: 6px 16px; justify-content: center; align-items: center;
+  margin-top: 10px; padding: 8px 14px; border-radius: 10px;
+  background: rgba(0, 0, 0, .28); border: 1px solid var(--line);
+  font-size: 12px; color: var(--muted);
+}
+.bj-receipt span { white-space: nowrap; }
+.bj-receipt strong { color: var(--text); font-weight: 800; font-variant-numeric: tabular-nums; }
+.bj-receipt .is-plus strong { color: var(--mint, #4ade80); }
+.bj-receipt .is-minus strong { color: var(--danger, #f87171); }
+
 .sport-tabs { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 14px 0 0; }
 .sport-tabs .chip { cursor: pointer; font-weight: 700; }
 .sport-tabs .chip--active { background: var(--gold-soft, rgba(212,175,55,.18)); color: var(--gold, #d4af37); border-color: rgba(212,175,55,.45); }

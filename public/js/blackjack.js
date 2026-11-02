@@ -19,7 +19,8 @@ const game = {
   busy: false,
   message: '',
   showCards: 0,
-  netLast: 0
+  netLast: 0,
+  payoutLast: 0
 };
 
 function handTotal(cards) {
@@ -154,6 +155,15 @@ function render(root) {
       </div>
 
       ${game.message ? `<div class="result-banner">${esc(game.message)}</div>` : ''}
+      ${
+        game.phase === 'done'
+          ? `<div class="bj-receipt">
+              <span>Insats <strong>${kr(totalBet())}</strong></span>
+              <span>Utbetalning <strong>${kr(game.payoutLast)}</strong></span>
+              <span class="${game.netLast >= 0 ? 'is-plus' : 'is-minus'}">Netto <strong>${game.netLast >= 0 ? '+' : '−'}${kr(Math.abs(game.netLast))}</strong></span>
+            </div>`
+          : ''
+      }
     </div>`;
 
   /* ---------- Åtgärdsknappar ---------- */
@@ -337,6 +347,7 @@ async function startRound(root) {
   game.phase = 'player';
   game.message = '';
   game.netLast = 0;
+  game.payoutLast = 0;
 
   const r = root || document;
   const animCard = (card) => ({ ...card, anim: true });
@@ -362,12 +373,16 @@ async function startRound(root) {
     game.reveal = true;
     if (playerBJ && dealerBJ) {
       game.hands[0].result = 'push';
-      game.message = 'Båda har blackjack – insatsen tillbaka';
+      game.payoutLast = bet;
+      game.netLast = 0;
+      game.message = `Båda har blackjack – ${kr(bet)} tillbaka`;
       await api.credit('blackjack', bet);
     } else if (playerBJ) {
       game.hands[0].result = 'blackjack';
       const win = Math.round(bet * (1 + payoutRatio()));
-      game.message = `Blackjack! Du vinner ${kr(win - bet)}`;
+      game.payoutLast = win;
+      game.netLast = win - bet;
+      game.message = `Blackjack! ${kr(win)} tillbaka (+${kr(win - bet)} i vinst)`;
       sfx.win();
       await api.credit('blackjack', win);
     } else {
@@ -418,6 +433,7 @@ async function stand(root) {
   if (game.busy || game.phase !== 'player') return;
   const hand = currentHand();
   if (!hand) return;
+  game.busy = true;
   hand.done = true;
   sfx.click();
   await nextHandOrDealer(root);
@@ -545,6 +561,8 @@ async function settle(root) {
   const net = totalWin - totalBet();
   game.phase = 'done';
   game.busy = false;
+  game.payoutLast = totalWin;
+  game.netLast = net;
 
   if (totalWin > 0) {
     try {
@@ -556,7 +574,10 @@ async function settle(root) {
 
   if (anyWin) {
     sfx.win();
-    game.message = net > 0 ? `Du vann ${kr(net)}!` : 'Insatsen tillbaka';
+    game.message =
+      net > 0
+        ? `VINST · ${kr(totalWin)} tillbaka (+${kr(net)} i vinst)`
+        : `Lika – ${kr(totalWin)} tillbaka`;
   } else if (allLose) {
     sfx.lose();
     game.message = dealerBust ? 'Dealern sprack – men du var över 21' : 'Dealern vinner handen';
