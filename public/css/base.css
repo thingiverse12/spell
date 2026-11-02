@@ -462,6 +462,39 @@ body.theme-casino .modal-backdrop { background: rgba(2, 6, 4, .78); }
 .toggle.is-on { background: var(--mint); border-color: transparent; }
 .toggle.is-on::after { transform: translateX(21px); }
 
+/* Tur/svårighet i adminpanelen – kryssa i en nivå, det sparas direkt */
+.chance-hint { color: var(--muted); font-size: 12.5px; margin: -2px 0 14px; }
+.chance { margin-bottom: 18px; }
+.chance__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.chance__name { font-weight: 700; font-size: 13.5px; color: var(--text-soft); }
+.chance__value { color: var(--accent); font-variant-numeric: tabular-nums; font-size: 14px; }
+.chance__row { display: flex; flex-wrap: wrap; gap: 8px; }
+.check-chip { position: relative; display: inline-flex; cursor: pointer; }
+.check-chip input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.check-chip span {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 14px 9px 11px; border-radius: 99px;
+  border: 1.5px solid var(--line); background: var(--surface-2);
+  color: var(--text-soft); font-size: 13.5px; font-weight: 700;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.check-chip span::before {
+  content: ""; flex: none; width: 18px; height: 18px; border-radius: 6px;
+  border: 1.7px solid currentColor; opacity: .5;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; line-height: 1; font-weight: 900;
+  transition: opacity .15s, background .15s, border-color .15s;
+}
+.check-chip em { font-style: normal; opacity: .7; font-variant-numeric: tabular-nums; }
+.check-chip:hover span { border-color: var(--accent); }
+.check-chip input:checked + span {
+  border-color: var(--mint); background: var(--mint-soft); color: var(--text);
+}
+.check-chip input:checked + span::before {
+  content: "✓"; opacity: 1; background: var(--mint); border-color: var(--mint); color: #fff;
+}
+.check-chip input:focus-visible + span { box-shadow: 0 0 0 4px var(--ring); }
+
 .toast-root { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); display: flex; flex-direction: column; gap: 8px; z-index: 120; pointer-events: none; width: min(420px, calc(100% - 32px)); }
 .toast {
   padding: 12px 18px;

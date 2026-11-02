@@ -490,6 +490,41 @@ function renderSpelare(content, root, data) {
   });
 }
 
+const CHANCE_LEVELS = [
+  { value: 0.7, label: 'Låg' },
+  { value: 1, label: 'Normal' },
+  { value: 1.4, label: 'Hög' }
+];
+
+const chanceFmt = (v) => '×' + Number(v).toFixed(2).replace('.', ',');
+
+/** Kryssrutor för tur/svårighet – ändringen sparas direkt när man kryssar i. */
+function chanceBox(key, title, value) {
+  const current = Number(value) || 1;
+  const levels = CHANCE_LEVELS.slice();
+  if (!levels.some((l) => Math.abs(l.value - current) < 0.001)) {
+    levels.push({ value: current, label: 'Egen' });
+    levels.sort((a, b) => a.value - b.value);
+  }
+  return `
+    <div class="chance" data-chance="${key}">
+      <div class="chance__head">
+        <span class="chance__name">${title}</span>
+        <b class="chance__value" data-chance-val>${chanceFmt(current)}</b>
+      </div>
+      <div class="chance__row">
+        ${levels
+          .map(
+            (l) => `<label class="check-chip">
+            <input type="checkbox" value="${l.value}" ${Math.abs(l.value - current) < 0.001 ? 'checked' : ''} />
+            <span>${l.label} <em>${chanceFmt(l.value)}</em></span>
+          </label>`
+          )
+          .join('')}
+      </div>
+    </div>`;
+}
+
 function renderInstallningar(content, root, data) {
   const s = data.settings;
   content.innerHTML = `
@@ -511,12 +546,9 @@ function renderInstallningar(content, root, data) {
       </div>
 
       <h3 style="font-size:15px;margin:24px 0 6px">Tur och svårighet</h3>
-      <div class="settings-grid">
-        <label class="field"><span>Slots – tur (0,5–1,5): <b id="luck-val">${s.slotLuck}</b></span>
-          <input class="input" id="set-slotLuck" type="range" min="0.5" max="1.5" step="0.05" value="${s.slotLuck}" /></label>
-        <label class="field"><span>Videopoker – tur: <b id="vpluck-val">${s.videoPokerLuck}</b></span>
-          <input class="input" id="set-videoPokerLuck" type="range" min="0.5" max="1.5" step="0.05" value="${s.videoPokerLuck}" /></label>
-      </div>
+      <p class="chance-hint">Kryssa i nivån – ändringen sparas direkt, ingen spara-knapp behövs.</p>
+      ${chanceBox('slotLuck', 'Slots – tur', s.slotLuck)}
+      ${chanceBox('videoPokerLuck', 'Videopoker – tur', s.videoPokerLuck)}
 
       <div class="switch">
         <div><div class="switch__label">Dealer tar kort på mjuk 17</div><div class="switch__hint">Gör blackjack lite tuffare</div></div>
@@ -554,14 +586,45 @@ function renderInstallningar(content, root, data) {
       state2[key] = !state2[key];
       el.classList.toggle('is-on', state2[key]);
       sfx.click();
+      if (key === 'rubberBand') {
+        saveSettings({ rubberBand: state2.rubberBand })
+          .then(() => {
+            toast(state2.rubberBand ? 'Gummibandet är på' : 'Gummibandet är av', 'ok');
+            if (state.adminData && state.adminData.settings) state.adminData.settings.rubberBand = state2.rubberBand;
+          })
+          .catch((err) => toast(err.message, 'bad'));
+      }
     });
   });
 
-  content.querySelector('#set-slotLuck').addEventListener('input', (e) => {
-    content.querySelector('#luck-val').textContent = e.target.value;
-  });
-  content.querySelector('#set-videoPokerLuck').addEventListener('input', (e) => {
-    content.querySelector('#vpluck-val').textContent = e.target.value;
+  const saveChance = async (group, value) => {
+    const key = group.dataset.chance;
+    group.querySelectorAll('input[type="checkbox"]').forEach((box) => {
+      box.checked = Math.abs(Number(box.value) - value) < 0.001;
+    });
+    const out = group.querySelector('[data-chance-val]');
+    if (out) out.textContent = chanceFmt(value);
+    const name = key === 'slotLuck' ? 'Slots' : 'Videopoker';
+    try {
+      await saveSettings({ [key]: value });
+      sfx.click();
+      toast(`${name} – tur ${chanceFmt(value)}`, 'ok');
+      if (state.adminData && state.adminData.settings) state.adminData.settings[key] = value;
+    } catch (err) {
+      toast(err.message, 'bad');
+    }
+  };
+
+  content.querySelectorAll('[data-chance]').forEach((group) => {
+    group.querySelectorAll('input[type="checkbox"]').forEach((box) => {
+      box.addEventListener('change', () => {
+        if (!box.checked) {
+          box.checked = true; // en nivå måste alltid vara vald
+          return;
+        }
+        saveChance(group, Number(box.value));
+      });
+    });
   });
 
   content.querySelector('#save-settings').addEventListener('click', async () => {
@@ -572,8 +635,6 @@ function renderInstallningar(content, root, data) {
       dailyBonus: Number(content.querySelector('#set-dailyBonus').value),
       quizReward: Number(content.querySelector('#set-quizReward').value),
       blackjackPayout: Number(content.querySelector('#set-blackjackPayout').value),
-      slotLuck: Number(content.querySelector('#set-slotLuck').value),
-      videoPokerLuck: Number(content.querySelector('#set-videoPokerLuck').value),
       ...state2
     };
     try {

@@ -203,7 +203,9 @@ Sport**:
   och sparas på sportspelen när de läggs, så utbetalningen alltid matchar det som visades.
 - Alla spel visar ett litet märke – *"Tur ×1,18 · du har lite kvar"* – så det går att se vad som
   gäller. Spelkvittot i blackjack och sport visar också vilken tur som användes.
-- Gummibandet kan stängas av i adminpanelen → **Spelinställningar → Gummiband (dynamisk tur)**.
+- Gummibandet slås på/av med en kryssruta i adminpanelen → **Spelinställningar → Gummiband
+  (dynamisk tur)**. Även tur-nivåerna för slots och videopoker väljs med kryssrutor
+  (Låg ×0,70 / Normal ×1,00 / Hög ×1,40) och sparas i samma sekund som man kryssar i.
 
 Med gummibandet varierar slotsens RTP mellan ungefär 70 % (stor hög) och 117 % (nästan tomt
 konto); mitt på skalan, vid startsaldot, ligger den på samma ~92 % som förut.
@@ -230,7 +232,10 @@ I panelen kan admin:
 - följa exakt vad varje spelare vinner, per spel,
 - sätta/justera spelares saldo, stänga av eller nollställa konton,
 - ändra min-/maxinsats, startsaldo, bonus, quizbelöning, blackjack-utbetalning,
-- justera "tur" för slots och videopoker, underhållsläge,
+- ändra "tur" för slots och videopoker genom att **kryssa i Låg / Normal / Hög** – det sparas
+  direkt utan att man trycker på spara,
+- slå på/av gummibandet (dynamisk tur) med en kryssruta – sparas också direkt,
+- underhållsläge,
 - läsa hela transaktionsloggen och skicka meddelande till studiestartsidan.
 
 ---
