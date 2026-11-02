@@ -709,3 +709,149 @@
 }
 .chip-mini:hover:not(:disabled) { background: rgba(255, 255, 255, .16); color: var(--text); }
 .chip-mini:disabled { opacity: .35; cursor: not-allowed; }
+
+/* =====================================================================
+   Live Sport – fotboll med live-odds
+   ===================================================================== */
+
+.tile--sport { --tile-bg: radial-gradient(120% 120% at 30% 0%, #0f766e 0%, #073c38 48%, #021614 100%); }
+
+.sport-wrap { padding-bottom: 40px; }
+.sport-pill {
+  font-family: var(--font-sans, system-ui); font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase;
+  padding: 4px 8px; border-radius: 999px; background: rgba(239, 68, 68, .16); color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, .35); vertical-align: middle; margin-left: 8px;
+}
+
+.sport-status {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 12px 0 0; font-size: 12px; color: var(--muted, #9aa4b2);
+}
+.sport-source {
+  font-weight: 800; letter-spacing: .06em; text-transform: uppercase; font-size: 10.5px;
+  padding: 4px 9px; border-radius: 999px; border: 1px solid var(--line, rgba(255,255,255,.12));
+}
+.sport-source--demo { background: rgba(234, 179, 8, .14); color: #fbbf24; border-color: rgba(234, 179, 8, .3); }
+.sport-source--ok { background: rgba(34, 197, 94, .14); color: #4ade80; border-color: rgba(34, 197, 94, .3); }
+.sport-livecount { font-weight: 700; color: var(--text, #e8edf5); }
+.sport-offline { color: #fbbf24; font-weight: 700; }
+.sport-updated { opacity: .8; }
+.sport-note { opacity: .75; font-style: italic; }
+
+.sport-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 14px 0 16px; }
+.sport-filters__spacer { flex: 1; }
+.sport-filters .chip { cursor: pointer; }
+.sport-filters .chip--active { background: var(--gold-soft, rgba(212,175,55,.18)); color: var(--gold, #d4af37); border-color: rgba(212,175,55,.45); font-weight: 800; }
+
+.sport-layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 18px; align-items: start; }
+.sport-main { display: flex; flex-direction: column; gap: 12px; }
+.sport-side { display: flex; flex-direction: column; gap: 14px; position: sticky; top: 78px; }
+.sport-empty { padding: 22px; }
+
+.match-card {
+  background: linear-gradient(160deg, rgba(255,255,255,.045), rgba(255,255,255,.012));
+  border: 1px solid var(--line, rgba(255,255,255,.1)); border-radius: 14px; padding: 14px 16px;
+  transition: border-color .18s ease, transform .18s ease;
+}
+.match-card:hover { border-color: var(--line-strong, rgba(255,255,255,.22)); }
+.match-card--live { border-left: 3px solid #ef4444; }
+.match-card--done { opacity: .72; }
+
+.match-card__top { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.match-league { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted, #9aa4b2); font-weight: 700; }
+.match-status { font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px; }
+.match-status--live { background: rgba(239, 68, 68, .16); color: #fca5a5; display: inline-flex; align-items: center; gap: 6px; }
+.match-status--live i {
+  width: 7px; height: 7px; border-radius: 50%; background: #ef4444; display: inline-block;
+  animation: pulse-dot 1.4s infinite;
+}
+.match-status--done { background: rgba(148, 163, 184, .16); color: #cbd5e1; }
+.match-status--next { background: rgba(148, 163, 184, .12); color: #cbd5e1; }
+
+@keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.75); } }
+
+.match-card__teams { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 12px; }
+.match-team { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.match-team__name { font-weight: 700; font-size: 15px; }
+.match-score {
+  font-variant-numeric: tabular-nums; font-weight: 800; font-size: 16px; min-width: 26px; text-align: right;
+  color: var(--gold, #e6c766);
+}
+.match-score--idle { color: var(--muted, #8b95a3); font-weight: 600; }
+
+.match-card__markets { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--line, rgba(255,255,255,.08)); padding-top: 10px; }
+.match-market { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.match-market__label { font-size: 11px; color: var(--muted, #9aa4b2); min-width: 132px; }
+.match-market__picks { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
+
+.odd-btn {
+  display: inline-flex; align-items: center; justify-content: space-between; gap: 8px;
+  min-width: 92px; padding: 7px 10px; border-radius: 9px; cursor: pointer;
+  background: rgba(255,255,255,.05); border: 1px solid var(--line, rgba(255,255,255,.12));
+  color: var(--text, #e8edf5); font: inherit;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+.odd-btn:hover:not(:disabled) { background: rgba(212,175,55,.14); border-color: rgba(212,175,55,.45); transform: translateY(-1px); }
+.odd-btn--active { background: rgba(212,175,55,.22); border-color: var(--gold, #d4af37); box-shadow: 0 0 0 1px rgba(212,175,55,.35) inset; }
+.odd-btn:disabled { opacity: .4; cursor: default; }
+.odd-btn__label { font-size: 12px; font-weight: 700; opacity: .85; }
+.odd-btn__value { font-variant-numeric: tabular-nums; font-weight: 800; color: var(--gold, #e6c766); }
+
+/* Spelkvitto */
+.slip, .slip--empty {
+  background: linear-gradient(165deg, rgba(212,175,55,.1), rgba(255,255,255,.02));
+  border: 1px solid rgba(212,175,55,.28); border-radius: 16px; padding: 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.slip__title { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; font-weight: 800; color: var(--gold, #d4af37); }
+.slip__pick { display: flex; flex-direction: column; gap: 3px; padding: 10px; border-radius: 10px; background: rgba(0,0,0,.22); }
+.slip__market { font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted, #9aa4b2); }
+.slip__choice { font-size: 15px; }
+.slip__match { font-size: 12px; color: var(--muted, #9aa4b2); }
+.slip__pick-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.slip__odds { font-weight: 800; color: var(--gold, #e6c766); font-variant-numeric: tabular-nums; }
+.slip__label { font-size: 11px; color: var(--muted, #9aa4b2); }
+.slip__stake { display: flex; align-items: center; gap: 6px; }
+.slip__input { flex: 1; text-align: center; }
+.slip__quick { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip-mini {
+  padding: 5px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700; cursor: pointer;
+  background: rgba(255,255,255,.06); border: 1px solid var(--line, rgba(255,255,255,.14)); color: inherit; font-family: inherit;
+}
+.chip-mini:hover { border-color: rgba(212,175,55,.5); color: var(--gold, #e6c766); }
+.slip__row { display: flex; justify-content: space-between; align-items: center; font-size: 12.5px; }
+.slip__row--muted { color: var(--muted, #9aa4b2); font-size: 11.5px; }
+.slip__win { color: #4ade80; font-size: 15px; }
+.slip__place { width: 100%; }
+.slip__clear { width: 100%; }
+.slip__note { text-align: center; }
+.slip__balance { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted, #9aa4b2); }
+.slip__balance strong { color: var(--text, #e8edf5); }
+
+/* Mina spel */
+.sport-bets-panel { padding: 16px; }
+.sport-bets { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 340px; overflow: auto; }
+.bet-row { display: flex; gap: 10px; justify-content: space-between; padding: 9px 10px; border-radius: 10px; background: rgba(255,255,255,.035); }
+.bet-row__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.bet-row__match { font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bet-row__pick { font-size: 11px; color: var(--muted, #9aa4b2); }
+.bet-row__meta { font-size: 10.5px; color: var(--muted, #9aa4b2); opacity: .85; }
+.bet-row__side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; font-size: 12px; white-space: nowrap; }
+.bet-row__side .win { color: #4ade80; }
+.bet-row__side .loss { color: #f87171; }
+.bet-badge { font-size: 9.5px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
+.bet-badge--open { background: rgba(59,130,246,.18); color: #93c5fd; }
+.bet-badge--won { background: rgba(34,197,94,.18); color: #4ade80; }
+.bet-badge--lost { background: rgba(239,68,68,.16); color: #fca5a5; }
+.bet-badge--void { background: rgba(148,163,184,.18); color: #cbd5e1; }
+
+.sport-footnote { margin-top: 22px; }
+.skeleton-line { height: 84px; border-radius: 14px; background: linear-gradient(90deg, rgba(255,255,255,.05), rgba(255,255,255,.09), rgba(255,255,255,.05)); background-size: 200% 100%; animation: shimmer 1.4s infinite; }
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+@media (max-width: 900px) {
+  .sport-layout { grid-template-columns: 1fr; }
+  .sport-side { position: static; order: -1; }
+  .sport-bets { max-height: none; }
+  .match-market__label { min-width: 100%; }
+}

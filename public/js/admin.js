@@ -54,6 +54,7 @@ const GAME_LABELS = {
   slots: 'Star Fortune',
   videopoker: 'Videopoker',
   kortleken: 'Kortleken',
+  sport: 'Fotboll (Live Sport)',
   quiz: 'Quiz',
   bonus: 'Bonus',
   admin: 'Admin',
@@ -66,6 +67,7 @@ const TABS = [
   { key: 'oversikt', label: 'Översikt' },
   { key: 'vinster', label: 'Vinster' },
   { key: 'spelare', label: 'Spelare' },
+  { key: 'fotboll', label: 'Fotboll' },
   { key: 'installningar', label: 'Spelinställningar' },
   { key: 'logg', label: 'Logg' },
   { key: 'meddelande', label: 'Meddelande' }
@@ -260,6 +262,7 @@ async function renderAdmin(root) {
   if (tab === 'oversikt') renderOversikt(content, data);
   if (tab === 'vinster') renderVinster(content, data);
   if (tab === 'spelare') renderSpelare(content, root, data);
+  if (tab === 'fotboll') renderFotboll(content, root);
   if (tab === 'installningar') renderInstallningar(content, root, data);
   if (tab === 'logg') renderLogg(content, data);
   if (tab === 'meddelande') renderMeddelande(content, root, data);
@@ -575,6 +578,179 @@ function renderInstallningar(content, root, data) {
     }
   });
 }
+
+
+/* ------------------------------ Fotboll / live-odds ------------------------------ */
+
+async function renderFotboll(content, root) {
+  content.innerHTML = '<div class="panel" style="padding:22px"><p class="small muted">Hämtar fotbollsmatcher och odds …</p></div>';
+
+  let data;
+  try {
+    data = await api.adminSport();
+  } catch (err) {
+    const offline = state.offline || err.offline;
+    content.innerHTML = `<div class="panel" style="padding:22px">
+      <h3 style="font-size:15px">Fotboll och live-odds</h3>
+      <p class="small muted" style="margin-top:8px">${
+        offline
+          ? 'Fotbollsdata kräver uppkoppling. I spelhallen visas demoligan, men spel och statistik hamnar bara på den här enheten.'
+          : 'Kunde inte hämta fotbollsdata: ' + esc(err.message)
+      }</p>
+      <button class="btn btn--sm btn--ghost" id="sport-admin-retry" style="margin-top:12px">Försök igen</button>
+    </div>`;
+    const retry = content.querySelector('#sport-admin-retry');
+    if (retry) retry.addEventListener('click', () => renderFotboll(content, root));
+    return;
+  }
+
+  const s = data.settings || {};
+  const feed = data.feed || {};
+  const totals = data.totals || {};
+  const open = data.open || [];
+  const settled = data.settled || [];
+  const sourceLabel = feed.source === 'allsportsapi' ? 'AllSportsAPI (live)' : 'Demoliga';
+  const sourceCls = feed.source === 'allsportsapi' ? 'mint' : 'amber';
+
+  const openRows = open.length
+    ? open
+        .map(
+          (b) => `<tr>
+            <td>${esc(b.match)}</td>
+            <td>${esc(b.playerName || '')}</td>
+            <td>${esc(b.selectionLabel)}<br /><span class="tiny muted">${kr(b.stake)} @ ${Number(b.odds).toFixed(2)}</span></td>
+            <td>${kr(b.stake)}</td>
+            <td>${kr(b.potential)}</td>
+            <td class="tiny muted">${timeText(b.placedAt)}</td>
+          </tr>`
+        )
+        .join('')
+    : '<tr><td colspan="6" class="muted small" style="padding:16px">Inga öppna fotbollsspel just nu.</td></tr>';
+
+  const settledRows = settled.length
+    ? settled
+        .map(
+          (b) => `<tr>
+            <td>${esc(b.match)}</td>
+            <td>${esc(b.playerName || '')}</td>
+            <td>${esc(b.selectionLabel)}${b.result ? ` <span class="tiny muted">(${esc(b.result)})</span>` : ''}</td>
+            <td>${kr(b.stake)}</td>
+            <td>${b.status === 'won' ? `<span style="color:#4ade80">+${kr(b.payout)}</span>` : b.status === 'void' ? kr(b.stake) : '–'}</td>
+            <td><span class="bet-badge bet-badge--${b.status}">${b.status === 'won' ? 'Vunnen' : b.status === 'lost' ? 'Förlorad' : 'Återbetald'}</span></td>
+          </tr>`
+        )
+        .join('')
+    : '<tr><td colspan="6" class="muted small" style="padding:16px">Inga avgjorda spel än.</td></tr>';
+
+  content.innerHTML = `
+    <div class="panel" style="padding:22px">
+      <div class="row row--between" style="flex-wrap:wrap;gap:10px;align-items:center">
+        <div>
+          <h3 style="font-size:15px">Fotboll och live-odds</h3>
+          <p class="small muted" style="margin-top:4px">Här styr du sportspelen och ser vilka matcher spelarna spelar på.</p>
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <span class="chip chip--${sourceCls}">${esc(sourceLabel)}</span>
+          <span class="chip">${Number(feed.matches) || 0} matcher · ${Number(feed.live) || 0} live</span>
+          <button class="btn btn--sm btn--ghost" id="sport-admin-refresh">↻ Uppdatera</button>
+        </div>
+      </div>
+
+      ${feed.error ? `<p class="small" style="margin-top:10px;color:#fbbf24">⚠ ${esc(feed.error)}</p>` : ''}
+
+      <div class="admin-stats" style="margin-top:16px">
+        <div class="admin-stat"><div class="admin-stat__value">${Number(totals.openCount) || 0}</div><div class="admin-stat__label">Öppna spel</div></div>
+        <div class="admin-stat"><div class="admin-stat__value">${kr(totals.openStake || 0)}</div><div class="admin-stat__label">Insats i öppna spel</div></div>
+        <div class="admin-stat"><div class="admin-stat__value">${Number(totals.won) || 0} / ${Number(totals.lost) || 0}</div><div class="admin-stat__label">Vunna / förlorade</div></div>
+        <div class="admin-stat"><div class="admin-stat__value">${kr(totals.payout || 0)}</div><div class="admin-stat__label">Utbetalt på fotboll</div></div>
+      </div>
+
+      <h3 style="font-size:14px;margin:22px 0 10px">Inställningar</h3>
+      <div class="settings-grid">
+        <label class="field"><span>Högsta insats fotboll (kr)</span>
+          <input class="input" id="sport-maxStake" type="number" value="${Number(s.maxStake) || 500}" /></label>
+        <label class="field"><span>Husets marginal (%)</span>
+          <input class="input" id="sport-margin" type="number" min="0" max="20" step="0.5" value="${Number(s.margin) || 0}" /></label>
+        <label class="field" style="grid-column:1/-1"><span>AllSportsAPI-nyckel ${s.apiKeySet ? '(nyckel finns – lämna tom för att behålla)' : '(saknas – demoligan används)'}</span>
+          <input class="input" id="sport-apiKey" type="password" autocomplete="off" placeholder="Klistra in din API-nyckel från allsportsapi.com" /></label>
+      </div>
+      <div class="switch">
+        <div><div class="switch__label">Fotbollsspel påslagna</div><div class="switch__hint">Spelarna kan lägga spel på live-odds</div></div>
+        <div class="toggle ${s.enabled ? 'is-on' : ''}" id="sport-enabled"></div>
+      </div>
+      <div class="row" style="gap:10px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn btn--primary" id="sport-save">Spara fotbollsinställningar</button>
+        <button class="btn btn--ghost" id="sport-clear-key">Ta bort API-nyckel</button>
+      </div>
+
+      <h3 style="font-size:14px;margin:26px 0 10px">Öppna spel</h3>
+      <div style="overflow:auto">
+        <table class="data-table">
+          <thead><tr><th>Match</th><th>Spelare</th><th>Spel</th><th>Insats</th><th>Möjlig vinst</th><th>Lagt</th></tr></thead>
+          <tbody>${openRows}</tbody>
+        </table>
+      </div>
+
+      <h3 style="font-size:14px;margin:26px 0 10px">Avgjorda spel</h3>
+      <div style="overflow:auto">
+        <table class="data-table">
+          <thead><tr><th>Match</th><th>Spelare</th><th>Spel</th><th>Insats</th><th>Utfall</th><th>Status</th></tr></thead>
+          <tbody>${settledRows}</tbody>
+        </table>
+      </div>
+
+      <p class="tiny muted" style="margin-top:18px">
+        Utan API-nyckel används en inbyggd demoliga med påhittade matcher. Med nyckel hämtas riktiga matcher
+        från AllSportsAPI; saknar matchen odds räknar huset fram dem med samma modell som i demoligan.
+      </p>
+    </div>`;
+
+  let enabled = !!s.enabled;
+  const toggle = content.querySelector('#sport-enabled');
+  toggle.addEventListener('click', () => {
+    enabled = !enabled;
+    toggle.classList.toggle('is-on', enabled);
+    sfx.click();
+  });
+
+  content.querySelector('#sport-admin-refresh').addEventListener('click', () => renderFotboll(content, root));
+
+  content.querySelector('#sport-save').addEventListener('click', async () => {
+    const payload = {
+      enabled,
+      margin: Number(content.querySelector('#sport-margin').value),
+      maxStake: Number(content.querySelector('#sport-maxStake').value)
+    };
+    const key = content.querySelector('#sport-apiKey').value.trim();
+    if (key) payload.apiKey = key;
+    try {
+      await api.adminSportSettings(payload);
+      sfx.correct();
+      toast('Fotbollsinställningarna sparade', 'ok');
+      renderFotboll(content, root);
+    } catch (err) {
+      toast(err.message, 'bad');
+    }
+  });
+
+  content.querySelector('#sport-clear-key').addEventListener('click', async () => {
+    const ok = await confirmModal({
+      title: 'Ta bort API-nyckeln?',
+      text: 'Fotbollen går då tillbaka till demoligan.',
+      confirmLabel: 'Ta bort',
+      danger: true
+    });
+    if (!ok) return;
+    try {
+      await api.adminSportSettings({ apiKey: '' });
+      toast('API-nyckeln är borttagen', 'ok');
+      renderFotboll(content, root);
+    } catch (err) {
+      toast(err.message, 'bad');
+    }
+  });
+}
+
 
 function renderLogg(content, data) {
   content.innerHTML = `

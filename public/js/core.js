@@ -2,6 +2,8 @@
    Kärnan: state, API (med offline-fallback), router, toast, ljud, modaler.
    ===================================================================== */
 
+import { demoFeed, outcomeOf } from './sportdemo.js';
+
 export const DEFAULT_SETTINGS = {
   minBet: 10,
   maxBet: 5000,
@@ -14,7 +16,10 @@ export const DEFAULT_SETTINGS = {
   quizReward: 25,
   dailyBonus: 500,
   maintenance: false,
-  banner: ''
+  banner: '',
+  sportEnabled: true,
+  sportMargin: 6,
+  sportMaxStake: 500
 };
 
 export const state = {
@@ -336,6 +341,62 @@ function localSettings() {
   return { ...DEFAULT_SETTINGS, ...(store.get('ph.settings', {}) || {}) };
 }
 
+/* -------- fotboll i lokalt läge -------- */
+
+function localSportBets() {
+  return store.get('ph.sportbets', []) || [];
+}
+
+function saveLocalSportBets(list) {
+  store.set('ph.sportbets', list.slice(0, 120));
+}
+
+function offlineFeed() {
+  return {
+    source: 'demo',
+    updatedAt: Date.now(),
+    error: null,
+    apiKeySet: false,
+    enabled: true,
+    limits: {
+      min: Math.max(1, Number(state.settings.minBet) || 10),
+      max: Math.max(10, Number(state.settings.sportMaxStake) || 500)
+    },
+    matches: demoFeed(Date.now(), Number(state.settings.sportMargin) || 6)
+  };
+}
+
+/** Gör upp lokala fotbollsspel när matcherna är färdigspelade. */
+async function settleLocalSport() {
+  const list = localSportBets();
+  const open = list.filter((b) => b.status === 'open');
+  if (!open.length) return;
+  const feed = demoFeed(Date.now(), Number(state.settings.sportMargin) || 6);
+  let changed = false;
+  open.forEach((bet) => {
+    const match = feed.find((m) => m.id === bet.matchId);
+    if (!match) return;
+    const won = outcomeOf(match, bet.market, bet.selection);
+    if (won === null) return;
+    bet.status = won ? 'won' : 'lost';
+    bet.settledAt = Date.now();
+    bet.result = match.result ? match.result.home + '-' + match.result.away : null;
+    changed = true;
+    if (won) {
+      const payout = Math.round(bet.stake * bet.odds * 100) / 100;
+      bet.payout = payout;
+      const p = localPlayer();
+      p.balance += payout;
+      p.won = (p.won || 0) + payout;
+      localGameStat(p, 'sport', 'win', payout);
+      saveLocal(p);
+      state.player = p;
+      localTx('vinst', 'sport', payout, p.balance);
+    }
+  });
+  if (changed) saveLocalSportBets(list);
+}
+
 function localFail(err) {
   if (!err || !err.offline) throw err;
   state.offline = true;
@@ -507,6 +568,85 @@ export const api = {
       state.player = p;
       return { balance: p.balance, bonus };
     }
+  },
+
+  async sportMatches() {
+    try {
+      const data = await request('/api/sport/matches');
+      state.offline = false;
+      return data;
+    } catch (err) {
+      if (!localFail(err)) throw err;
+      await settleLocalSport();
+      return offlineFeed();
+    }
+  },
+
+  async placeSportBet({ matchId, market, selection, amount }) {
+    try {
+      const data = await request('/api/sport/bet', {
+        method: 'POST',
+        body: { matchId, market, selection, amount }
+      });
+      if (state.player) state.player.balance = data.balance;
+      return data;
+    } catch (err) {
+      if (!localFail(err)) throw err;
+      const match = demoFeed(Date.now(), Number(state.settings.sportMargin) || 6).find((m) => m.id === matchId);
+      if (!match) throw new Error('Matchen finns inte längre');
+      if (match.status === 'finished') throw new Error('Matchen är redan slut');
+      const marketData = match.markets.find((m) => m.key === market);
+      const pick = marketData && marketData.selections.find((x) => x.key === selection);
+      if (!pick) throw new Error('Ogiltigt spel');
+      await api.bet('sport', amount);
+      const bet = {
+        id: 'local-' + Math.random().toString(36).slice(2, 9),
+        matchId,
+        match: match.home + ' – ' + match.away,
+        league: match.league,
+        market,
+        marketLabel: marketData.label,
+        selection,
+        selectionLabel: pick.long || pick.label,
+        stake: amount,
+        odds: pick.odds,
+        potential: Math.round(amount * pick.odds * 100) / 100,
+        status: 'open',
+        placedAt: Date.now(),
+        settledAt: null,
+        payout: 0,
+        result: null
+      };
+      const list = localSportBets();
+      list.unshift(bet);
+      saveLocalSportBets(list);
+      return { bet, balance: state.player ? state.player.balance : 0 };
+    }
+  },
+
+  async sportBets() {
+    try {
+      const data = await request('/api/sport/bets');
+      state.offline = false;
+      return data;
+    } catch (err) {
+      if (!localFail(err)) throw err;
+      await settleLocalSport();
+      const bets = localSportBets().sort((a, b) => b.placedAt - a.placedAt);
+      return {
+        bets,
+        open: bets.filter((b) => b.status === 'open').length,
+        balance: state.player ? state.player.balance : 0
+      };
+    }
+  },
+
+  async adminSport() {
+    return request('/api/admin/sport');
+  },
+
+  async adminSportSettings(next) {
+    return request('/api/admin/sport', { method: 'POST', body: next });
   },
 
   async adminLogin(code) {

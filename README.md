@@ -92,6 +92,35 @@ Fliken **Vinster** visar:
 
 Statistiken räknas per spelare i databasen (`gameStats`) och följer med i admin-översikten.
 
+### ⚽ Live Sport (fotboll med live-odds)
+Spelet **Live Sport** i spelhallen visar fotbollsmatcher med odds som rör sig live.
+
+- **Marknader:** matchresultat (1X2) och mål över/under 2,5.
+- **Live:** ställning, matchminut och odds uppdateras var 15:e sekund.
+- **Spelkvitto:** välj odds, ange valfri insats, se möjlig vinst och lägg spelet.
+  Insatsen dras direkt och vinsten betalas ut automatiskt när matchen är slut.
+- **Mina spel:** öppna, vunna, förlorade och återbetalda spel.
+- Statistiken hamnar under spelet `sport` och syns i adminpanelens **Vinster**-flik.
+
+Så fungerar datan:
+
+| Läge | När | Vad som visas |
+| --- | --- | --- |
+| `allsportsapi` | API-nyckel finns (adminpanelen eller `ALLSPORTS_API_KEY`) | Riktiga matcher från AllSportsAPI, odds från api:t när de finns |
+| `demo` | Ingen nyckel, eller om API:t inte svarar | Inbyggd demoliga med påhittade matcher som rullar dygnet runt |
+
+Oddsen räknas fram av huset med en Poisson-modell utifrån ställning och återstående tid,
+plus en marginal som admin ställer in (standard 6 %).
+
+**Koppla in riktiga matcher:** logga in i adminpanelen → fliken **Fotboll** → klistra in din
+API-nyckel från allsportsapi.com (eller sätt miljövariabeln `ALLSPORTS_API_KEY` i Vercel).
+Fotbollsfliken visar också källa, antal live-matcher, öppna spel, utbetalningar och
+inställningar för högsta insats, marginal och på/av.
+
+> Servern hämtar matcherna med REST-anrop (`met=Livescore` + `met=Fixtures`) och cachar dem i
+> 15 sekunder. WebSocket-versionen (`wss://wss.allsportsapi.com/live_events`) kan inte användas på
+> Vercel, eftersom serverlösa funktioner inte kan hålla en socket öppen mellan anrop.
+
 ### ⚙️ Adminpanelen
 Nås på tre sätt:
 1. Länken **Lärarpanel** i sidfoten (koden krävs).
