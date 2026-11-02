@@ -68,7 +68,7 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 
 ### 🎰 Spelhallen
 - **Blackjack** – sex kortlekar, hit/stanna/dubbel/splitta, blackjack 3:2.
-- **Star Fortune (slots)** – 5 hjul, 3 rader, 20 vinstlinjer, autospel (RTP ≈ 94 %).
+- **Star Fortune (slots)** – 5 hjul, 3 rader, 20 vinstlinjer, autospel (RTP ≈ 93 %).
 - **Videopoker** – Jacks or Better med håll-kort.
 - **Skraplotter** – köp ett lott (10–500 kr), skrapa de nio rutorna med musen eller
   fingret och få vinst på tre lika belopp. Vinsttrappan går från 1,5× till 50× lottpriset
@@ -188,6 +188,11 @@ ut både utbetalning och vinst.
 att blackjack betalar 2×/2,5×/1×, att vinsttabellerna är sorterade, att slotsens RTP ligger
 mellan 88 och 97 procent och att skraplotternas RTP ligger mellan 85 och 93 procent.
 
+`npm run simulera` räknar ut marginalen på riktigt: exakt RTP för slots och skraplotter i varje
+tur-nivå (×0,70 / ×1,00 / ×1,40), marginalen för alla saldon genom gummibandet, träffchans,
+storvinster, längsta nit-svit, hur ofta en hel spelkväll slutar med tomt konto – plus videopoker
+och blackjack. Resultatet finns i [docs/simulering.md](docs/simulering.md).
+
 ### Gummiband – turen följer saldot
 
 Alla spel använder en dynamisk turfaktor som håller ekonomin i balans. Den räknas ut från
@@ -216,8 +221,9 @@ Sport**:
   (dynamisk tur)**. Även tur-nivåerna för slots och videopoker väljs med kryssrutor
   (Låg ×0,70 / Normal ×1,00 / Hög ×1,40) och sparas i samma sekund som man kryssar i.
 
-Med gummibandet varierar slotsens RTP mellan ungefär 70 % (stor hög) och 117 % (nästan tomt
-konto); mitt på skalan, vid startsaldot, ligger den på samma ~92 % som förut.
+Med gummibandet varierar slotsens RTP mellan ungefär 75 % (stor hög) och 114 % (nästan tomt
+konto); mitt på skalan, vid startsaldot, ligger den på 92,6 %. Det är uträknat i
+[docs/simulering.md](docs/simulering.md).
 
 **Koppla in AllSportsAPI (frivilligt, bara fotboll):** logga in i adminpanelen → fliken **Sport** → klistra in
 din API-nyckel (eller sätt miljövariabeln `ALLSPORTS_API_KEY` i Vercel). Sportfliken visar också

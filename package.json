@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "audit": "node tools/audit-payouts.js"
+    "audit": "node tools/audit-payouts.js",
+    "simulera": "node tools/simulera.js"
   },
   "engines": {
     "node": ">=18"
