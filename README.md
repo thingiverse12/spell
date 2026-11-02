@@ -240,6 +240,9 @@ I panelen kan admin:
 - se alla spelare, konton/gäster, saldon, omsättning och utbetalningar,
 - följa exakt vad varje spelare vinner, per spel,
 - sätta/justera spelares saldo, stänga av eller nollställa konton,
+- **ge sig själv spelmynt** uppe på Översikt: snabbknappar (+500, +1 000, +5 000, +10 000)
+  eller valfritt eget belopp. Saldot uppdateras direkt i panelen och i toppraden, påfyllningen
+  loggas som `admin` i transaktionsloggen, och din egen rad i spelarlistan märks med **du**,
 - ändra min-/maxinsats, startsaldo, bonus, quizbelöning, blackjack-utbetalning,
 - ändra "tur" för slots och videopoker genom att **kryssa i Låg / Normal / Hög** – det sparas
   direkt utan att man trycker på spara,

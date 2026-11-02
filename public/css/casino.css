@@ -573,6 +573,30 @@
 
 /* ------------------------------ Admin ------------------------------ */
 
+/* Admin: fylla på sitt eget konto med spelmynt */
+
+.admin-coins {
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+  border: 1px solid rgba(231,196,106,.32);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(231,196,106,.14), transparent 62%),
+    var(--surface);
+}
+.admin-coins__head h3 { font-family: var(--font-serif); letter-spacing: .05em; text-transform: uppercase; }
+.admin-coins__balance { color: #f6e7b0; font-size: 15px; }
+.admin-coins__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.admin-coins__sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+.admin-coins__input { max-width: 160px; }
+.admin-coins .btn { white-space: nowrap; }
+
+@media (max-width: 760px) {
+  .admin-coins__sep { display: none; }
+  .admin-coins__input { max-width: none; width: 100%; }
+  .admin-coins__row .btn--primary { width: 100%; }
+}
+
 .admin-hero {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   padding: 22px; border-radius: 20px;

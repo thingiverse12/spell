@@ -4,7 +4,8 @@
    ===================================================================== */
 
 import {
-  registerView, state, api, sfx, toast, kr, num, esc, navigate, openModal, confirmModal, storage, localAdmin, sleep
+  registerView, state, api, sfx, toast, kr, num, esc, navigate, openModal, confirmModal, storage, localAdmin, sleep,
+  updateBalanceUI
 } from './core.js';
 
 let tab = 'oversikt';
@@ -272,7 +273,7 @@ async function renderAdmin(root) {
   });
 
   const content = root.querySelector('#admin-content');
-  if (tab === 'oversikt') renderOversikt(content, data);
+  if (tab === 'oversikt') renderOversikt(content, root, data);
   if (tab === 'vinster') renderVinster(content, data);
   if (tab === 'spelare') renderSpelare(content, root, data);
   if (tab === 'fotboll') renderFotboll(content, root);
@@ -281,13 +282,93 @@ async function renderAdmin(root) {
   if (tab === 'meddelande') renderMeddelande(content, root, data);
 }
 
-function renderOversikt(content, data) {
+/* Admin får fylla på sitt eget konto – mynten är påhittade och loggas. */
+const SELF_QUICK = [500, 1000, 5000, 10000];
+const SELF_MAX = 1000000;
+
+async function giveSelfCoins(amount, root) {
+  const me = state.player;
+  if (!me || !me.id) {
+    toast('Ingen spelare är inloggad', 'bad');
+    return;
+  }
+  const value = Math.round(Number(amount) || 0);
+  if (!(value > 0)) {
+    toast('Ange ett belopp först', 'bad');
+    return;
+  }
+  if (value > SELF_MAX) {
+    toast(`Högst ${kr(SELF_MAX)} åt gången`, 'bad');
+    return;
+  }
+  try {
+    const data = await playerAction(me.id, 'add', value);
+    const fresh = data && data.player;
+    state.player = state.player || {};
+    if (fresh && typeof fresh.balance === 'number') state.player.balance = fresh.balance;
+    else state.player.balance = (state.player.balance || 0) + value;
+    updateBalanceUI();
+    sfx.correct();
+    toast(`+${kr(value)} till ditt konto`, 'gold');
+    renderAdmin(root);
+  } catch (err) {
+    toast(err.message, 'bad');
+  }
+}
+
+function selfCoinsHTML() {
+  const me = state.player;
+  const name = me && me.name ? me.name : 'gäst';
+  const balance = me && typeof me.balance === 'number' ? me.balance : 0;
+  if (!me) {
+    return `<div class="panel admin-coins">
+      <p class="small muted">Ingen spelare är inloggad i webbläsaren – öppna spelhallen först, då skapas ett konto.</p>
+    </div>`;
+  }
+  return `
+    <div class="panel admin-coins">
+      <div class="admin-coins__head">
+        <div>
+          <h3 style="font-size:15px">Mina spelmynt</h3>
+          <p class="small muted" style="margin-top:4px">
+            Du är inloggad som <b>${esc(name)}</b> och har <b class="admin-coins__balance">${kr(balance)}</b>.
+            Påfyllningen loggas som admin och mynten är fortfarande bara låtsas.
+          </p>
+        </div>
+      </div>
+      <div class="admin-coins__row">
+        ${SELF_QUICK.map((v) => `<button class="btn btn--sm btn--ghost" data-self-coins="${v}">+${num(v)}</button>`).join('')}
+        <span class="admin-coins__sep"></span>
+        <input class="input admin-coins__input" id="self-coins-amount" type="number" inputmode="numeric"
+               min="1" max="${SELF_MAX}" step="100" placeholder="Eget belopp" />
+        <button class="btn btn--sm btn--primary" id="self-coins-add">Ge mig mynt</button>
+      </div>
+      <p class="tiny muted" style="margin-top:8px">Högst ${kr(SELF_MAX)} per klick.</p>
+    </div>`;
+}
+
+function bindSelfCoins(content, root) {
+  content.querySelectorAll('[data-self-coins]').forEach((btn) => {
+    btn.addEventListener('click', () => giveSelfCoins(Number(btn.dataset.selfCoins), root));
+  });
+  const add = content.querySelector('#self-coins-add');
+  const input = content.querySelector('#self-coins-amount');
+  if (!add || !input) return;
+  add.addEventListener('click', () => giveSelfCoins(input.value, root));
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') giveSelfCoins(input.value, root);
+  });
+}
+
+function renderOversikt(content, root, data) {
   const { players, transactions, totals } = data;
   const sorted = players.slice().sort((a, b) => b.balance - a.balance);
   const houseEdge = totals.wagered > 0 ? Math.round(((totals.wagered - totals.won) / totals.wagered) * 100) : 0;
 
   content.innerHTML = `
-    <div class="grid grid--2">
+    ${selfCoinsHTML()}
+
+    <div class="grid grid--2" style="margin-top:16px">
       <div class="panel" style="padding:20px">
         <h3 style="font-size:15px;margin-bottom:14px">Största saldon</h3>
         <div class="log-list">
@@ -320,6 +401,8 @@ function renderOversikt(content, data) {
           </div>`).join('') || '<p class="muted small">Ingen aktivitet än.</p>'}
       </div>
     </div>`;
+
+  bindSelfCoins(content, root);
 }
 
 function renderVinster(content, data) {
@@ -407,7 +490,7 @@ function renderSpelare(content, root, data) {
         <tbody>
           ${data.players.map((p) => `
             <tr>
-              <td><div class="row" style="gap:9px"><span class="avatar">${esc((p.name || '?')[0])}</span><div><div style="font-weight:700">${esc(p.name)}</div><div class="tiny muted">#${esc(p.id)}</div></div></div></td>
+              <td><div class="row" style="gap:9px"><span class="avatar">${esc((p.name || '?')[0])}</span><div><div style="font-weight:700">${esc(p.name)}${state.player && p.id === state.player.id ? ' <span class="chip chip--mint">du</span>' : ''}</div><div class="tiny muted">#${esc(p.id)}</div></div></div></td>
               <td class="num">${kr(p.balance)}</td>
               <td class="num">${kr(p.wagered)}</td>
               <td class="num">${kr(p.won)}</td>
