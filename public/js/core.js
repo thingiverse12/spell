@@ -2,7 +2,7 @@
    Kärnan: state, API (med offline-fallback), router, toast, ljud, modaler.
    ===================================================================== */
 
-import { demoFeed, outcomeOf } from './sportdemo.js';
+import { demoFeed, decideOutcome } from './sportdemo.js';
 
 export const DEFAULT_SETTINGS = {
   minBet: 10,
@@ -376,13 +376,20 @@ async function settleLocalSport() {
   open.forEach((bet) => {
     const match = feed.find((m) => m.id === bet.matchId);
     if (!match) return;
-    const won = outcomeOf(match, bet.market, bet.selection);
-    if (won === null) return;
-    bet.status = won ? 'won' : 'lost';
+    const decision = decideOutcome(match, bet);
+    if (!decision) return;
+    bet.status = decision;
     bet.settledAt = Date.now();
     bet.result = match.result ? match.result.home + '-' + match.result.away : null;
     changed = true;
-    if (won) {
+    if (decision === 'void') {
+      const p = localPlayer();
+      p.balance += bet.stake;
+      bet.payout = bet.stake;
+      saveLocal(p);
+      state.player = p;
+      localTx('återbetalning', 'sport', bet.stake, p.balance);
+    } else if (decision === 'won') {
       const payout = Math.round(bet.stake * bet.odds * 100) / 100;
       bet.payout = payout;
       const p = localPlayer();
@@ -610,6 +617,9 @@ export const api = {
         selectionLabel: pick.long || pick.label,
         stake: amount,
         odds: pick.odds,
+        homeScoreAtBet: match.homeScore || 0,
+        awayScoreAtBet: match.awayScore || 0,
+        minuteAtBet: match.minute || 0,
         potential: Math.round(amount * pick.odds * 100) / 100,
         status: 'open',
         placedAt: Date.now(),

@@ -609,8 +609,15 @@ async function renderFotboll(content, root) {
   const totals = data.totals || {};
   const open = data.open || [];
   const settled = data.settled || [];
-  const sourceLabel = feed.source === 'allsportsapi' ? 'AllSportsAPI (live)' : 'Demoliga';
-  const sourceCls = feed.source === 'allsportsapi' ? 'mint' : 'amber';
+  const SOURCE_LABELS = {
+    allsportsapi: 'AllSportsAPI (live)',
+    thesportsdb: 'TheSportsDB (öppen)',
+    openligadb: 'OpenLigaDB (öppen)',
+    demo: 'Demoliga'
+  };
+  const sourceLabel = SOURCE_LABELS[feed.source] || feed.source || 'Okänd';
+  const sourceCls = feed.source && feed.source !== 'demo' ? 'mint' : 'amber';
+  const tried = Array.isArray(feed.tried) ? feed.tried : [];
 
   const openRows = open.length
     ? open
@@ -657,6 +664,13 @@ async function renderFotboll(content, root) {
       </div>
 
       ${feed.error ? `<p class="small" style="margin-top:10px;color:#fbbf24">⚠ ${esc(feed.error)}</p>` : ''}
+      ${
+        tried.length
+          ? `<ul class="tiny muted" style="margin-top:8px;padding-left:18px;line-height:1.6">${tried
+              .map((t) => `<li>${esc(t.source)}: ${esc(t.error)}</li>`)
+              .join('')}</ul>`
+          : ''
+      }
 
       <div class="admin-stats" style="margin-top:16px">
         <div class="admin-stat"><div class="admin-stat__value">${Number(totals.openCount) || 0}</div><div class="admin-stat__label">Öppna spel</div></div>
@@ -667,6 +681,25 @@ async function renderFotboll(content, root) {
 
       <h3 style="font-size:14px;margin:22px 0 10px">Inställningar</h3>
       <div class="settings-grid">
+        <label class="field"><span>Datakälla</span>
+          <select class="select" id="sport-source">
+            ${['auto', 'allsportsapi', 'thesportsdb', 'openligadb', 'demo']
+              .map(
+                (src) =>
+                  `<option value="${src}" ${(s.source || 'auto') === src ? 'selected' : ''}>${
+                    src === 'auto'
+                      ? 'Automatisk (bästa tillgängliga)'
+                      : src === 'allsportsapi'
+                        ? 'AllSportsAPI (kräver nyckel)'
+                        : src === 'thesportsdb'
+                          ? 'TheSportsDB (öppen)'
+                          : src === 'openligadb'
+                            ? 'OpenLigaDB (öppen)'
+                            : 'Demoliga'
+                  }</option>`
+              )
+              .join('')}
+          </select></label>
         <label class="field"><span>Högsta insats fotboll (kr)</span>
           <input class="input" id="sport-maxStake" type="number" value="${Number(s.maxStake) || 500}" /></label>
         <label class="field"><span>Husets marginal (%)</span>
@@ -700,8 +733,9 @@ async function renderFotboll(content, root) {
       </div>
 
       <p class="tiny muted" style="margin-top:18px">
-        Utan API-nyckel används en inbyggd demoliga med påhittade matcher. Med nyckel hämtas riktiga matcher
-        från AllSportsAPI; saknar matchen odds räknar huset fram dem med samma modell som i demoligan.
+        Utan API-nyckel används öppna källor i tur och ordning: TheSportsDB (global livescore) och
+        OpenLigaDB (tyska ligor). Svarar ingen av dem visas demoligan. Med API-nyckel går AllSportsAPI först.
+        Oddsen räknas alltid fram av huset med samma modell.
       </p>
     </div>`;
 
@@ -719,7 +753,8 @@ async function renderFotboll(content, root) {
     const payload = {
       enabled,
       margin: Number(content.querySelector('#sport-margin').value),
-      maxStake: Number(content.querySelector('#sport-maxStake').value)
+      maxStake: Number(content.querySelector('#sport-maxStake').value),
+      source: content.querySelector('#sport-source').value
     };
     const key = content.querySelector('#sport-apiKey').value.trim();
     if (key) payload.apiKey = key;

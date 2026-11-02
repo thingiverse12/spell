@@ -298,16 +298,16 @@ function renderStatus() {
   if (!box) return;
   const feed = sport.feed || {};
   const live = (feed.matches || []).filter((m) => m.live).length;
-  const sourceLabel = feed.source === 'allsportsapi' ? 'AllSportsAPI · live' : 'Demoliga';
-  const sourceCls = feed.source === 'allsportsapi' ? 'ok' : 'demo';
+  const SOURCE_LABELS = {
+    allsportsapi: 'AllSportsAPI · live',
+    thesportsdb: 'TheSportsDB · live',
+    openligadb: 'OpenLigaDB · live',
+    demo: 'Demoliga'
+  };
+  const sourceLabel = SOURCE_LABELS[feed.source] || feed.source || 'Okänd källa';
+  const sourceCls = feed.source && feed.source !== 'demo' ? 'ok' : 'demo';
   const notes = [];
-  if (feed.source !== 'allsportsapi') {
-    notes.push(
-      feed.apiKeySet
-        ? 'Kunde inte nå AllSportsAPI – visar demoligan tills anslutningen fungerar.'
-        : 'Demoliga: lägg in en AllSportsAPI-nyckel i adminpanelen för riktiga matcher.'
-    );
-  }
+  if (feed.source === 'demo') notes.push('Påhittade matcher – riktig data laddas när en extern källa svarar.');
   if (feed.error) notes.push(feed.error);
 
   box.innerHTML = `
@@ -402,8 +402,9 @@ function renderSport(root) {
       </div>
 
       <p class="tiny muted sport-footnote">
-        Oddsen räknas fram av huset (Poisson-modell utifrån ställning och återstående tid) om matchen saknar
-        riktiga odds. Inga riktiga pengar – bara spelmynt.
+        Marknader: 1X2, mål över/under 2,5, båda lagen gör mål, handikapp, halvtid och nästa mål.
+        Oddsen räknas fram av huset (Poisson-modell utifrån ställning och återstående tid). Inga riktiga
+        pengar – bara spelmynt.
       </p>
     </div>`;
 
