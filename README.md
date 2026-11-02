@@ -57,7 +57,12 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 - **Matematik** – räknesätt, procent, bråk, ekvationer och taljämförelser (slumpas fram).
 - **Engelska** – glosor, grammatik, plural och ordförståelse.
 - **Svenska** – ordklasser, stavning, synonymer, meningsbyggnad.
-- **Dagens utmaning** – blandade frågor från alla ämnen.
+- **Geografi** – välj världsdel (Asien, Europa, Amerika, Afrika eller Blandat) och träna på
+  länderna som hör dit, deras huvudstäder och kända städer. Fyra frågetyper: vilken världsdel
+  landet ligger i, vilken huvudstad landet har, vilket land en huvudstad tillhör och i vilket
+  land en stad ligger. Statistik sparas per världsdel (106 länder och 33 städer i databasen,
+  se `public/js/geo-data.js`).
+- **Dagens utmaning** – blandade frågor från alla ämnen, inklusive geografi.
 - Framstegssida med träffsäkerhet, streaks och sparad statistik.
 - Varje rätt svar ger spelmynt (`quizReward`, standard 25 kr).
 

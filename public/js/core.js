@@ -831,6 +831,7 @@ const ROUTES = {
   matte: 'matte',
   engelska: 'engelska',
   svenska: 'svenska',
+  geografi: 'geografi',
   utmaning: 'utmaning',
   framsteg: 'framsteg',
   profil: 'konto',
@@ -873,7 +874,7 @@ export function renderRoute() {
 
   document.title = route.casino
     ? 'Golden Spade — spelhall med spelmynt'
-    : 'Plugghörnan – träna matte, engelska & svenska';
+    : 'Plugghörnan – träna matte, engelska, svenska & geografi';
 
   const view = document.getElementById('view');
   if (!view) return;

@@ -6,15 +6,25 @@ import {
   registerView, state, api, sfx, toast, kr, num, esc, storage, navigate, openModal, updateBalanceUI,
   avatarLetter, renderRoute, confirmModal
 } from './core.js';
+import {
+  CONTINENTS, CONTINENT_KEYS, CONTINENT_NAMES, ALL_COUNTRIES, ALL_CITIES, continentName
+} from './geo-data.js';
 
 /* ------------------------------ Statistik ------------------------------ */
+
+const COUNTRY_KEY = ['asien', 'europa', 'amerika', 'afrika', 'blandat'];
 
 const DEFAULT_STATS = {
   subjects: {
     matte: { correct: 0, total: 0 },
     engelska: { correct: 0, total: 0 },
-    svenska: { correct: 0, total: 0 }
+    svenska: { correct: 0, total: 0 },
+    geografi: { correct: 0, total: 0 }
   },
+  geo: COUNTRY_KEY.reduce((acc, key) => {
+    acc[key] = { correct: 0, total: 0 };
+    return acc;
+  }, {}),
   streak: 0,
   bestStreak: 0,
   dailyCount: 0,
@@ -30,10 +40,15 @@ function todayKey() {
 
 export function getStats() {
   const saved = storage.get('ph.learn', null) || {};
+  const savedGeo = saved.geo || {};
   return {
     ...DEFAULT_STATS,
     ...saved,
-    subjects: { ...DEFAULT_STATS.subjects, ...(saved.subjects || {}) }
+    subjects: { ...DEFAULT_STATS.subjects, ...(saved.subjects || {}) },
+    geo: COUNTRY_KEY.reduce((acc, key) => {
+      acc[key] = { ...DEFAULT_STATS.geo[key], ...(savedGeo[key] || {}) };
+      return acc;
+    }, {})
   };
 }
 
@@ -41,13 +56,19 @@ function saveStats(next) {
   storage.set('ph.learn', next);
 }
 
-function recordAnswer(subject, correct) {
+function recordAnswer(subject, correct, continent) {
   const stats = getStats();
   const key = stats.subjects[subject] ? subject : 'matte';
   const slot = stats.subjects[key] || { correct: 0, total: 0 };
   slot.total += 1;
   if (correct) slot.correct += 1;
   stats.subjects[key] = slot;
+  if (continent && stats.geo[continent]) {
+    const geoSlot = stats.geo[continent];
+    geoSlot.total += 1;
+    if (correct) geoSlot.correct += 1;
+    stats.geo[continent] = geoSlot;
+  }
   stats.totalAnswered += 1;
   if (correct) {
     stats.totalCorrect += 1;
@@ -71,7 +92,8 @@ const SUBJECTS = {
   matte: { name: 'Matematik', icon: '➗', cls: 'math', text: 'Räkna, procent, bråk och ekvationer i din takt.' },
   engelska: { name: 'Engelska', icon: '📘', cls: 'eng', text: 'Glosor, grammatik och ordkunskap inför proven.' },
   svenska: { name: 'Svenska', icon: '✏️', cls: 'swe', text: 'Ordklasser, stavning och läsförståelse.' },
-  utmaning: { name: 'Dagens utmaning', icon: '🎯', cls: 'mix', text: 'Blandade frågor från alla tre ämnena.' }
+  geografi: { name: 'Geografi', icon: '🌍', cls: 'geo', text: 'Världsdelar, länder, huvudstäder och städer.' },
+  utmaning: { name: 'Dagens utmaning', icon: '🎯', cls: 'mix', text: 'Blandade frågor från alla ämnena.' }
 };
 
 /* ------------------------------ Frågebank ------------------------------ */
@@ -211,7 +233,92 @@ const SVENSKA = [
   { q: 'Vad är rubriken i en text?', options: ['Textens titel', 'Textens slut', 'En bildtext', 'Ett stycke'], a: 0, hint: 'Står överst.' }
 ];
 
-function subjectQuestions(subject, count = 10) {
+/* ------------------------------ Geografi ------------------------------ */
+
+const GEO_MODES = ['capital', 'country', 'continent', 'capital', 'city', 'country', 'continent', 'capital', 'city', 'country'];
+
+function geoCountriesFor(key) {
+  if (key === 'blandat' || !CONTINENTS[key]) return ALL_COUNTRIES;
+  return CONTINENTS[key].countries.map(([country, capital]) => ({ country, capital, continent: key }));
+}
+
+function geoCitiesFor(key) {
+  if (key === 'blandat' || !CONTINENTS[key]) return ALL_CITIES;
+  return CONTINENTS[key].cities.map(([city, country]) => ({ city, country, continent: key }));
+}
+
+function distract(correct, pool, count = 3) {
+  const out = [];
+  shuffleArray(pool).forEach((value) => {
+    if (value !== correct && !out.includes(value) && out.length < count) out.push(value);
+  });
+  return out;
+}
+
+/** Frågor om länder, huvudstäder och städer i en världsdel (eller blandat). */
+function geoQuestions(key, count = 10) {
+  const countries = geoCountriesFor(key);
+  const cities = geoCitiesFor(key);
+  const capitals = countries.map((c) => c.capital);
+  const countryNames = countries.map((c) => c.country);
+  const out = [];
+  const usedCountries = new Set();
+  const usedCities = new Set();
+  let guard = 0;
+
+  while (out.length < count && guard < 400) {
+    guard += 1;
+    const mode = GEO_MODES[out.length % GEO_MODES.length];
+    const pool = shuffleArray(countries);
+    const pick = pool.find((c) => !usedCountries.has(c.country)) || pool[0];
+    usedCountries.add(pick.country);
+
+    if (mode === 'capital') {
+      out.push(
+        buildQuestion(
+          `Vilken är huvudstaden i ${pick.country}?`,
+          [pick.capital, ...distract(pick.capital, capitals)],
+          pick.capital,
+          `Huvudstaden i ${pick.country} är ${pick.capital}.`
+        )
+      );
+    } else if (mode === 'country') {
+      out.push(
+        buildQuestion(
+          `${pick.capital} är huvudstad i vilket land?`,
+          [pick.country, ...distract(pick.country, countryNames)],
+          pick.country,
+          `${pick.capital} ligger i ${pick.country}.`
+        )
+      );
+    } else if (mode === 'continent') {
+      out.push(
+        buildQuestion(
+          `Vilken världsdel ligger ${pick.country} i?`,
+          CONTINENT_NAMES.slice(),
+          CONTINENTS[pick.continent].name,
+          `${pick.country} ligger i ${CONTINENTS[pick.continent].name.toLowerCase()}.`
+        )
+      );
+    } else {
+      const city = shuffleArray(cities).find((c) => !usedCities.has(c.city));
+      if (!city) continue;
+      usedCities.add(city.city);
+      out.push(
+        buildQuestion(
+          `I vilket land ligger staden ${city.city}?`,
+          [city.country, ...distract(city.country, countryNames)],
+          city.country,
+          `${city.city} ligger i ${city.country}.`
+        )
+      );
+    }
+  }
+
+  return out;
+}
+
+function subjectQuestions(subject, count = 10, continent = null) {
   const questions = [];
   if (subject === 'matte') {
     for (let i = 0; i < count; i++) questions.push(mathQuestion(i + 1));
@@ -222,11 +329,18 @@ function subjectQuestions(subject, count = 10) {
     const pool = shuffleArray(bank).slice(0, count);
     return pool.map((q) => buildQuestion(q.q, q.options, q.options[q.a], q.hint));
   }
-  // utmaning: blandat
+  if (subject === 'geografi') {
+    return geoQuestions(continent || 'blandat', count);
+  }
+  // utmaning: blandat – matte, engelska, svenska och geografi
+  const geo = geoQuestions('blandat', Math.max(3, Math.ceil(count / 3)));
   const banks = [...shuffleArray(ENGELSKA), ...shuffleArray(SVENSKA)];
   for (let i = 0; i < count; i++) {
-    if (i % 3 === 0) questions.push(mathQuestion(i + 1));
-    else {
+    if (i % 3 === 0) {
+      questions.push(mathQuestion(i + 1));
+    } else if (i % 3 === 1 && geo.length) {
+      questions.push(geo.pop());
+    } else {
       const q = banks.pop();
       questions.push(buildQuestion(q.q, q.options, q.options[q.a], q.hint));
     }
@@ -238,6 +352,7 @@ function subjectQuestions(subject, count = 10) {
 
 const quiz = {
   subject: null,
+  continent: null,
   questions: [],
   index: 0,
   correct: 0,
@@ -248,9 +363,10 @@ const quiz = {
   finished: false
 };
 
-function startQuiz(subject) {
+function startQuiz(subject, options = {}) {
   quiz.subject = subject;
-  quiz.questions = subjectQuestions(subject, 10);
+  quiz.continent = options.continent || null;
+  quiz.questions = subjectQuestions(subject, 10, quiz.continent);
   quiz.index = 0;
   quiz.correct = 0;
   quiz.coins = 0;
@@ -262,6 +378,8 @@ function startQuiz(subject) {
 
 function renderQuiz(root) {
   const subject = SUBJECTS[quiz.subject] || SUBJECTS.matte;
+  const geoName = quiz.subject === 'geografi' ? continentName(quiz.continent) : '';
+  const label = geoName ? `${subject.name} · ${geoName}` : subject.name;
   const q = quiz.questions[quiz.index];
   const total = quiz.questions.length;
   const reward = Number(state.settings.quizReward) || 25;
@@ -275,7 +393,7 @@ function renderQuiz(root) {
           <div class="quiz__card center">
             <div style="font-size:44px;letter-spacing:6px">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
             <h2 style="margin:14px 0 6px;font-size:26px">Snyggt jobbat!</h2>
-            <p class="muted">Du klarade ${quiz.correct} av ${total} frågor i ${subject.name.toLowerCase()}.</p>
+            <p class="muted">Du klarade ${quiz.correct} av ${total} frågor i ${geoName ? 'geografi – ' + geoName : subject.name.toLowerCase()}.</p>
             <div class="grid grid--3" style="margin:26px 0">
               <div class="stat-tile"><div class="stat-tile__value">${quiz.correct}/${total}</div><div class="stat-tile__label">Rätt svar</div></div>
               <div class="stat-tile"><div class="stat-tile__value">${pct} %</div><div class="stat-tile__label">Träffsäkerhet</div></div>
@@ -284,20 +402,24 @@ function renderQuiz(root) {
             <div class="row" style="justify-content:center;flex-wrap:wrap">
               <button class="btn btn--primary" id="quiz-again">Kör igen</button>
               <button class="btn btn--ghost" id="quiz-home">Till startsidan</button>
-              ${quiz.subject !== 'utmaning' ? `<button class="btn btn--mint" id="quiz-next-subject">Byt ämne</button>` : ''}
+              ${quiz.subject !== 'utmaning' ? `<button class="btn btn--mint" id="quiz-next-subject">${quiz.subject === 'geografi' ? 'Byt världsdel' : 'Byt ämne'}</button>` : ''}
             </div>
           </div>
         </div>
       </div>`;
 
     root.querySelector('#quiz-again').addEventListener('click', () => {
-      startQuiz(quiz.subject);
+      startQuiz(quiz.subject, { continent: quiz.continent });
       renderQuiz(root);
     });
     root.querySelector('#quiz-home').addEventListener('click', () => navigate('/'));
     const other = root.querySelector('#quiz-next-subject');
     if (other) {
       other.addEventListener('click', () => {
+        if (quiz.subject === 'geografi') {
+          navigate('/geografi');
+          return;
+        }
         const order = ['matte', 'engelska', 'svenska'];
         const next = order[(order.indexOf(quiz.subject) + 1) % order.length];
         navigate('/' + next);
@@ -313,7 +435,7 @@ function renderQuiz(root) {
           <button class="btn btn--sm btn--ghost" id="quiz-exit">← Avbryt</button>
           <div class="quiz__progress">
             <div class="row row--between tiny muted" style="margin-bottom:6px">
-              <span>${esc(subject.name)}</span>
+              <span>${esc(label)}</span>
               <span>Fråga ${quiz.index + 1} av ${total}</span>
             </div>
             <div class="progress"><div class="progress__bar" style="width:${(quiz.index / total) * 100}%"></div></div>
@@ -322,7 +444,7 @@ function renderQuiz(root) {
         </div>
 
         <div class="quiz__card">
-          <div class="quiz__prompt">${esc(subject.name)}</div>
+          <div class="quiz__prompt">${esc(label)}</div>
           <h2 class="quiz__question">${esc(q.q)}</h2>
           <div class="quiz__options" id="quiz-options">
             ${q.options
@@ -345,7 +467,7 @@ function renderQuiz(root) {
 
   root.querySelector('#quiz-exit').addEventListener('click', () => {
     sfx.click();
-    navigate('/');
+    navigate(quiz.subject === 'geografi' ? '/geografi' : '/');
   });
 
   const optionEls = Array.from(root.querySelectorAll('.option'));
@@ -417,7 +539,7 @@ function answer(selected, root) {
     </div>`;
   }
 
-  recordAnswer(quiz.subject, correct);
+  recordAnswer(quiz.subject, correct, quiz.continent);
   const nextBtn = root.querySelector('#quiz-next');
   nextBtn.classList.remove('hide');
   nextBtn.textContent = quiz.index + 1 >= quiz.questions.length ? 'Visa resultat →' : 'Nästa →';
@@ -463,7 +585,7 @@ function renderHome(root) {
         <div>
           <span class="hero__eyebrow">${esc(dateText)}</span>
           <h1>${greeting()} ${esc(name)}! Klar för dagens plugg?</h1>
-          <p>Träna tio frågor om dagen i matte, engelska och svenska. Du får spelmynt för varje rätt svar som du kan använda i belöningsspelet.</p>
+          <p>Träna tio frågor om dagen i matte, engelska, svenska och geografi. Du får spelmynt för varje rätt svar som du kan använda i belöningsspelet.</p>
           <div class="hero__actions">
             <button class="btn btn--primary btn--lg" data-go="/matte">Fortsätt: Matematik</button>
             <button class="btn" data-go="/utmaning">Dagens utmaning</button>
@@ -491,11 +613,11 @@ function renderHome(root) {
         <div class="section__head">
           <div>
             <h2 class="section__title">Dina ämnen</h2>
-            <p class="section__sub">Välj ett ämne och kör tio frågor.</p>
+            <p class="section__sub">Välj ett ämne och kör tio frågor – geografin har fyra världsdelar.</p>
           </div>
           <button class="btn btn--sm btn--ghost" data-go="/framsteg">Se framsteg</button>
         </div>
-        <div class="grid grid--3">
+        <div class="grid grid--2">
           ${Object.entries(SUBJECTS)
             .filter(([key]) => key !== 'utmaning')
             .map(([key, s]) => {
@@ -541,6 +663,83 @@ function renderSubject(subject) {
   };
 }
 
+function renderGeografi(root, route) {
+  const key = route && route.parts ? route.parts[1] : '';
+  const valid = key === 'blandat' || (key && CONTINENTS[key]);
+
+  if (valid) {
+    if (quiz.subject !== 'geografi' || quiz.continent !== key || quiz.finished || !quiz.questions.length) {
+      startQuiz('geografi', { continent: key });
+    }
+    renderQuiz(root);
+    return;
+  }
+
+  const stats = getStats();
+  const rows = CONTINENT_KEYS.map((ck) => {
+    const c = CONTINENTS[ck];
+    const g = (stats.geo && stats.geo[ck]) || { correct: 0, total: 0 };
+    const pct = g.total ? Math.round((g.correct / g.total) * 100) : 0;
+    return { key: ck, name: c.name, icon: c.icon, note: c.note, count: c.countries.length, ...g, pct };
+  });
+  const mixed = (stats.geo && stats.geo.blandat) || { correct: 0, total: 0 };
+  const mixedPct = mixed.total ? Math.round((mixed.correct / mixed.total) * 100) : 0;
+
+  root.innerHTML = `
+    <div class="wrap">
+      <section class="section">
+        <div class="section__head">
+          <div>
+            <h2 class="section__title">Geografi</h2>
+            <p class="section__sub">Välj en världsdel och träna på länderna, huvudstäderna och städerna som hör dit.</p>
+          </div>
+          <button class="btn btn--sm btn--ghost" data-go="/">← Tillbaka</button>
+        </div>
+
+        <div class="grid grid--2">
+          ${rows
+            .map(
+              (r) => `<button class="subject-card subject-card--geo" data-go="/geografi/${r.key}">
+                <div class="subject-card__icon">${r.icon}</div>
+                <h3>${r.name}</h3>
+                <p>${r.note}</p>
+                <div class="progress"><div class="progress__bar" style="width:${r.pct}%"></div></div>
+                <div class="subject-card__meta">
+                  <span>${r.count} länder · ${r.correct} rätt av ${r.total}</span>
+                  <span>${r.pct} %</span>
+                </div>
+              </button>`
+            )
+            .join('')}
+          <button class="subject-card subject-card--geo" data-go="/geografi/blandat">
+            <div class="subject-card__icon">🌍</div>
+            <h3>Blandat</h3>
+            <p>Frågor från alla världsdelar – bra inför provet.</p>
+            <div class="progress"><div class="progress__bar" style="width:${mixedPct}%"></div></div>
+            <div class="subject-card__meta">
+              <span>Alla länder · ${mixed.correct} rätt av ${mixed.total}</span>
+              <span>${mixedPct} %</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="panel" style="padding:22px;margin-top:18px">
+          <h3 style="font-size:16px;margin-bottom:8px">Vad du tränar på</h3>
+          <p class="small muted">Varje pass har tio frågor. Du får fyra sorters frågor: vilken <b>världsdel</b> ett land ligger i,
+          vilken <b>huvudstad</b> ett land har, vilket <b>land</b> en huvudstad hör till och i vilket land en <b>stad</b> ligger.
+          Rätt svar ger spelmynt, precis som i de andra ämnena.</p>
+        </div>
+      </section>
+    </div>`;
+
+  root.querySelectorAll('[data-go]').forEach((el) =>
+    el.addEventListener('click', () => {
+      sfx.click();
+      navigate(el.dataset.go);
+    })
+  );
+}
+
 function renderFramsteg(root) {
   const stats = getStats();
   const accuracy = stats.totalAnswered ? Math.round((stats.totalCorrect / stats.totalAnswered) * 100) : 0;
@@ -565,7 +764,7 @@ function renderFramsteg(root) {
 
         <div class="panel" style="padding:22px">
           <h3 style="font-size:16px;margin-bottom:16px">Per ämne</h3>
-          ${['matte', 'engelska', 'svenska']
+          ${['matte', 'engelska', 'svenska', 'geografi']
             .map((key) => {
               const s = stats.subjects[key] || { correct: 0, total: 0 };
               const p = s.total ? Math.round((s.correct / s.total) * 100) : 0;
@@ -835,6 +1034,7 @@ registerView('home', renderHome);
 registerView('matte', renderSubject('matte'));
 registerView('engelska', renderSubject('engelska'));
 registerView('svenska', renderSubject('svenska'));
+registerView('geografi', renderGeografi);
 registerView('utmaning', renderSubject('utmaning'));
 registerView('framsteg', renderFramsteg);
 registerView('konto', renderKonto);

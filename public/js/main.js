@@ -24,6 +24,7 @@ const STUDY_NAV = [
   { path: '/matte', label: 'Matematik' },
   { path: '/engelska', label: 'Engelska' },
   { path: '/svenska', label: 'Svenska' },
+  { path: '/geografi', label: 'Geografi' },
   { path: '/framsteg', label: 'Framsteg' },
   { path: '/konto', label: 'Konto' }
 ];

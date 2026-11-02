@@ -353,6 +353,8 @@ body.theme-casino .btn--primary { --btn-bg: linear-gradient(160deg, #f6e3a2, #d8
 .subject-card--math .subject-card__icon { background: #e8f0ff; color: #2563eb; }
 .subject-card--eng .subject-card__icon { background: #fdeaf1; color: #be185d; }
 .subject-card--swe .subject-card__icon { background: #e6f8f0; color: #0d9f74; }
+.subject-card--geo .subject-card__icon { background: #e8f1fd; color: #1d6fd6; }
+.subject-card--mix .subject-card__icon { background: #fdf1dc; color: #b7791f; }
 .subject-card h3 { font-size: 17px; font-weight: 800; }
 .subject-card p { color: var(--muted); font-size: 13.5px; }
 .subject-card__meta { display: flex; align-items: center; justify-content: space-between; font-size: 12.5px; color: var(--muted); font-weight: 600; margin-top: auto; }
