@@ -2,7 +2,7 @@
    Kärnan: state, API (med offline-fallback), router, toast, ljud, modaler.
    ===================================================================== */
 
-import { demoFeed, decideOutcome } from './sportdemo.js';
+import { demoFeed, hockeyFeed, decideOutcome } from './sportdemo.js';
 
 export const DEFAULT_SETTINGS = {
   minBet: 10,
@@ -351,8 +351,15 @@ function saveLocalSportBets(list) {
   store.set('ph.sportbets', list.slice(0, 120));
 }
 
-function offlineFeed() {
+function localSportFeed(kind) {
+  const margin = Number(state.settings.sportMargin) || 6;
+  return kind === 'hockey' ? hockeyFeed(Date.now(), margin) : demoFeed(Date.now(), margin);
+}
+
+function offlineFeed(kind) {
+  const sport = kind === 'hockey' ? 'hockey' : 'football';
   return {
+    sport,
     source: 'demo',
     updatedAt: Date.now(),
     error: null,
@@ -362,18 +369,22 @@ function offlineFeed() {
       min: Math.max(1, Number(state.settings.minBet) || 10),
       max: Math.max(10, Number(state.settings.sportMaxStake) || 500)
     },
-    matches: demoFeed(Date.now(), Number(state.settings.sportMargin) || 6)
+    matches: localSportFeed(sport)
   };
 }
 
-/** Gör upp lokala fotbollsspel när matcherna är färdigspelade. */
+/** Gör upp lokala sportspel när matcherna är färdigspelade. */
 async function settleLocalSport() {
   const list = localSportBets();
   const open = list.filter((b) => b.status === 'open');
   if (!open.length) return;
-  const feed = demoFeed(Date.now(), Number(state.settings.sportMargin) || 6);
+  const feeds = {
+    football: demoFeed(Date.now(), Number(state.settings.sportMargin) || 6),
+    hockey: hockeyFeed(Date.now(), Number(state.settings.sportMargin) || 6)
+  };
   let changed = false;
   open.forEach((bet) => {
+    const feed = feeds[bet.sport === 'hockey' ? 'hockey' : 'football'] || feeds.football;
     const match = feed.find((m) => m.id === bet.matchId);
     if (!match) return;
     const decision = decideOutcome(match, bet);
@@ -577,29 +588,31 @@ export const api = {
     }
   },
 
-  async sportMatches() {
+  async sportMatches(kind) {
+    const sport = kind === 'hockey' ? 'hockey' : 'football';
     try {
-      const data = await request('/api/sport/matches');
+      const data = await request('/api/sport/matches' + (sport === 'hockey' ? '?sport=hockey' : ''));
       state.offline = false;
       return data;
     } catch (err) {
       if (!localFail(err)) throw err;
       await settleLocalSport();
-      return offlineFeed();
+      return offlineFeed(sport);
     }
   },
 
-  async placeSportBet({ matchId, market, selection, amount }) {
+  async placeSportBet({ matchId, market, selection, amount, sport: kind }) {
+    const sport = kind === 'hockey' ? 'hockey' : 'football';
     try {
       const data = await request('/api/sport/bet', {
         method: 'POST',
-        body: { matchId, market, selection, amount }
+        body: { matchId, market, selection, amount, sport }
       });
       if (state.player) state.player.balance = data.balance;
       return data;
     } catch (err) {
       if (!localFail(err)) throw err;
-      const match = demoFeed(Date.now(), Number(state.settings.sportMargin) || 6).find((m) => m.id === matchId);
+      const match = localSportFeed(sport).find((m) => m.id === matchId);
       if (!match) throw new Error('Matchen finns inte längre');
       if (match.status === 'finished') throw new Error('Matchen är redan slut');
       const marketData = match.markets.find((m) => m.key === market);
@@ -609,6 +622,7 @@ export const api = {
       const bet = {
         id: 'local-' + Math.random().toString(36).slice(2, 9),
         matchId,
+        sport,
         match: match.home + ' – ' + match.away,
         league: match.league,
         market,

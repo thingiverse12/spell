@@ -54,7 +54,7 @@ const GAME_LABELS = {
   slots: 'Star Fortune',
   videopoker: 'Videopoker',
   kortleken: 'Kortleken',
-  sport: 'Fotboll (Live Sport)',
+  sport: 'Sport (Live Sport)',
   quiz: 'Quiz',
   bonus: 'Bonus',
   admin: 'Admin',
@@ -67,7 +67,7 @@ const TABS = [
   { key: 'oversikt', label: 'Översikt' },
   { key: 'vinster', label: 'Vinster' },
   { key: 'spelare', label: 'Spelare' },
-  { key: 'fotboll', label: 'Fotboll' },
+  { key: 'fotboll', label: 'Sport' },
   { key: 'installningar', label: 'Spelinställningar' },
   { key: 'logg', label: 'Logg' },
   { key: 'meddelande', label: 'Meddelande' }
@@ -583,7 +583,7 @@ function renderInstallningar(content, root, data) {
 /* ------------------------------ Fotboll / live-odds ------------------------------ */
 
 async function renderFotboll(content, root) {
-  content.innerHTML = '<div class="panel" style="padding:22px"><p class="small muted">Hämtar fotbollsmatcher och odds …</p></div>';
+  content.innerHTML = '<div class="panel" style="padding:22px"><p class="small muted">Hämtar matcher och odds …</p></div>';
 
   let data;
   try {
@@ -595,7 +595,7 @@ async function renderFotboll(content, root) {
       <p class="small muted" style="margin-top:8px">${
         offline
           ? 'Fotbollsdata kräver uppkoppling. I spelhallen visas demoligan, men spel och statistik hamnar bara på den här enheten.'
-          : 'Kunde inte hämta fotbollsdata: ' + esc(err.message)
+          : 'Kunde inte hämta sportdata: ' + esc(err.message)
       }</p>
       <button class="btn btn--sm btn--ghost" id="sport-admin-retry" style="margin-top:12px">Försök igen</button>
     </div>`;
@@ -615,17 +615,21 @@ async function renderFotboll(content, root) {
     fotmob: 'FotMob (öppen)',
     espn: 'ESPN (öppen)',
     openligadb: 'OpenLigaDB (öppen)',
+    nhl: 'NHL (öppen)',
+    shl: 'SHL (öppen)',
     demo: 'Demoliga'
   };
   const sourceLabel = SOURCE_LABELS[feed.source] || feed.source || 'Okänd';
   const sourceCls = feed.source && feed.source !== 'demo' ? 'mint' : 'amber';
   const tried = Array.isArray(feed.tried) ? feed.tried : [];
+  const hockey = data.hockeyFeed || null;
+  const hockeyLabel = hockey ? SOURCE_LABELS[hockey.source] || hockey.source : 'Ingen data';
 
   const openRows = open.length
     ? open
         .map(
           (b) => `<tr>
-            <td>${esc(b.match)}</td>
+            <td>${esc(b.match)} <span class="tiny muted">${b.sport === 'hockey' ? '🏒' : '⚽'}</span></td>
             <td>${esc(b.playerName || '')}</td>
             <td>${esc(b.selectionLabel)}<br /><span class="tiny muted">${kr(b.stake)} @ ${Number(b.odds).toFixed(2)}</span></td>
             <td>${kr(b.stake)}</td>
@@ -634,7 +638,7 @@ async function renderFotboll(content, root) {
           </tr>`
         )
         .join('')
-    : '<tr><td colspan="6" class="muted small" style="padding:16px">Inga öppna fotbollsspel just nu.</td></tr>';
+    : '<tr><td colspan="6" class="muted small" style="padding:16px">Inga öppna sportspel just nu.</td></tr>';
 
   const settledRows = settled.length
     ? settled
@@ -655,12 +659,14 @@ async function renderFotboll(content, root) {
     <div class="panel" style="padding:22px">
       <div class="row row--between" style="flex-wrap:wrap;gap:10px;align-items:center">
         <div>
-          <h3 style="font-size:15px">Fotboll och live-odds</h3>
+          <h3 style="font-size:15px">Sport och live-odds</h3>
           <p class="small muted" style="margin-top:4px">Här styr du sportspelen och ser vilka matcher spelarna spelar på.</p>
         </div>
         <div class="row" style="gap:8px;flex-wrap:wrap">
-          <span class="chip chip--${sourceCls}">${esc(sourceLabel)}</span>
+          <span class="chip chip--${sourceCls}">⚽ ${esc(sourceLabel)}</span>
           <span class="chip">${Number(feed.matches) || 0} matcher · ${Number(feed.live) || 0} live</span>
+          <span class="chip ${hockey && hockey.source !== 'demo' ? 'chip--mint' : 'chip--amber'}">🏒 ${esc(hockeyLabel)}</span>
+          <span class="chip">${hockey ? (Number(hockey.matches) || 0) + ' hockeymatcher · ' + (Number(hockey.live) || 0) + ' live' : 'Ingen hockeydata'}</span>
           <button class="btn btn--sm btn--ghost" id="sport-admin-refresh">↻ Uppdatera</button>
         </div>
       </div>
@@ -678,7 +684,7 @@ async function renderFotboll(content, root) {
         <div class="admin-stat"><div class="admin-stat__value">${Number(totals.openCount) || 0}</div><div class="admin-stat__label">Öppna spel</div></div>
         <div class="admin-stat"><div class="admin-stat__value">${kr(totals.openStake || 0)}</div><div class="admin-stat__label">Insats i öppna spel</div></div>
         <div class="admin-stat"><div class="admin-stat__value">${Number(totals.won) || 0} / ${Number(totals.lost) || 0}</div><div class="admin-stat__label">Vunna / förlorade</div></div>
-        <div class="admin-stat"><div class="admin-stat__value">${kr(totals.payout || 0)}</div><div class="admin-stat__label">Utbetalt på fotboll</div></div>
+        <div class="admin-stat"><div class="admin-stat__value">${kr(totals.payout || 0)}</div><div class="admin-stat__label">Utbetalt på sport</div></div>
       </div>
 
       <h3 style="font-size:14px;margin:22px 0 10px">Inställningar</h3>
@@ -706,7 +712,7 @@ async function renderFotboll(content, root) {
               )
               .join('')}
           </select></label>
-        <label class="field"><span>Högsta insats fotboll (kr)</span>
+        <label class="field"><span>Högsta insats sport (kr)</span>
           <input class="input" id="sport-maxStake" type="number" value="${Number(s.maxStake) || 500}" /></label>
         <label class="field"><span>Husets marginal (%)</span>
           <input class="input" id="sport-margin" type="number" min="0" max="20" step="0.5" value="${Number(s.margin) || 0}" /></label>
@@ -718,7 +724,7 @@ async function renderFotboll(content, root) {
         <div class="toggle ${s.enabled ? 'is-on' : ''}" id="sport-enabled"></div>
       </div>
       <div class="row" style="gap:10px;margin-top:16px;flex-wrap:wrap">
-        <button class="btn btn--primary" id="sport-save">Spara fotbollsinställningar</button>
+        <button class="btn btn--primary" id="sport-save">Spara sportinställningar</button>
         <button class="btn btn--ghost" id="sport-clear-key">Ta bort API-nyckel</button>
       </div>
 

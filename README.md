@@ -92,11 +92,14 @@ Fliken **Vinster** visar:
 
 Statistiken räknas per spelare i databasen (`gameStats`) och följer med i admin-översikten.
 
-### ⚽ Live Sport (fotboll med live-odds)
-Spelet **Live Sport** i spelhallen visar fotbollsmatcher med odds som rör sig live.
+### ⚽🏒 Live Sport (fotboll, SHL och NHL med live-odds)
+Spelet **Live Sport** i spelhallen visar fotbollsmatcher och hockeymatcher med odds som rör sig live.
+Två flikar: **Fotboll** och **Hockey · SHL & NHL** – hockeyn har dessutom ligafilter för SHL och NHL.
 
-- **Marknader:** matchresultat (1X2), mål över/under 2,5, båda lagen gör mål,
+- **Marknader fotboll:** matchresultat (1X2), mål över/under 2,5, båda lagen gör mål,
   handikapp −1/+1, halvtidsresultat och nästa mål.
+- **Marknader hockey:** vinnare inkl. förlängning och straffar (inget kryss), mål över/under 5,5,
+  båda lagen gör mål samt handikapp −1/+1. Perioder visas som `2:a perioden 35′`.
 - **Live:** ställning, matchminut och odds uppdateras var 15:e sekund.
 - **Spelkvitto:** välj odds, ange valfri insats, se möjlig vinst och lägg spelet.
   Insatsen dras direkt och vinsten betalas ut automatiskt när matchen är slut
@@ -120,9 +123,24 @@ Matcherna sorteras med live-matcher först, därefter svenska ligor och de stora
 Matcher utan känd avsparkstid hoppas över, och listan kapas till 24 matcher för att pollningen
 var 15:e sekund ska vara lätt.
 
-Ordningen går att låsa i adminpanelen (**Fotboll → Datakälla**), annars testas källorna i tur och
+Ordningen går att låsa i adminpanelen (**Sport → Datakälla**), annars testas källorna i tur och
 ordning. Svarar ingen visas demoligan, så vyn fungerar alltid. Svaret innehåller fältet `tried`
 som visar vilka källor som provats och varför de inte gav några matcher.
+
+Hockeyn har egna, nyckelfria källor (testas i den här ordningen):
+
+| Källa | Kräver nyckel | Innehåll |
+| --- | --- | --- |
+| `nhl` | Nej – NHL:s eget öppna API | `api-web.nhle.com` – alla NHL-matcher ±en vecka, live-ställning, period och skottstatistik |
+| `shl` | Nej – SHL:s publika webb-API | `www.shl.se/api/sports-v2` – kommande och senaste SHL-omgångar, perioder, förlängning/straffar |
+| `demo` | Nej | Inbyggd demohockey (SHL- och NHL-lag) som rullar dygnet runt |
+
+SHL-API:t kräver headern `x-s8y-instance-id: shl1_shl`; säsongens id hämtas automatiskt från
+`latest-ssgt` så att vyn följer rätt säsong utan konfiguration. Hockeymatcher visas upp till
+14 dagar framåt (SHL har uppehåll ibland), medan fotbollen håller sig inom tre dygn.
+Båda sporterna går via samma endpoints – `GET /api/sport/matches?sport=hockey` respektive
+`POST /api/sport/bet` med `sport: "hockey"` – och spelen avgörs automatiskt när matchen är slut,
+oavsett sport.
 
 ### Låtsasreklam
 
@@ -139,10 +157,10 @@ Koden ligger i `public/js/reklam.js` (vy, banner och annonstexter) och i slutet 
 Oddsen räknas fram av huset med en Poisson-modell utifrån ställning och återstående tid,
 plus en marginal som admin ställer in (standard 6 %).
 
-**Koppla in AllSportsAPI (frivilligt):** logga in i adminpanelen → fliken **Fotboll** → klistra in
-din API-nyckel (eller sätt miljövariabeln `ALLSPORTS_API_KEY` i Vercel). Fotbollsfliken visar också
-källa, antal live-matcher, vilka källor som testats, öppna spel, utbetalningar och inställningar för
-högsta insats, marginal och på/av.
+**Koppla in AllSportsAPI (frivilligt, bara fotboll):** logga in i adminpanelen → fliken **Sport** → klistra in
+din API-nyckel (eller sätt miljövariabeln `ALLSPORTS_API_KEY` i Vercel). Sportfliken visar också
+källa för fotboll respektive hockey, antal live-matcher, vilka källor som testats, öppna spel,
+utbetalningar och inställningar för högsta insats, marginal och på/av.
 
 > Servern hämtar matcherna med REST-anrop och cachar dem i 15 sekunder. WebSocket-versionen
 > (`wss://wss.allsportsapi.com/live_events`) kan inte användas på Vercel, eftersom serverlösa

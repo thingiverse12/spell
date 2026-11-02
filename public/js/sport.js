@@ -4,10 +4,27 @@
 
 import { registerView, state, api, sfx, toast, kr, num, esc, navigate, updateBalanceUI } from './core.js';
 
+const SPORT_INFO = {
+  football: {
+    name: 'Fotboll',
+    sub: 'Live-odds på fotboll · allt spelas med spelmynt',
+    markets: 'Marknader: 1X2, mål över/under 2,5, båda lagen gör mål, handikapp, halvtid och nästa mål.',
+    note: 'Demoligan'
+  },
+  hockey: {
+    name: 'Hockey',
+    sub: 'Live-odds på SHL och NHL · allt spelas med spelmynt',
+    markets: 'Marknader: vinnare inkl. förlängning/straffar, mål över/under 5,5, båda lagen gör mål och handikapp −1/+1.',
+    note: 'Demohockeyn'
+  }
+};
+
 const sport = {
   feed: null,
   bets: [],
+  sport: 'football',
   filter: 'all',
+  league: 'all',
   selection: null,
   stake: 50,
   loading: false,
@@ -35,7 +52,10 @@ const timeText = (ts) => {
 
 function statusHTML(match) {
   if (match.status === 'live') {
-    return `<span class="match-status match-status--live"><i></i>LIVE ${match.minute}′</span>`;
+    const clock = match.sport === 'hockey' && match.period
+      ? esc(match.period) + ' ' + match.minute + '′'
+      : match.minute + '′';
+    return `<span class="match-status match-status--live"><i></i>LIVE ${clock}</span>`;
   }
   if (match.status === 'finished') {
     return `<span class="match-status match-status--done">Slut</span>`;
@@ -90,10 +110,57 @@ function matchCard(match) {
 }
 
 function visibleMatches() {
-  const matches = (sport.feed && sport.feed.matches) || [];
+  let matches = (sport.feed && sport.feed.matches) || [];
+  if (sport.league && sport.league !== 'all') matches = matches.filter((m) => m.league === sport.league);
   if (sport.filter === 'live') return matches.filter((m) => m.status === 'live');
   if (sport.filter === 'next') return matches.filter((m) => m.status === 'upcoming');
   return matches;
+}
+
+/** Ligachips (SHL/NHL) – visas för hockey. */
+function renderLeagues() {
+  const root = sport.root;
+  if (!root) return;
+  const box = root.querySelector('#sport-leagues');
+  if (!box) return;
+  if (sport.sport !== 'hockey') {
+    box.innerHTML = '';
+    return;
+  }
+  const matches = (sport.feed && sport.feed.matches) || [];
+  const leagues = [...new Set(matches.map((m) => m.league).filter(Boolean))];
+  const options = ['all', ...leagues];
+  box.innerHTML = options
+    .map(
+      (key) =>
+        `<button class="chip ${sport.league === key ? 'chip--active' : ''}" data-league="${esc(key)}">${
+          key === 'all' ? 'Alla ligor' : esc(key)
+        }</button>`
+    )
+    .join('');
+  box.querySelectorAll('[data-league]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      sport.league = btn.dataset.league;
+      renderLeagues();
+      renderMatches();
+    });
+  });
+}
+
+/** Rubrik, flikar och fotnot för vald sport. */
+function renderSportChrome() {
+  const root = sport.root;
+  if (!root) return;
+  const info = SPORT_INFO[sport.sport] || SPORT_INFO.football;
+  const pill = root.querySelector('#sport-pill');
+  if (pill) pill.textContent = info.name;
+  const sub = root.querySelector('#sport-subtitle');
+  if (sub) sub.textContent = info.sub;
+  const note = root.querySelector('#sport-footnote-markets');
+  if (note) note.textContent = info.markets;
+  root.querySelectorAll('[data-sport]').forEach((btn) => {
+    btn.classList.toggle('chip--active', btn.dataset.sport === sport.sport);
+  });
 }
 
 function renderMatches() {
@@ -114,6 +181,7 @@ function renderMatches() {
       if (btn.disabled) return;
       sfx.click();
       sport.selection = {
+        sport: sport.sport,
         matchId: btn.dataset.match,
         match: btn.dataset.matchLabel,
         league: btn.dataset.league,
@@ -229,7 +297,8 @@ async function placeBet(stake) {
       matchId: sel.matchId,
       market: sel.market,
       selection: sel.selection,
-      amount: stake
+      amount: stake,
+      sport: sel.sport || sport.sport
     });
     sfx.win();
     toast(`Spel lagt: ${kr(stake)} på ${sel.selectionLabel} @ ${data.bet.odds.toFixed(2).replace('.', ',')}`, 'gold', 3200);
@@ -280,7 +349,7 @@ function renderBets() {
   if (!box) return;
   const bets = sport.bets || [];
   if (!bets.length) {
-    box.innerHTML = `<p class="small muted">Du har inte lagt några fotbollsspel än.</p>`;
+    box.innerHTML = `<p class="small muted">Du har inte lagt några sportspel än.</p>`;
     return;
   }
   box.innerHTML = bets.map(betRow).join('');
@@ -304,6 +373,8 @@ function renderStatus() {
     espn: 'ESPN · live',
     thesportsdb: 'TheSportsDB · live',
     openligadb: 'OpenLigaDB · live',
+    nhl: 'NHL · live',
+    shl: 'SHL · live',
     demo: 'Demoliga'
   };
   const sourceLabel = SOURCE_LABELS[feed.source] || feed.source || 'Okänd källa';
@@ -331,7 +402,10 @@ async function refresh({ quiet = false } = {}) {
     if (box && !sport.feed) box.innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line"></div>';
   }
   try {
-    const [feed, bets] = await Promise.all([api.sportMatches(), api.sportBets().catch(() => null)]);
+    const [feed, bets] = await Promise.all([
+      api.sportMatches(sport.sport),
+      api.sportBets().catch(() => null)
+    ]);
     sport.feed = feed;
     if (bets) sport.bets = bets.bets || [];
     // Släpp valet om matchen inte längre kan spelas.
@@ -342,6 +416,7 @@ async function refresh({ quiet = false } = {}) {
     const { max } = stakeBounds();
     if (sport.stake > max) sport.stake = max;
     renderStatus();
+    renderLeagues();
     renderMatches();
     renderSlip();
     renderBets();
@@ -355,19 +430,45 @@ async function refresh({ quiet = false } = {}) {
   }
 }
 
+function setSport(kind) {
+  const next = kind === 'hockey' ? 'hockey' : 'football';
+  if (sport.sport === next) return;
+  sport.sport = next;
+  sport.feed = null;
+  sport.selection = null;
+  sport.bets = [];
+  sport.filter = 'all';
+  sport.league = 'all';
+  const root = sport.root;
+  if (root) {
+    root.querySelectorAll('[data-filter]').forEach((b) =>
+      b.classList.toggle('chip--active', b.dataset.filter === 'all')
+    );
+    const box = root.querySelector('#sport-matches');
+    if (box) box.innerHTML = '<div class="skeleton-line"></div><div class="skeleton-line"></div>';
+    renderSportChrome();
+    renderLeagues();
+    renderSlip();
+    renderBets();
+  }
+  refresh();
+}
+
 function renderSport(root) {
   sport.root = root;
   sport.selection = null;
   sport.bets = [];
   sport.feed = null;
+  sport.filter = 'all';
+  sport.league = 'all';
   sport.stake = Math.max(Number(state.settings.minBet) || 10, 50);
 
   root.innerHTML = `
     <div class="wrap sport-wrap">
       <div class="casino-top">
         <div class="casino-top__title">
-          <h1>Live Sport <span class="sport-pill">fotboll</span></h1>
-          <p>Live-odds på fotboll · allt spelas med spelmynt</p>
+          <h1>Live Sport <span class="sport-pill" id="sport-pill">Fotboll</span></h1>
+          <p id="sport-subtitle">Live-odds på fotboll · allt spelas med spelmynt</p>
         </div>
         <div style="flex:1"></div>
         <div class="row" style="gap:8px;flex-wrap:wrap">
@@ -377,6 +478,13 @@ function renderSport(root) {
       </div>
 
       <div class="sport-status" id="sport-status"></div>
+
+      <div class="sport-tabs" id="sport-tabs">
+        <button class="chip chip--active" data-sport="football">Fotboll</button>
+        <button class="chip" data-sport="hockey">Hockey · SHL &amp; NHL</button>
+      </div>
+
+      <div class="sport-leagues" id="sport-leagues"></div>
 
       <div class="sport-filters" id="sport-filters">
         <button class="chip ${sport.filter === 'all' ? 'chip--active' : ''}" data-filter="all">Alla</button>
@@ -404,7 +512,7 @@ function renderSport(root) {
       </div>
 
       <p class="tiny muted sport-footnote">
-        Marknader: 1X2, mål över/under 2,5, båda lagen gör mål, handikapp, halvtid och nästa mål.
+        <span id="sport-footnote-markets">Marknader: 1X2, mål över/under 2,5, båda lagen gör mål, handikapp, halvtid och nästa mål.</span>
         Oddsen räknas fram av huset (Poisson-modell utifrån ställning och återstående tid). Inga riktiga
         pengar – bara spelmynt.
       </p>
@@ -420,6 +528,11 @@ function renderSport(root) {
     });
   });
 
+  root.querySelectorAll('[data-sport]').forEach((btn) => {
+    btn.addEventListener('click', () => setSport(btn.dataset.sport));
+  });
+
+  renderSportChrome();
   document.onkeydown = null;
   refresh();
 

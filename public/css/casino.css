@@ -738,6 +738,14 @@
 .sport-updated { opacity: .8; }
 .sport-note { opacity: .75; font-style: italic; }
 
+.sport-tabs { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 14px 0 0; }
+.sport-tabs .chip { cursor: pointer; font-weight: 700; }
+.sport-tabs .chip--active { background: var(--gold-soft, rgba(212,175,55,.18)); color: var(--gold, #d4af37); border-color: rgba(212,175,55,.45); }
+.sport-leagues { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 10px 0 0; }
+.sport-leagues:empty { display: none; }
+.sport-leagues .chip { cursor: pointer; font-size: 11px; padding: 4px 10px; }
+.sport-leagues .chip--active { background: var(--gold-soft, rgba(212,175,55,.18)); color: var(--gold, #d4af37); border-color: rgba(212,175,55,.45); font-weight: 800; }
+
 .sport-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 14px 0 16px; }
 .sport-filters__spacer { flex: 1; }
 .sport-filters .chip { cursor: pointer; }

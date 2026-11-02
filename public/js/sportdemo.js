@@ -379,7 +379,13 @@ function decideOutcome(match, bet) {
   const as = match.result.away;
   const market = bet.market;
   const sel = bet.selection;
+  const hockey = match.sport === 'hockey';
 
+  if (market === 'vinnare') {
+    if (sel === 'hemma') return hs > as ? 'won' : 'lost';
+    if (sel === 'borta') return as > hs ? 'won' : 'lost';
+    return 'void';
+  }
   if (market === '1x2') {
     if (sel === 'hemma') return hs > as ? 'won' : 'lost';
     if (sel === 'oavgjort') return hs === as ? 'won' : 'lost';
@@ -387,8 +393,9 @@ function decideOutcome(match, bet) {
     return 'void';
   }
   if (market === 'mal') {
-    if (sel === 'over') return hs + as > 2.5 ? 'won' : 'lost';
-    if (sel === 'under') return hs + as < 2.5 ? 'won' : 'lost';
+    const line = hockey ? 5.5 : 2.5;
+    if (sel === 'over') return hs + as > line ? 'won' : 'lost';
+    if (sel === 'under') return hs + as < line ? 'won' : 'lost';
     return 'void';
   }
   if (market === 'btts') {
@@ -447,10 +454,206 @@ function decideOutcome(match, bet) {
 }
 
 function marketLabel(market, selection) {
-  const m = MARKETS.find((x) => x.key === market);
+  const m = MARKETS.find((x) => x.key === market) || HOCKEY_MARKETS.find((x) => x.key === market);
   if (!m) return market + ' ' + selection;
   const sel = m.selections.find((s) => s.key === selection);
   return m.label + ': ' + (sel ? sel.long : selection);
 }
 
-export { demoFeed, decideOutcome, marketLabel, MARKETS, probabilities };
+
+/* ------------------------------- hockey ------------------------------- */
+
+const HOCKEY_MINUTES = 60;
+const HOCKEY_MATCH_MINUTES = 95;
+
+const HOCKEY_MARKETS = [
+  {
+    key: 'vinnare',
+    label: 'Vinnare (inkl. förlängning)',
+    short: 'VINNARE',
+    selections: [
+      { key: 'hemma', label: '1', long: 'Hemma' },
+      { key: 'borta', label: '2', long: 'Borta' }
+    ]
+  },
+  {
+    key: 'mal',
+    label: 'Mål – över/under 5,5',
+    short: 'Ö/U 5,5',
+    selections: [
+      { key: 'over', label: 'Över 5,5', long: 'Över 5,5 mål' },
+      { key: 'under', label: 'Under 5,5', long: 'Under 5,5 mål' }
+    ]
+  },
+  {
+    key: 'btts',
+    label: 'Båda lagen gör mål',
+    short: 'BLGM',
+    selections: [
+      { key: 'ja', label: 'Ja', long: 'Båda lagen gör mål' },
+      { key: 'nej', label: 'Nej', long: 'Inte båda lagen gör mål' }
+    ]
+  },
+  {
+    key: 'handicap',
+    label: 'Handikapp (−1 / +1)',
+    short: 'HCP',
+    selections: [
+      { key: 'hemma-1', label: 'Hemma −1', long: 'Hemma med handikapp −1' },
+      { key: 'borta+1', label: 'Borta +1', long: 'Borta med handikapp +1' }
+    ]
+  }
+];
+
+const HOCKEY_DEMO_FIXTURES = [
+  { home: 'Färjestad', away: 'Frölunda', league: 'SHL', country: 'Sverige' },
+  { home: 'Luleå', away: 'Skellefteå', league: 'SHL', country: 'Sverige' },
+  { home: 'Växjö Lakers', away: 'Rögle', league: 'SHL', country: 'Sverige' },
+  { home: 'Brynäs', away: 'Leksand', league: 'SHL', country: 'Sverige' },
+  { home: 'New York Rangers', away: 'Boston Bruins', league: 'NHL', country: 'Nordamerika' },
+  { home: 'Toronto Maple Leafs', away: 'Montréal Canadiens', league: 'NHL', country: 'Nordamerika' },
+  { home: 'Colorado Avalanche', away: 'Vegas Golden Knights', league: 'NHL', country: 'Nordamerika' },
+  { home: 'Edmonton Oilers', away: 'Calgary Flames', league: 'NHL', country: 'Nordamerika' }
+];
+
+function hockeyRate(team, salt) {
+  const r = mulberry32(hash32(team + '|hockey|' + salt));
+  return 2.3 + r() * 1.2;
+}
+
+function hockeyProbabilities(match) {
+  const hs0 = Number(match.homeScore) || 0;
+  const as0 = Number(match.awayScore) || 0;
+  const finished = match.status === 'finished';
+  const left = finished ? 0 : clamp((HOCKEY_MINUTES - (Number(match.minute) || 0)) / HOCKEY_MINUTES, 0, 1);
+  const lh = finished ? 0 : hockeyRate(match.home, 'hemma') * left;
+  const la = finished ? 0 : hockeyRate(match.away, 'borta') * left;
+
+  let pHome = 0;
+  let pAway = 0;
+  let pOver = 0;
+  let pBtts = 0;
+  let pWin2 = 0;
+  let pLose1 = 0;
+  for (let i = 0; i <= 8; i += 1) {
+    const pi = poissonPmf(i, lh);
+    for (let j = 0; j <= 8; j += 1) {
+      const p = pi * poissonPmf(j, la);
+      if (!p) continue;
+      const hs = hs0 + i;
+      const as = as0 + j;
+      if (hs > as) pHome += p;
+      else pAway += p;
+      if (hs + as >= 6) pOver += p;
+      if (hs > 0 && as > 0) pBtts += p;
+      if (hs - as >= 2) pWin2 += p;
+      if (hs - as <= 0) pLose1 += p;
+    }
+  }
+  const total = pHome + pAway || 1;
+  const hcp = pWin2 + pLose1 || 1;
+  return {
+    home: clamp(pHome / total, 0, 1),
+    away: clamp(pAway / total, 0, 1),
+    over: clamp(pOver, 0, 1),
+    under: clamp(1 - pOver, 0, 1),
+    bttsYes: clamp(pBtts, 0, 1),
+    bttsNo: clamp(1 - pBtts, 0, 1),
+    hcpHome: clamp(pWin2 / hcp, 0, 1),
+    hcpAway: clamp(pLose1 / hcp, 0, 1)
+  };
+}
+
+function hockeyPrice(prob, margin) {
+  const cut = 1 - clamp(Number(margin) || 0, 0, 25) / 100;
+  const p = clamp(Number(prob) || 0, 0.025, 1);
+  return Math.max(1.01, Math.min(40, round2(cut / p)));
+}
+
+function buildHockeyMarkets(match, margin) {
+  const probs = hockeyProbabilities(match);
+  const finished = match.status === 'finished';
+  // Redan avgjorda marknader plockas bort i live-läget (båda har gjort mål / över 5,5 klart).
+  const bothScored = (Number(match.homeScore) || 0) > 0 && (Number(match.awayScore) || 0) > 0;
+  const overDone = (Number(match.homeScore) || 0) + (Number(match.awayScore) || 0) >= 6;
+  const open = HOCKEY_MARKETS.filter(
+    (market) => finished || !((market.key === 'btts' && bothScored) || (market.key === 'mal' && overDone))
+  );
+  return open.map((market) => ({
+    key: market.key,
+    label: market.label,
+    short: market.short,
+    selections: market.selections.map((sel) => {
+      let p;
+      if (market.key === 'vinnare') p = sel.key === 'hemma' ? probs.home : probs.away;
+      else if (market.key === 'handicap') p = sel.key === 'hemma-1' ? probs.hcpHome : probs.hcpAway;
+      else if (market.key === 'btts') p = sel.key === 'ja' ? probs.bttsYes : probs.bttsNo;
+      else p = sel.key === 'over' ? probs.over : probs.under;
+      return { key: sel.key, label: sel.label, long: sel.long, odds: finished ? 1 : hockeyPrice(p, margin) };
+    })
+  }));
+}
+
+function hockeyDemoGoals(slot) {
+  const rnd = mulberry32(hash32('hockey-' + slot));
+  const goals = [];
+  const push = (side, count) => {
+    for (let i = 0; i < count; i += 1) goals.push({ side, minute: 1 + Math.floor(rnd() * 59) });
+  };
+  push('home', Math.floor(rnd() * 5));
+  push('away', Math.floor(rnd() * 5));
+  return goals.sort((a, b) => a.minute - b.minute);
+}
+
+function hockeyDemoMatch(slot, now, margin) {
+  const fixture = HOCKEY_DEMO_FIXTURES[((slot % HOCKEY_DEMO_FIXTURES.length) + HOCKEY_DEMO_FIXTURES.length) % HOCKEY_DEMO_FIXTURES.length];
+  const kickoff = slot * CYCLE_MS;
+  const wall = (now - kickoff) / 60000;
+  const goals = hockeyDemoGoals(slot);
+
+  let status = 'upcoming';
+  let minute = 0;
+  if (wall >= HOCKEY_MATCH_MINUTES) {
+    status = 'finished';
+    minute = HOCKEY_MINUTES;
+  } else if (wall >= 0) {
+    status = 'live';
+    minute = clamp(Math.ceil(wall * (HOCKEY_MINUTES / HOCKEY_MATCH_MINUTES)), 1, HOCKEY_MINUTES);
+  }
+
+  const played = status === 'upcoming' ? 0 : status === 'finished' ? 999 : minute;
+  const homeScore = goals.filter((g) => g.side === 'home' && g.minute <= played).length;
+  const awayScore = goals.filter((g) => g.side === 'away' && g.minute <= played).length;
+  const period = status === 'live' ? Math.min(3, Math.max(1, Math.ceil(minute / 20))) + ':e perioden' : '';
+
+  const base = {
+    id: 'hockey-demo-' + slot,
+    sport: 'hockey',
+    home: fixture.home,
+    away: fixture.away,
+    league: fixture.league,
+    country: fixture.country,
+    homeScore,
+    awayScore,
+    minute,
+    period,
+    status,
+    kickoff,
+    live: status === 'live',
+    htScore: null,
+    goals: [],
+    result: status === 'finished' ? { home: homeScore, away: awayScore } : null
+  };
+
+  return { ...base, markets: buildHockeyMarkets(base, margin), source: 'demo' };
+}
+
+function hockeyFeed(now, margin) {
+  const first = Math.floor((now - (HOCKEY_MATCH_MINUTES + VISIBLE_AFTER) * 60000) / CYCLE_MS);
+  const last = Math.ceil((now + VISIBLE_BEFORE * 60000) / CYCLE_MS);
+  const matches = [];
+  for (let slot = first; slot <= last; slot += 1) matches.push(hockeyDemoMatch(slot, now, margin));
+  return sortMatches(matches);
+}
+
+export { demoFeed, hockeyFeed, decideOutcome, marketLabel, MARKETS, HOCKEY_MARKETS, probabilities, HOCKEY_MINUTES };
