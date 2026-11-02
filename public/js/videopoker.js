@@ -3,6 +3,7 @@
    ===================================================================== */
 
 import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI } from './core.js';
+import { currentLuck, luckPayout, luckPill } from './luck.js';
 import { cardHTML, newDeck, rankValue } from './cards.js';
 
 /* Utbetalning i multiplar av insatsen. Lägsta vinsten ger 1,2× insatsen,
@@ -27,7 +28,8 @@ const game = {
   phase: 'betting', // betting | draw | done
   result: null,
   message: '',
-  busy: false
+  busy: false,
+  luckFactor: 1
 };
 
 export function evaluateHand(cards) {
@@ -90,6 +92,7 @@ function render(root) {
         <div class="table-shell__bar">
           <h2>Videopoker</h2>
           <span class="mini-pill">Kort kvar <strong>${game.deck.length || 47}</strong></span>
+          ${luckPill(currentLuck())}
           <div class="spacer"></div>
           <button class="btn btn--sm btn--ghost" id="vp-paytable">Vinsttabell</button>
         </div>
@@ -210,6 +213,7 @@ async function deal(root) {
   const bet = game.bet;
   if (bet > (state.player?.balance ?? 0)) return toast('Inte tillräckligt med spelmynt', 'bad');
   game.busy = true;
+  game.luckFactor = currentLuck();
   try {
     await api.bet('videopoker', bet);
   } catch (err) {
@@ -255,7 +259,7 @@ async function drawCards(root) {
   game.result = result;
   game.phase = 'done';
 
-  const win = Math.round(result.mult * bet * luck());
+  const win = result.mult > 0 ? luckPayout(bet, result.mult * luck(), game.luckFactor) : 0;
   if (win > 0) {
     try {
       await api.credit('videopoker', win);

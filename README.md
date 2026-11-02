@@ -179,6 +179,35 @@ ut både utbetalning och vinst.
 att blackjack betalar 2×/2,5×/1×, att vinsttabellerna är sorterade och att slotsens RTP ligger
 mellan 88 och 97 procent.
 
+### Gummiband – turen följer saldot
+
+Alla spel använder en dynamisk turfaktor som håller ekonomin i balans. Den räknas ut från
+saldot jämfört med startsaldot (2 500 kr) och gäller i **slots, videopoker, blackjack och Live
+Sport**:
+
+| Saldo | Tur | Effekt |
+| --- | --- | --- |
+| 0 kr | ×1,35 | vinner mer |
+| 1 250 kr | ×1,18 | vinner lite mer |
+| 2 500 kr (startsaldo) | ×1,00 | neutralt |
+| 5 000 kr | ×0,90 | vinner mindre |
+| 10 000 kr eller mer | ×0,70 | vinner minst |
+
+- **Lite kvar → du vinner mer.** Har du spelat bort nästan allt blir vinsterna större, så det
+  går att spela sig tillbaka.
+- **Vunnit mycket → du vinner mindre.** Har du byggt upp en stor hög betalar spelen sämre, så
+  saldot inte skenar iväg.
+- Faktorn påverkar bara **vinsten ovanpå insatsen**. En vinst ger alltid mer än insatsen
+  tillbaka – sämsta tänkbara fall (lägsta tur + lägsta vinstrad) är ändå plus.
+- Turen **låses när en runda startar** (given i blackjack, snurret i slots, given i videopoker)
+  och sparas på sportspelen när de läggs, så utbetalningen alltid matchar det som visades.
+- Alla spel visar ett litet märke – *"Tur ×1,18 · du har lite kvar"* – så det går att se vad som
+  gäller. Spelkvittot i blackjack och sport visar också vilken tur som användes.
+- Gummibandet kan stängas av i adminpanelen → **Spelinställningar → Gummiband (dynamisk tur)**.
+
+Med gummibandet varierar slotsens RTP mellan ungefär 70 % (stor hög) och 117 % (nästan tomt
+konto); mitt på skalan, vid startsaldot, ligger den på samma ~92 % som förut.
+
 **Koppla in AllSportsAPI (frivilligt, bara fotboll):** logga in i adminpanelen → fliken **Sport** → klistra in
 din API-nyckel (eller sätt miljövariabeln `ALLSPORTS_API_KEY` i Vercel). Sportfliken visar också
 källa för fotboll respektive hockey, antal live-matcher, vilka källor som testats, öppna spel,

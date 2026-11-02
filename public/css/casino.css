@@ -114,6 +114,21 @@
 }
 .mini-pill strong { color: var(--accent); font-variant-numeric: tabular-nums; }
 
+/* Gummibandet – visar hur turen justeras efter saldot */
+.luck-row { display: flex; justify-content: center; margin: 6px 0 2px; }
+.luck-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px; border-radius: 99px;
+  font-size: 12px; font-weight: 800; letter-spacing: .02em;
+  white-space: nowrap; border: 1px solid var(--line);
+  background: rgba(255,255,255,.05); color: var(--text-soft);
+}
+.luck-pill__dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; opacity: .85; }
+.luck-pill--up { color: #4ade80; border-color: rgba(74,222,128,.4); background: rgba(74,222,128,.12); }
+.luck-pill--down { color: #fbbf24; border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.1); }
+.luck-pill--flat { color: var(--text-soft); }
+.bj-receipt .bj-receipt__luck strong { color: var(--gold, #d4af37); }
+
 /* ------------------------------ Spelkort ------------------------------ */
 
 .playing-card {

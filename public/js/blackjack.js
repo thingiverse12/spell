@@ -6,6 +6,7 @@ import {
   registerView, state, api, sfx, toast, kr, num, esc, sleep, navigate, setBalance, updateBalanceUI, openModal
 } from './core.js';
 import { cardHTML, newDeck, rankValue } from './cards.js';
+import { currentLuck, luckPayout, luckPill, luckText } from './luck.js';
 
 const game = {
   shoe: newDeck(6),
@@ -20,7 +21,8 @@ const game = {
   message: '',
   showCards: 0,
   netLast: 0,
-  payoutLast: 0
+  payoutLast: 0,
+  luckFactor: 1
 };
 
 function handTotal(cards) {
@@ -161,6 +163,7 @@ function render(root) {
               <span>Insats <strong>${kr(totalBet())}</strong></span>
               <span>Utbetalning <strong>${kr(game.payoutLast)}</strong></span>
               <span class="${game.netLast >= 0 ? 'is-plus' : 'is-minus'}">Netto <strong>${game.netLast >= 0 ? '+' : '−'}${kr(Math.abs(game.netLast))}</strong></span>
+              <span class="bj-receipt__luck">Tur <strong>${luckText(game.luckFactor)}</strong></span>
             </div>`
           : ''
       }
@@ -231,6 +234,7 @@ function render(root) {
         <span class="mini-pill">Min <strong>${kr(minBet)}</strong></span>
         <span class="mini-pill">Max <strong>${kr(maxBet)}</strong></span>
         <span class="mini-pill">Saldo <strong>${kr(balance)}</strong></span>
+        ${luckPill(currentLuck())}
       </div>
     </div>`;
 
@@ -332,6 +336,7 @@ async function startRound(root) {
   if (bet > balance) return toast('Du har inte tillräckligt med spelmynt', 'bad');
 
   game.busy = true;
+  game.luckFactor = currentLuck();
   try {
     await api.bet('blackjack', bet);
   } catch (err) {
@@ -379,7 +384,7 @@ async function startRound(root) {
       await api.credit('blackjack', bet);
     } else if (playerBJ) {
       game.hands[0].result = 'blackjack';
-      const win = Math.round(bet * (1 + payoutRatio()));
+      const win = luckPayout(bet, 1 + payoutRatio(), game.luckFactor);
       game.payoutLast = win;
       game.netLast = win - bet;
       game.message = `Blackjack! ${kr(win)} tillbaka (+${kr(win - bet)} i vinst)`;
@@ -542,7 +547,7 @@ async function settle(root) {
       h.result = 'lose';
     } else if (dealerBust || total > dealerTotal) {
       h.result = 'win';
-      totalWin += h.bet * 2;
+      totalWin += luckPayout(h.bet, 2, game.luckFactor);
       anyWin = true;
       allLose = false;
     } else if (total === dealerTotal) {

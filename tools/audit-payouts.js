@@ -2,11 +2,13 @@
 'use strict';
 
 /**
- * Kontrollerar utbetalningarna i alla spel:
- *  1. Slots  – varje vinst ger mer än insatsen, RTP rimligt.
+ * Kontrollerar utbetalningarna och gummibandet i alla spel:
+ *  1. Slots      – varje vinst ger mer än insatsen, RTP rimligt vid alla turer.
  *  2. Videopoker – lägsta vinsten ger mer än insatsen.
- *  3. Blackjack – vinst 2× insats, blackjack 2,5×, lika 1×.
- *  4. Sport – utbetalning = insats × odds och alltid ≥ insatsen.
+ *  3. Blackjack  – vinst 2× insats, blackjack 2,5×, lika 1× (justerat för tur).
+ *  4. Sport      – utbetalning = insats × odds, alltid ≥ insatsen.
+ *  5. Gummiband  – lite kvar → högre tur, vunnit mycket → lägre tur, och
+ *                  aldrig så låg att en vinst kan bli en förlust.
  *
  * Kör med: npm run audit
  */
@@ -41,7 +43,65 @@ function literal(source, startMarker) {
   throw new Error('Kunde inte läsa ' + startMarker);
 }
 
+/* ------------------------------ gummiband ------------------------------ */
+
+const luckSrc = read('public/js/luck.js');
+const LUCK_MIN = Number(/export const LUCK_MIN = ([\d.]+)/.exec(luckSrc)?.[1]);
+const LUCK_MAX = Number(/export const LUCK_MAX = ([\d.]+)/.exec(luckSrc)?.[1]);
+const START_BALANCE = 2500;
+
+function luckFactor(balance, startBalance = START_BALANCE) {
+  const start = Number(startBalance);
+  const bal = Math.max(0, Number(balance) || 0);
+  if (!(start > 0)) return 1;
+  const ratio = bal / start;
+  let factor = 1;
+  if (ratio < 1) factor = 1 + Math.min(0.35, (1 - ratio) * 0.35);
+  else if (ratio > 1.5) factor = 1 - Math.min(0.3, (ratio - 1.5) * 0.2);
+  return Math.round(Math.min(LUCK_MAX, Math.max(LUCK_MIN, factor)) * 100) / 100;
+}
+
+function luckPayout(stake, mult, factor = 1) {
+  const sats = Math.max(0, Number(stake) || 0);
+  const m = Math.max(1, Number(mult) || 1);
+  const f = Math.min(LUCK_MAX, Math.max(LUCK_MIN, Number(factor) || 1));
+  const raw = sats + sats * (m - 1) * f;
+  return Math.max(Math.round(raw), Math.ceil(sats) + 1);
+}
+
+console.log('\nGummiband – dynamisk tur');
+
+if (Number.isFinite(LUCK_MIN) && Number.isFinite(LUCK_MAX) && LUCK_MIN < 1 && LUCK_MAX > 1) {
+  ok('tur-faktorn kan både sänkas och höjas', `${LUCK_MIN}–${LUCK_MAX}`);
+} else bad('tur-faktorns gränser är fel', `${LUCK_MIN}–${LUCK_MAX}`);
+
+const factorAt = (balance) => luckFactor(balance);
+if (factorAt(0) === LUCK_MAX) ok('tomt konto ger högsta turen', `×${factorAt(0)}`);
+else bad('tomt konto ger inte högsta turen', `×${factorAt(0)}`);
+if (factorAt(START_BALANCE) === 1) ok('startsaldo ger neutral tur', '×1');
+else bad('startsaldo ger inte neutral tur', `×${factorAt(START_BALANCE)}`);
+if (factorAt(START_BALANCE * 4) === LUCK_MIN) ok('stor vinst ger lägsta turen', `×${factorAt(START_BALANCE * 4)}`);
+else bad('stor vinst ger inte lägsta turen', `×${factorAt(START_BALANCE * 4)}`);
+
+const curve = [0, 250, 500, 1250, 2500, 3750, 5000, 10000].map((bal) => factorAt(bal));
+const monotone = curve.every((f, i) => i === 0 || f <= curve[i - 1] + 1e-9);
+if (monotone) ok('turen sjunker när saldot ökar', curve.join(' → '));
+else bad('turen är inte monotont sjunkande', curve.join(' → '));
+
+const apiSrc = read('lib/api.js');
+if (/function luckFactor\(/.test(apiSrc) && /const LUCK_MIN = 0\.7;/.test(apiSrc) && /const LUCK_MAX = 1\.35;/.test(apiSrc)) {
+  ok('servern räknar med samma gummiband (sport)');
+} else bad('servern saknar gummibandet');
+if (/luck: playerLuck\(player, db\.settings\)/.test(apiSrc) && /luckPayout\(bet\.stake, bet\.odds, bet\.luck\)/.test(apiSrc)) {
+  ok('sportspel sparas och betalas ut med turen som låstes vid spelet');
+} else bad('sportspelen använder inte turen');
+
+const luckOff = /if \(conf\.rubberBand === false\) return 1;/.test(apiSrc);
+if (luckOff && /rubberBand !== undefined/.test(apiSrc)) ok('gummibandet kan stängas av i adminpanelen');
+else bad('gummibandet kan inte stängas av');
+
 /* ------------------------------- slots ------------------------------- */
+
 console.log('\nSlots – Star Fortune');
 
 const slotsSrc = read('public/js/slots.js');
@@ -82,14 +142,45 @@ const spin = () => {
   return total;
 };
 
-let slotSum = 0;
 const SLOT_SPINS = 120000;
-for (let i = 0; i < SLOT_SPINS; i += 1) slotSum += spin();
-const slotRtp = (slotSum / SLOT_SPINS) * 100;
-if (slotRtp > 88 && slotRtp < 97) ok('RTP ligger i intervallet', `${slotRtp.toFixed(1)} %`);
-else bad('RTP utanför intervallet 88–97 %', `${slotRtp.toFixed(1)} %`);
+const slotSpins = [];
+let multSum = 0;
+for (let i = 0; i < SLOT_SPINS; i += 1) {
+  const mult = spin();
+  multSum += mult;
+  slotSpins.push(mult);
+}
+
+const RTP_BET = 100; // rimlig insats – undviker avrundningsbrus
+const rtpAt = (factor) => {
+  const sum = slotSpins.reduce(
+    (acc, mult) => acc + (mult > 0 ? luckPayout(RTP_BET, mult, factor) : 0),
+    0
+  );
+  return (sum / (SLOT_SPINS * RTP_BET)) * 100;
+};
+
+const baseRtp = rtpAt(1);
+if (baseRtp > 88 && baseRtp < 97) ok('RTP ligger i intervallet vid neutral tur', `${baseRtp.toFixed(1)} %`);
+else bad('RTP utanför intervallet 88–97 %', `${baseRtp.toFixed(1)} %`);
+
+const happyRtp = rtpAt(LUCK_MAX);
+const sadRtp = rtpAt(LUCK_MIN);
+if (happyRtp > baseRtp && sadRtp < baseRtp) {
+  ok('lågt saldo ger högre RTP, högt saldo lägre', `${sadRtp.toFixed(1)} % → ${happyRtp.toFixed(1)} %`);
+} else bad('gummibandet påverkar inte slots', `${sadRtp.toFixed(1)} / ${baseRtp.toFixed(1)} / ${happyRtp.toFixed(1)}`);
+// Gummibandet ska ge en märkbar men inte absurd skillnad: en spelare med
+// mycket kvar vinner mindre (RTP ~70 %) och en med lite kvar vinner mer (~117 %).
+if (sadRtp > 60 && happyRtp < 130) {
+  ok('RTP stannar inom gummibandets spann', `${sadRtp.toFixed(1)}–${happyRtp.toFixed(1)} %`);
+} else bad('RTP blir orimligt vid någon tur', `${sadRtp.toFixed(1)}–${happyRtp.toFixed(1)} %`);
+
+const lousiestSlotWin = luckPayout(100, minSlotMult, LUCK_MIN);
+if (lousiestSlotWin > 100) ok('sämsta tänkbara vinstrad ger ändå plus', `100 kr → ${lousiestSlotWin} kr`);
+else bad('sämsta vinstraden ger inte plus', `${lousiestSlotWin} kr`);
 
 /* ----------------------------- videopoker ----------------------------- */
+
 console.log('\nVideopoker – Jacks or Better');
 
 const vpSrc = read('public/js/videopoker.js');
@@ -102,48 +193,69 @@ const ordered = pays.every((p, i) => i === 0 || p.mult < pays[i - 1].mult);
 if (ordered) ok('vinsttabellen är sorterad fallande');
 else bad('vinsttabellen är inte sorterad fallande');
 
+const lousiestVpWin = luckPayout(100, minVpMult, LUCK_MIN);
+if (lousiestVpWin > 100) ok('sämsta videopokervinsten ger plus', `100 kr → ${lousiestVpWin} kr`);
+else bad('sämsta videopokervinsten ger inte plus', `${lousiestVpWin} kr`);
+
+if (/luckPayout\(bet, result\.mult \* luck\(\), game\.luckFactor\)/.test(vpSrc)) {
+  ok('videopokern använder gummibandet');
+} else bad('videopokern använder inte gummibandet');
+
 /* ------------------------------ blackjack ------------------------------ */
+
 console.log('\nBlackjack – 3:2 på blackjack');
 
 const bjSrc = read('public/js/blackjack.js');
 const checks = [
-  ['vinst ger insatsen tillbaka + lika mycket till (2×)', /totalWin \+= h\.bet \* 2;/],
-  ['blackjack ger 1,5× i vinst (2,5× tillbaka)', /bet \* \(1 \+ payoutRatio\(\)\)/],
+  ['vinst ger insatsen tillbaka + lika mycket till (2×)', /totalWin \+= luckPayout\(h\.bet, 2, game\.luckFactor\);/],
+  ['blackjack ger 1,5× i vinst (2,5× tillbaka)', /luckPayout\(bet, 1 \+ payoutRatio\(\), game\.luckFactor\)/],
   ['lika ger insatsen tillbaka', /h\.result = 'push';\s*\n\s*totalWin \+= h\.bet;/],
-  ['utbetalningen visas i klienten', /Utbetalning <strong>/]
+  ['utbetalningen visas i klienten', /Utbetalning <strong>/],
+  ['turen låses när given startar', /game\.luckFactor = currentLuck\(\);/]
 ];
 checks.forEach(([label, re]) => (re.test(bjSrc) ? ok(label) : bad(label)));
 
-const settle = (bet, kind) => {
-  const totalBetAmount = bet;
+const settle = (bet, kind, factor = 1) => {
   let payout = 0;
-  if (kind === 'win') payout = bet * 2;
-  else if (kind === 'blackjack') payout = Math.round(bet * (1 + 1.5));
+  if (kind === 'win') payout = luckPayout(bet, 2, factor);
+  else if (kind === 'blackjack') payout = luckPayout(bet, 1 + 1.5, factor);
   else if (kind === 'push') payout = bet;
-  return { payout, net: payout - totalBetAmount };
+  return { payout, net: payout - bet };
 };
 
 [
-  ['vinst', 'win', 250, 500, 250],
-  ['blackjack', 'blackjack', 250, 625, 375],
-  ['lika', 'push', 250, 250, 0],
-  ['förlust', 'lose', 250, 0, -250]
-].forEach(([label, kind, bet, wantPayout, wantNet]) => {
-  const { payout, net } = settle(bet, kind);
+  ['vinst, neutral tur', 'win', 1, 250, 500, 250],
+  ['blackjack, neutral tur', 'blackjack', 1, 250, 625, 375],
+  ['lika, neutral tur', 'push', 1, 250, 250, 0],
+  ['förlust, neutral tur', 'lose', 1, 250, 0, -250],
+  ['vinst, lågt saldo', 'win', LUCK_MAX, 250, 588, 338],
+  ['vinst, högt saldo', 'win', LUCK_MIN, 250, 425, 175],
+  ['blackjack, högt saldo', 'blackjack', LUCK_MIN, 250, 513, 263]
+].forEach(([label, kind, factor, bet, wantPayout, wantNet]) => {
+  const { payout, net } = settle(bet, kind, factor);
   if (payout === wantPayout && net === wantNet) ok(`${label}: insats ${bet} → ${payout} ut, netto ${net}`);
   else bad(`${label}: insats ${bet} → ${payout} ut (ville ${wantPayout}), netto ${net}`);
 });
 
 /* -------------------------------- sport -------------------------------- */
+
 console.log('\nSport – spel till fasta odds');
 
 const sports = require(path.join(root, 'lib/sports.js'));
 const sample = sports.hockeyDemoFeed(Date.now(), 6).find((match) => match.markets.length);
 const odds = sample.markets[0].selections[0].odds;
 const stake = 100;
-const payout = Math.round(stake * odds * 100) / 100;
+const luckPayout2 = (sats, mult, factor = 1) => {
+  const raw = sats + sats * (Math.max(1, mult) - 1) * factor;
+  return Math.max(Math.round(raw * 100) / 100, Math.round(sats * 1.01 * 100) / 100);
+};
+const payout = luckPayout2(stake, odds, 1);
 if (odds > 1 && payout > stake) ok('vinst ger mer än insatsen', `${stake} kr @ ${odds} → ${payout} kr`);
 else bad('oddsen kan ge mindre än insatsen', `${odds}`);
+
+const worstSport = luckPayout2(stake, 1.01, LUCK_MIN);
+if (worstSport > stake) ok('även sämsta oddset ger plus vid lägsta tur', `100 kr @ 1,01 → ${worstSport} kr`);
+else bad('ett sportspel kan ge mindre än insatsen', `${worstSport} kr`);
 
 // Spelbara (inte färdigspelade) matcher ska alltid ha odds på minst 1,01.
 const allLow = [sports.demoFeed(Date.now(), 6), sports.hockeyDemoFeed(Date.now(), 6)]

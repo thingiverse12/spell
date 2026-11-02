@@ -19,7 +19,8 @@ export const DEFAULT_SETTINGS = {
   banner: '',
   sportEnabled: true,
   sportMargin: 6,
-  sportMaxStake: 500
+  sportMaxStake: 500,
+  rubberBand: true
 };
 
 export const state = {

@@ -527,6 +527,13 @@ function renderInstallningar(content, root, data) {
         <div class="toggle ${s.doubleAfterSplit ? 'is-on' : ''}" data-toggle="doubleAfterSplit"></div>
       </div>
       <div class="switch">
+        <div>
+          <div class="switch__label">Gummiband (dynamisk tur)</div>
+          <div class="switch__hint">Lite kvar på kontot → högre tur. Vunnit mycket → lägre tur</div>
+        </div>
+        <div class="toggle ${s.rubberBand !== false ? 'is-on' : ''}" data-toggle="rubberBand"></div>
+      </div>
+      <div class="switch">
         <div><div class="switch__label">Underhållsläge</div><div class="switch__hint">Visar en underhållsnotis i spelhallen</div></div>
         <div class="toggle ${s.maintenance ? 'is-on' : ''}" data-toggle="maintenance"></div>
       </div>
@@ -537,7 +544,8 @@ function renderInstallningar(content, root, data) {
   const state2 = {
     dealerHitsSoft17: s.dealerHitsSoft17,
     doubleAfterSplit: s.doubleAfterSplit,
-    maintenance: s.maintenance
+    maintenance: s.maintenance,
+    rubberBand: s.rubberBand !== false
   };
 
   content.querySelectorAll('[data-toggle]').forEach((el) => {

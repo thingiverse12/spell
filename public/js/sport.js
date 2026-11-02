@@ -3,6 +3,7 @@
    ===================================================================== */
 
 import { registerView, state, api, sfx, toast, kr, num, esc, navigate, updateBalanceUI } from './core.js';
+import { currentLuck, luckPayout2, luckText } from './luck.js';
 
 const SPORT_INFO = {
   football: {
@@ -240,7 +241,8 @@ function renderSlip() {
   }
 
   const stake = Math.max(min, Math.min(max, Math.round(Number(sport.stake) || min)));
-  const potential = Math.round(stake * sel.odds * 100) / 100;
+  const factor = currentLuck();
+  const potential = luckPayout2(stake, sel.odds, factor);
   box.innerHTML = `
     <div class="slip">
       <div class="slip__title">Spelkvitto</div>
@@ -270,6 +272,7 @@ function renderSlip() {
 
       <div class="slip__row"><span>Utbetalning vid vinst</span><strong class="slip__win">${kr(potential)}</strong></div>
       <div class="slip__row slip__row--muted"><span>Netto vid vinst</span><span>+${kr(Math.round((potential - stake) * 100) / 100)}</span></div>
+      <div class="slip__row slip__row--muted"><span>Tur</span><span>${luckText(factor)} · ${factor >= 1.03 ? 'lite kvar' : factor <= 0.97 ? 'vunnit mycket' : 'jämnt läge'}</span></div>
       <div class="slip__row slip__row--muted"><span>Saldo efter spel</span><span>${kr(Math.max(0, balance - stake))}</span></div>
 
       <button class="btn btn--primary slip__place" id="sport-place" ${sport.busy ? 'disabled' : ''}>
@@ -317,7 +320,11 @@ async function placeBet(stake) {
       sport: sel.sport || sport.sport
     });
     sfx.win();
-    toast(`Spel lagt: ${kr(stake)} på ${sel.selectionLabel} @ ${data.bet.odds.toFixed(2).replace('.', ',')}`, 'gold', 3200);
+    toast(
+      `Spel lagt: ${kr(stake)} på ${sel.selectionLabel} @ ${data.bet.odds.toFixed(2).replace('.', ',')} · ${kr(data.bet.potential)} vid vinst`,
+      'gold',
+      3200
+    );
     updateBalanceUI();
     sport.selection = null;
     sport.busy = false;

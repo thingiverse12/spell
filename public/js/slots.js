@@ -3,6 +3,7 @@
    ===================================================================== */
 
 import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI } from './core.js';
+import { currentLuck, luckPayout, luckPill } from './luck.js';
 
 const SYMBOLS = {
   wild: { glyph: '★', cls: 'sym--star', weight: 2, name: 'Stjärna (joker)' },
@@ -80,7 +81,7 @@ function luck() {
   return Math.min(1.5, Math.max(0.5, l));
 }
 
-export function evaluate(grid, bet) {
+export function evaluate(grid, bet, factor = 1) {
   const lines = [];
   let total = 0;
 
@@ -99,7 +100,7 @@ export function evaluate(grid, bet) {
     if (count < 3) return;
     const mult = PAYTABLE[base]?.[count];
     if (!mult) return;
-    const win = Math.round(mult * bet * luck());
+    const win = luckPayout(bet, mult * luck(), factor);
     if (win <= 0) return;
     total += win;
     lines.push({
@@ -146,6 +147,7 @@ function renderMachine(root) {
       <div class="slot-machine">
         <div class="slot-title">Star Fortune</div>
         <div class="slot-sub">20 vinstlinjer · jokern ersätter alla symboler</div>
+        <div class="luck-row" id="sl-luck">${luckPill(currentLuck())}</div>
 
         <div class="reels" id="reels"></div>
         <div class="win-lines" id="win-lines"></div>
@@ -281,6 +283,7 @@ async function spin(root) {
     return;
   }
 
+  const factor = currentLuck();
   game.spinning = true;
   const spinBtn = root.querySelector('#sl-spin');
   spinBtn.disabled = true;
@@ -325,7 +328,7 @@ async function spin(root) {
   await sleep(longest);
 
   game.grid = finalGrid;
-  const result = evaluate(finalGrid, bet);
+  const result = evaluate(finalGrid, bet, factor);
   game.lastWin = result.total;
   game.winLines = result.lines;
 
@@ -353,6 +356,9 @@ async function spin(root) {
   } else {
     sfx.lose();
   }
+
+  const luckEl = root.querySelector('#sl-luck');
+  if (luckEl) luckEl.innerHTML = luckPill(currentLuck());
 
   const balanceEl = root.querySelector('.mini-pill strong');
   if (balanceEl) balanceEl.textContent = kr(state.player?.balance ?? 0);
