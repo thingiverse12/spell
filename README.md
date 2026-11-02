@@ -124,6 +124,18 @@ Ordningen går att låsa i adminpanelen (**Fotboll → Datakälla**), annars tes
 ordning. Svarar ingen visas demoligan, så vyn fungerar alltid. Svaret innehåller fältet `tried`
 som visar vilka källor som provats och varför de inte gav några matcher.
 
+### Låtsasreklam
+
+Sajten har en påhittad annonsplats: en fejkannons glider in nere till vänster några sekunder
+efter att sidan laddats (tre varianter – Snabbspin Casino, Kryptokungen och AI-Plugg Pro).
+Klickar man på den öppnas en egen annonssida på `#/reklam` med nedräkning, påhittade omdömen och
+en knapp som delar ut den vanliga bonusen med spelmynt. Annonsen går att stänga (då vilar den i
+45 minuter), försvinner av sig själv efter 22 sekunder och visas aldrig på annonssidan eller i
+adminpanelen. Sidan säger rakt ut att reklamen är fejk – det finns ingen annonsör och inga pengar.
+
+Koden ligger i `public/js/reklam.js` (vy, banner och annonstexter) och i slutet av
+`public/css/casino.css` (stilen).
+
 Oddsen räknas fram av huset med en Poisson-modell utifrån ställning och återstående tid,
 plus en marginal som admin ställer in (standard 6 %).
 

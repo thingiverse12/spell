@@ -862,3 +862,204 @@
   .sport-bets { max-height: none; }
   .match-market__label { min-width: 100%; }
 }
+
+/* =====================================================================
+   Låtsasreklam – popup-annons och annonssida
+   ===================================================================== */
+
+.ad-pop {
+  position: fixed; left: 18px; bottom: 18px; z-index: 80;
+  width: min(340px, calc(100vw - 28px));
+  border-radius: 20px; overflow: hidden;
+  color: #f8fafc; text-align: left; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.18);
+  background: linear-gradient(160deg, #1b1140, #2a0f4d 45%, #0d1a13);
+  box-shadow: 0 26px 60px -22px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.05);
+  transform: translateY(160%) rotate(-2deg); opacity: 0;
+  transition: transform .38s cubic-bezier(.2,.8,.2,1), opacity .3s ease;
+  font-family: inherit;
+}
+.ad-pop.is-in { transform: translateY(0) rotate(0); opacity: 1; }
+.ad-pop.is-closing { transform: translateY(140%) scale(.96); opacity: 0; }
+.ad-pop--gold { background: linear-gradient(160deg, #3a2a06, #6b4b07 45%, #201603); }
+.ad-pop--blue { background: linear-gradient(160deg, #06203a, #0b3b6b 45%, #04101d); }
+
+.ad-pop__grain {
+  position: absolute; inset: 0; pointer-events: none; opacity: .5;
+  background-image: radial-gradient(circle at 20% 15%, rgba(255,255,255,.16), transparent 42%),
+    radial-gradient(circle at 85% 0%, rgba(120,255,214,.18), transparent 45%);
+}
+.ad-pop__top {
+  position: relative; display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px 0 14px;
+}
+.ad-pop__tag {
+  font-size: 9.5px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 6px;
+  background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.22);
+}
+.ad-pop__fake {
+  font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: rgba(255,255,255,.55); font-weight: 700;
+}
+.ad-pop__close {
+  margin-left: auto; width: 24px; height: 24px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.22); background: rgba(0,0,0,.28);
+  color: #fff; font-size: 12px; line-height: 1; cursor: pointer;
+}
+.ad-pop__close:hover { background: rgba(0,0,0,.5); }
+.ad-pop__body {
+  position: relative; display: grid; gap: 4px; width: 100%;
+  padding: 8px 16px 16px; background: none; border: 0; color: inherit;
+  font-family: inherit; text-align: left; cursor: pointer;
+}
+.ad-pop__emoji { font-size: 34px; line-height: 1; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+.ad-pop__brand { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; font-weight: 800; color: #ffd166; }
+.ad-pop__brand em { font-style: normal; opacity: .65; font-weight: 600; letter-spacing: .1em; }
+.ad-pop__claim {
+  font-size: 21px; font-weight: 900; line-height: 1.08; letter-spacing: -.02em;
+  background: linear-gradient(92deg, #fff, #b6ffe4 55%, #ffe08a);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.ad-pop__teaser { font-size: 12.5px; line-height: 1.4; color: rgba(255,255,255,.76); }
+.ad-pop__cta {
+  margin-top: 8px; display: inline-flex; align-items: center; gap: 6px;
+  padding: 9px 14px; border-radius: 999px; font-size: 13px; font-weight: 800;
+  color: #08130c; background: linear-gradient(96deg, #7CFFCB, #ffe08a);
+  box-shadow: 0 10px 24px -12px rgba(124,255,203,.9);
+  animation: ad-pulse 2.4s ease-in-out infinite;
+}
+.ad-pop__dots { display: flex; gap: 4px; margin-top: 10px; }
+.ad-pop__dots i { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,.35); }
+.ad-pop__dots i:first-child { background: #7CFFCB; }
+@keyframes ad-pulse {
+  0%, 100% { transform: translateY(0); box-shadow: 0 10px 24px -12px rgba(124,255,203,.85); }
+  50% { transform: translateY(-2px); box-shadow: 0 16px 30px -12px rgba(124,255,203,1); }
+}
+
+/* ---------- Annonssidan ---------- */
+
+.ad-page {
+  position: relative; min-height: 78vh; padding: 22px 0 46px;
+  color: #f8fafc; overflow: hidden;
+  background: radial-gradient(1100px 520px at 15% -10%, rgba(124,255,203,.16), transparent 60%),
+    radial-gradient(900px 480px at 95% 0%, rgba(255,224,138,.16), transparent 62%),
+    linear-gradient(170deg, #0b1020, #170f2e 52%, #08131a);
+}
+.ad-page--gold {
+  background: radial-gradient(1000px 520px at 12% -10%, rgba(255,208,102,.2), transparent 60%),
+    radial-gradient(900px 480px at 92% 4%, rgba(255,120,60,.16), transparent 60%),
+    linear-gradient(170deg, #1b1204, #2c1e05 52%, #120c02);
+}
+.ad-page--blue {
+  background: radial-gradient(1000px 520px at 12% -10%, rgba(110,190,255,.2), transparent 60%),
+    radial-gradient(900px 480px at 92% 4%, rgba(140,120,255,.18), transparent 60%),
+    linear-gradient(170deg, #05101d, #0a1c33 52%, #03080f);
+}
+.ad-page__glow {
+  position: absolute; inset: -20% -10% auto; height: 460px; pointer-events: none;
+  background: conic-gradient(from 140deg, rgba(124,255,203,.18), rgba(255,224,138,.16), rgba(160,120,255,.2), rgba(124,255,203,.18));
+  filter: blur(70px); opacity: .7;
+}
+.ad-page__wrap { position: relative; }
+.ad-page__bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding-bottom: 16px;
+}
+.ad-page__bar .ad-pop__tag { background: rgba(255,255,255,.12); }
+.ad-page__viewers {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 7px;
+  font-size: 11.5px; color: rgba(255,255,255,.7); font-weight: 700; letter-spacing: .04em;
+}
+.ad-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff5a7a; box-shadow: 0 0 0 4px rgba(255,90,122,.18); animation: ad-blink 1.6s infinite; }
+@keyframes ad-blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+.ad-hero {
+  display: grid; grid-template-columns: 1.35fr .65fr; gap: 26px; align-items: center;
+  padding: 26px; border-radius: 26px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: linear-gradient(150deg, rgba(255,255,255,.09), rgba(255,255,255,.02));
+  box-shadow: 0 40px 90px -50px rgba(0,0,0,.9);
+}
+.ad-hero__badge {
+  display: inline-block; font-size: 10.5px; font-weight: 900; letter-spacing: .16em;
+  text-transform: uppercase; padding: 5px 11px; border-radius: 999px;
+  background: rgba(255,90,122,.18); color: #ffb3c2; border: 1px solid rgba(255,90,122,.35);
+}
+.ad-hero__brand {
+  margin-top: 14px; font-size: 13px; font-weight: 900; letter-spacing: .22em;
+  text-transform: uppercase; color: #ffd166;
+}
+.ad-hero__brand em { font-style: normal; opacity: .6; }
+.ad-hero__claim {
+  margin: 8px 0 10px; font-size: clamp(30px, 4.6vw, 54px); line-height: 1.02; letter-spacing: -.03em;
+  font-weight: 900;
+  background: linear-gradient(96deg, #ffffff, #b6ffe4 52%, #ffe08a);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.ad-hero__teaser { font-size: 15px; line-height: 1.55; color: rgba(255,255,255,.78); max-width: 46ch; }
+.ad-hero__actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+.ad-hero__cta { font-size: 15px; padding: 13px 22px; font-weight: 900; }
+.ad-hero__cta.is-done { background: linear-gradient(96deg, #4ade80, #22c55e); color: #04140a; }
+.ad-hero__note { margin-top: 14px; font-size: 11.5px; line-height: 1.5; color: rgba(255,255,255,.5); }
+.ad-page .btn--ghost { border-color: rgba(255,255,255,.24); color: #fff; background: rgba(255,255,255,.05); }
+.ad-page .btn--ghost:hover { background: rgba(255,255,255,.12); }
+
+.ad-hero__right { display: grid; gap: 14px; justify-items: center; }
+.ad-timer {
+  width: 100%; text-align: center; padding: 16px; border-radius: 18px;
+  border: 1px dashed rgba(255,255,255,.24); background: rgba(0,0,0,.28);
+}
+.ad-timer__label { display: block; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.6); font-weight: 800; }
+.ad-timer__clock {
+  display: block; margin: 6px 0 4px; font-size: 44px; font-weight: 900; letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums; color: #7CFFCB;
+  text-shadow: 0 0 26px rgba(124,255,203,.55);
+}
+.ad-timer__clock.is-out { color: #ff8a9f; text-shadow: 0 0 26px rgba(255,90,122,.5); }
+.ad-timer__sub { font-size: 10.5px; color: rgba(255,255,255,.45); line-height: 1.4; }
+.ad-stamp {
+  display: grid; place-items: center; width: 104px; height: 104px; border-radius: 50%;
+  border: 2px dashed rgba(255,255,255,.3); color: #ffe08a; font-size: 13px; font-weight: 900;
+  letter-spacing: .04em; text-align: center; line-height: 1.1; transform: rotate(-8deg);
+  background: rgba(255,255,255,.04);
+}
+.ad-stamp span { display: block; font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.6); }
+
+.ad-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 22px; }
+.ad-step {
+  padding: 18px; border-radius: 18px; border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.045);
+}
+.ad-step__n {
+  display: grid; place-items: center; width: 26px; height: 26px; border-radius: 9px;
+  font-size: 12px; font-weight: 900; color: #08130c; background: linear-gradient(96deg, #7CFFCB, #ffe08a);
+}
+.ad-step h3 { margin: 10px 0 4px; font-size: 15px; }
+.ad-step p { margin: 0; font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,.68); }
+
+.ad-reviews { margin-top: 26px; }
+.ad-reviews h2 { font-size: 18px; margin-bottom: 12px; color: rgba(255,255,255,.92); }
+.ad-reviews__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.ad-review {
+  margin: 0; padding: 16px; border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05);
+}
+.ad-review__stars { color: #ffd166; font-size: 13px; letter-spacing: 2px; }
+.ad-review blockquote { margin: 8px 0 10px; font-size: 13px; line-height: 1.5; color: rgba(255,255,255,.86); }
+.ad-review figcaption { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.5); font-weight: 800; }
+
+.ad-honest {
+  margin-top: 26px; padding: 22px; border-radius: 20px;
+  border: 1px solid rgba(124,255,203,.28); background: rgba(124,255,203,.07);
+}
+.ad-honest h2 { margin: 0 0 8px; font-size: 16px; color: #b6ffe4; }
+.ad-honest p { margin: 0; font-size: 13.5px; line-height: 1.6; color: rgba(255,255,255,.82); max-width: 70ch; }
+.ad-honest__actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+@media (max-width: 900px) {
+  .ad-hero { grid-template-columns: 1fr; }
+  .ad-hero__right { grid-template-columns: 1fr auto; align-items: center; }
+  .ad-steps, .ad-reviews__grid { grid-template-columns: 1fr; }
+  .ad-pop { left: 12px; right: 12px; bottom: 12px; width: auto; }
+}

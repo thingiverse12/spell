@@ -822,6 +822,7 @@ const ROUTES = {
   konto: 'konto',
   lararpanel: 'lararpanel',
   kasino: 'casino',
+  reklam: 'reklam',
   admin: 'admin'
 };
 

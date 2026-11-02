@@ -15,6 +15,7 @@ import './slots.js';
 import './videopoker.js';
 import './sport.js';
 import './admin.js';
+import { initReklam } from './reklam.js';
 
 const app = document.getElementById('app');
 
@@ -205,6 +206,7 @@ async function boot() {
   state.broadcast = state.settings.banner || '';
   renderTopbar();
   renderRoute();
+  initReklam();
 
   // Uppdatera saldo med jämna mellanrum om fliken ligger öppen
   setInterval(async () => {
