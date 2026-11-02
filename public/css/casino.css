@@ -1054,5 +1054,5 @@
   .ad-hero { grid-template-columns: 1fr; }
   .ad-hero__right { grid-template-columns: 1fr auto; align-items: center; }
   .ad-steps, .ad-reviews__grid { grid-template-columns: 1fr; }
-  .ad-pop { left: 12px; right: 12px; bottom: 12px; width: auto; }
+  .ad-pop { left: 10px; right: auto; bottom: 10px; width: min(232px, calc(100vw - 20px)); }
 }
