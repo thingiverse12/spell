@@ -5,7 +5,7 @@
 import {
   state, hooks, storage, renderRoute, navigate, ensureSession, api, unlockCasino,
   sfx, toast, kr, esc, openModal, updateBalanceUI, avatarLetter, toggleMute, watchSettings,
-  startScreenTime
+  startScreenTime, isPaused, pauseText
 } from './core.js';
 
 import './learn.js';
@@ -105,6 +105,9 @@ function renderTopbar() {
     <div class="topbar__spacer"></div>
 
     <div class="topbar__right">
+      ${casino && isPaused(state.player)
+        ? `<span class="chip chip--amber" title="Spelandet är avstängt under pausen">⏸ Pausad ${esc(pauseText(state.player))}</span>`
+        : ''}
       <div class="balance" title="Spelmynt">
         <span class="balance__icon">${casino ? '◈' : '★'}</span>
         <div>

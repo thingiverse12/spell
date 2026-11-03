@@ -118,6 +118,26 @@ Plugget och spelhallen har var sin logg – de blandas aldrig.
   filtreras på insatser, vinster och bonus/övrigt.
 - Båda loggarna kräver ett eget konto, precis som resten av appen.
 
+### ⏸ Pausa spelare
+I adminpanelen, fliken **Spelare**, har varje spelare knappen **Pausa**. Pausen stänger
+av spelandet men inte plugget:
+
+- **5 min**, **15 min**, **1 timme** eller **Tills vidare** – välj i dialogen.
+- En tidsatt paus släpps av sig själv när tiden är slut. **Tills vidare** ligger kvar
+  tills du klickar **Släpp paus** i listan.
+- Under pausen nekas insatser i spelhallen och i Live Sport av servern
+  (`403` med `paused: true`). Pågående vinster betalas ändå ut, och bonus, plugg och
+  kontot fungerar som vanligt.
+- Spelaren ser en gul banner i spelhallen med nedräkning, ett **⏸ Pausad**-märke i
+  toppmenyn, låsta spelplattor och en tydlig rad i sin egen logg
+  (**⏸ Pausad av personalen** / **▶ Pausen släppt**).
+- Admin ser statusen i spelarlistan (**⏸ Pausad · 12 min**) och hur många som är
+  pausade just nu.
+
+Pausen sparas på spelaren (`paused`, `pausedUntil`) och styrs via
+`POST /api/admin/player` med `action: "pause"` och `value` = minuter (`0` = släpp,
+`-1` = tills vidare). Selftestet provar pausa, neka spel, plugga vidare och släppa.
+
 ### 💸 Egna insatser
 Alla tre spelen har ett fält för **egen insats** (utöver marker och snabbknappar):
 

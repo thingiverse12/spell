@@ -628,6 +628,60 @@ const apiSrcAccount = read('lib/api.js');
   ['selftestet provar att en gäst nekas spela', /gäst utan konto nekas spela/.test(apiSrcAccount)]
 ].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'saknas i källkoden')));
 
+console.log('\nPausa spelare');
+
+const adminSrcPause = read('public/js/admin.js');
+const casinoSrcPause = read('public/js/casino.js');
+const coreSrcPause = read('public/js/core.js');
+const apiSrcPause = read('lib/api.js');
+[
+  [
+    'pausen ligger på spelaren och har en sluttid',
+    /player\.paused = true;/.test(apiSrcPause) &&
+      /player\.pausedUntil =/.test(apiSrcPause) &&
+      /function pauseLeft\(player\)/.test(apiSrcPause)
+  ],
+  [
+    'pausad spelare nekas både spel och sportspel',
+    (apiSrcPause.match(/if \(isPaused\(player\)\) return json\(res, 403, pausedBody\(player\)\);/g) || []).length >= 2 &&
+      /paused: true,/.test(apiSrcPause)
+  ],
+  [
+    'pausen släpps av sig själv när tiden är slut',
+    /return left > 0 \? left : 0;/.test(apiSrcPause) && /export function pauseLeft/.test(coreSrcPause)
+  ],
+  [
+    'admin kan pausa 5 min, 15 min, 1 timme eller tills vidare',
+    /playerAction\(player\.id, 'pause', minutes\)/.test(adminSrcPause) &&
+      /'5 min'/.test(adminSrcPause) &&
+      /'15 min'/.test(adminSrcPause) &&
+      /'1 timme'/.test(adminSrcPause) &&
+      /'Tills vidare'/.test(adminSrcPause) &&
+      /data-pause=/.test(adminSrcPause)
+  ],
+  [
+    'spelaren ser pausen i lobbyn och i menyn',
+    /is-paused/.test(casinoSrcPause) &&
+      /id="casino-pause"/.test(casinoSrcPause) &&
+      /Du är pausad/.test(casinoSrcPause) &&
+      /Pausad \$\{esc\(pauseText/.test(mainSrc)
+  ],
+  [
+    'pausen syns i spelarens logg',
+    /Pausad av personalen/.test(historySrcPause()) && /Pausen släppt/.test(historySrcPause())
+  ],
+  [
+    'selftestet provar pausen',
+    /admin pausar spelaren/.test(apiSrcPause) &&
+      /pausad spelare nekas spela men kan plugga/.test(apiSrcPause) &&
+      /släppt paus spelar igen/.test(apiSrcPause)
+  ]
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'pausen')));
+
+function historySrcPause() {
+  return read('public/js/history.js');
+}
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

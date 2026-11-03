@@ -5,7 +5,7 @@
 
 import {
   registerView, state, api, sfx, toast, kr, num, esc, navigate, openModal, confirmModal, storage, localAdmin, sleep,
-  updateBalanceUI
+  updateBalanceUI, isPaused, pauseText
 } from './core.js';
 import { renderEkonomi } from './economy.js';
 import { clampLuckSetting, LUCK_SETTING_MIN, LUCK_SETTING_MAX } from './luck.js';
@@ -67,6 +67,14 @@ const GAME_LABELS = {
 };
 
 const gameLabel = (key) => GAME_LABELS[key] || key;
+
+/** Litet märke i spelarlistan när någon är pausad. */
+function pauseChip(p) {
+  if (!isPaused(p)) return '';
+  const left = pauseText(p);
+  const label = left ? 'Pausad · ' + left : 'Pausad · tills vidare';
+  return ` <span class="chip chip--amber" title="Spelaren kan plugga men inte spela">⏸ ${esc(label)}</span>`;
+}
 
 const TABS = [
   { key: 'oversikt', label: 'Översikt' },
@@ -674,9 +682,10 @@ function renderSpelare(content, root, data) {
               <td class="num" style="color:${(p.won - p.wagered) >= 0 ? '#6ff0b8' : '#ff8a9b'}">${(p.won - p.wagered) >= 0 ? '+' : ''}${kr(p.won - p.wagered)}</td>
               <td class="num">${p.rounds}</td>
               <td class="tiny muted">${timeText(p.lastSeen)}</td>
-              <td>${p.banned ? '<span class="chip" style="background:rgba(220,47,72,.18);color:#ff8a9b">Avstängd</span>' : p.isGuest ? '<span class="chip">Gäst</span>' : '<span class="chip chip--mint">Konto</span>'}</td>
+              <td>${p.banned ? '<span class="chip" style="background:rgba(220,47,72,.18);color:#ff8a9b">Avstängd</span>' : p.isGuest ? '<span class="chip">Gäst</span>' : '<span class="chip chip--mint">Konto</span>'}${pauseChip(p)}</td>
               <td style="white-space:nowrap">
                 <button class="btn btn--sm btn--ghost" data-balance="${p.id}">Saldo</button>
+                <button class="btn btn--sm btn--ghost" data-pause="${p.id}">${isPaused(p) ? 'Släpp paus' : 'Pausa'}</button>
                 <button class="btn btn--sm btn--ghost" data-ban="${p.id}">${p.banned ? 'Släpp' : 'Stäng'}</button>
                 <button class="btn btn--sm btn--ghost" data-reset="${p.id}">Noll</button>
               </td>
@@ -689,7 +698,8 @@ function renderSpelare(content, root, data) {
       I dag: <strong>${tidText((data.totals || {}).screenToday)}</strong> ·
       sju dagar: <strong>${tidText((data.totals || {}).screen7d)}</strong> ·
       totalt: <strong>${tidText((data.totals || {}).screenTime)}</strong>.
-      Spelare skapas automatiskt när någon öppnar appen. Saldon är spelmynt utan värde.</p>`;
+      Spelare skapas automatiskt när någon öppnar appen. Saldon är spelmynt utan värde.
+      ${data.players.filter(isPaused).length ? `<br /><strong>${data.players.filter(isPaused).length}</strong> spelare är pausade just nu – de kan plugga men inte spela.` : ''}</p>`;
 
   content.querySelectorAll('[data-balance]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -766,6 +776,54 @@ function renderSpelare(content, root, data) {
             }
           },
           { label: 'Stäng', kind: 'primary' }
+        ]
+      });
+    });
+  });
+
+  content.querySelectorAll('[data-pause]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const player = data.players.find((p) => p.id === btn.dataset.pause);
+      if (!player) return;
+      const apply = async (minutes, label, close) => {
+        try {
+          await playerAction(player.id, 'pause', minutes);
+          close();
+          toast(
+            minutes === 0
+              ? player.name + ' får spela igen'
+              : player.name + ' är pausad ' + label,
+            'ok'
+          );
+          renderAdmin(root);
+        } catch (err) {
+          toast(err.message, 'bad');
+        }
+      };
+
+      if (isPaused(player)) {
+        openModal({
+          title: 'Släpp pausen',
+          sub: `${esc(player.name)} är pausad ${esc(pauseText(player))}.`,
+          body: '<p class="small muted">Spelaren kan plugga direkt igen och spela så fort pausen är släppt.</p>',
+          actions: [
+            { label: 'Avbryt' },
+            { label: 'Släpp pausen', kind: 'primary', onClick: (close) => apply(0, '', close) }
+          ]
+        });
+        return;
+      }
+
+      openModal({
+        title: 'Pausa spelare',
+        sub: `${esc(player.name)} kan plugga men inte spela under pausen.`,
+        body: `<p class="small muted">Pausen släpps av sig själv när tiden är slut, eller direkt när du klickar <strong>Släpp paus</strong> i listan.</p>`,
+        actions: [
+          { label: 'Avbryt' },
+          { label: '5 min', kind: 'primary', onClick: (close) => apply(5, '5 min', close) },
+          { label: '15 min', kind: 'primary', onClick: (close) => apply(15, '15 min', close) },
+          { label: '1 timme', kind: 'primary', onClick: (close) => apply(60, '1 timme', close) },
+          { label: 'Tills vidare', kind: 'danger', onClick: (close) => apply(-1, 'tills vidare', close) }
         ]
       });
     });

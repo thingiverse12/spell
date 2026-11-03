@@ -2,7 +2,7 @@
    Spelhallen – lobby och navigation.
    ===================================================================== */
 
-import { registerView, state, api, sfx, toast, kr, esc, navigate, openModal, updateBalanceUI } from './core.js';
+import { registerView, state, api, sfx, toast, kr, esc, navigate, openModal, updateBalanceUI, isPaused, pauseText } from './core.js';
 import { openAdminCode } from './admin.js';
 
 const GAMES = [
@@ -21,6 +21,9 @@ function renderCasino(root) {
   const lastBonus = Number(p.lastBonus) || 0;
   const readyIn = Math.max(0, lastBonus + 6 * 60 * 60 * 1000 - Date.now());
   const canClaim = readyIn <= 0;
+  const paused = isPaused(p);
+  const pauseLeftText = paused ? pauseText(p) : '';
+  const pauseLabel = pauseLeftText ? 'i ' + pauseLeftText : 'tills vidare';
 
   root.innerHTML = `
     <div class="wrap">
@@ -41,12 +44,14 @@ function renderCasino(root) {
 
       ${state.settings.maintenance ? `<div class="banner-strip" style="margin:14px 0 0"><span>🔧</span><span>Spelhallen är i underhållsläge – spel kan stängas av tillfälligt.</span></div>` : ''}
 
+      ${paused ? `<div class="banner-strip banner-strip--pause" id="casino-pause" style="margin:14px 0 0"><span>⏸</span><span data-pause-text>Du är pausad ${esc(pauseLabel)} – spelandet är avstängt. Plugget funkar som vanligt.</span></div>` : ''}
+
       <div class="disclaimer">
         <span>🔒</span>
         <div><strong>Endast spelmynt.</strong> Allt här inne är påhittat – du kan inte sätta in eller ta ut riktiga pengar. Saldot fylls på genom att plugga och genom bonusar.</div>
       </div>
 
-      <div class="game-grid">
+      <div class="game-grid${paused ? ' is-paused' : ''}">
         ${GAMES.filter((g) => g.key !== 'sport' || state.settings.sportEnabled !== false).map(
           (g) => `<button class="game-tile tile--${g.tile}" data-game="${g.key}">
             <span class="game-tile__badge">${g.badge}</span>
@@ -89,9 +94,33 @@ function renderCasino(root) {
   root.querySelectorAll('[data-game]').forEach((el) => {
     el.addEventListener('click', () => {
       sfx.click();
+      // Pausen stänger spelen men inte loggen.
+      if (paused && el.dataset.game !== 'historik') {
+        toast(`Du är pausad ${pauseLabel} – plugga så länge`, 'bad');
+        return;
+      }
       navigate('/kasino/' + el.dataset.game);
     });
   });
+
+  /* Bannertexten räknas ned utan att hela lobbyn ritas om. */
+  const pauseBanner = root.querySelector('#casino-pause');
+  if (pauseBanner) {
+    const tick = setInterval(() => {
+      if (!document.body.contains(pauseBanner)) {
+        clearInterval(tick);
+        return;
+      }
+      const left = pauseText(state.player);
+      if (!left) {
+        clearInterval(tick);
+        renderCasino(root);
+        return;
+      }
+      const text = pauseBanner.querySelector('[data-pause-text]');
+      if (text) text.textContent = 'Du är pausad i ' + left + ' – spelandet är avstängt. Plugget funkar som vanligt.';
+    }, 20000);
+  }
 
   root.querySelector('#casino-back').addEventListener('click', () => navigate('/'));
   root.querySelector('#casino-study').addEventListener('click', () => navigate('/'));

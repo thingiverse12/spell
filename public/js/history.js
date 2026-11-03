@@ -65,6 +65,8 @@ function entryLabel(entry) {
   if (kind === 'vinst') return game + ' – vinst';
   if (kind === 'bonus') return 'Bonus';
   if (kind === 'utbetalning') return 'Utbetalning';
+  if (kind === 'admin' && entry.game === 'pausad') return '⏸ Pausad av personalen';
+  if (kind === 'admin' && entry.game === 'paus släppt') return '▶ Pausen släppt';
   if (kind === 'admin' || kind === 'saldo ändrat') return 'Admin – ' + (entry.game || 'saldo');
   if (kind === 'aterbetalning') return game + ' – återbetalning';
   if (kind === 'avstängd') return 'Kontot avstängt';

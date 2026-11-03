@@ -52,6 +52,32 @@ const K = {
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
+/* -------- Paus: spelaren kan plugga men inte spela -------- */
+
+/** Kvar av pausen i ms. 0 = inte pausad, -1 = pausad tills vidare. */
+export function pauseLeft(player = state.player) {
+  if (!player || !player.paused) return 0;
+  if (!player.pausedUntil) return -1;
+  const left = Number(player.pausedUntil) - Date.now();
+  return left > 0 ? left : 0;
+}
+
+export function isPaused(player = state.player) {
+  return pauseLeft(player) !== 0;
+}
+
+/** "12 min", "1 tim 5 min" eller "tills vidare". */
+export function pauseText(player = state.player) {
+  const left = pauseLeft(player);
+  if (left === -1) return 'tills vidare';
+  if (left <= 0) return '';
+  const mins = Math.max(1, Math.ceil(left / 60000));
+  if (mins < 60) return mins + ' min';
+  const h = Math.floor(mins / 60);
+  const rest = mins % 60;
+  return rest ? h + ' tim ' + rest + ' min' : h + ' tim';
+}
+
 export function esc(value) {
   return String(value == null ? '' : value)
     .replace(/&/g, '&amp;')
@@ -344,6 +370,8 @@ function localPlayer() {
       lastSeen: Date.now(),
       hasPin: false,
       banned: false,
+      paused: false,
+      pausedUntil: 0,
       lastBonus: 0,
       screenTime: 0,
       screenDays: {},
@@ -602,6 +630,12 @@ export const api = {
     } catch (err) {
       if (!localFail(err)) throw err;
       const p = localPlayer();
+      if (p.paused && (!p.pausedUntil || Number(p.pausedUntil) > Date.now())) {
+        const blocked = new Error('Du är pausad – plugget funkar som vanligt.');
+        blocked.status = 403;
+        blocked.paused = true;
+        throw blocked;
+      }
       p.balance -= amount;
       p.wagered = (p.wagered || 0) + amount;
       p.rounds = (p.rounds || 0) + 1;
@@ -895,6 +929,19 @@ export const localAdmin = {
     if (action === 'setBalance') p.balance = Math.max(0, Math.min(1e9, Math.round(Number(value) || 0)));
     else if (action === 'add') p.balance = Math.max(0, p.balance + Math.round(Number(value) || 0));
     else if (action === 'ban') p.banned = !!value;
+    else if (action === 'pause') {
+      const minutes = Math.round(Number(value));
+      if (minutes === 0) {
+        p.paused = false;
+        p.pausedUntil = 0;
+      } else if (Number.isFinite(minutes) && minutes > 0) {
+        p.paused = true;
+        p.pausedUntil = Date.now() + minutes * 60000;
+      } else if (minutes === -1) {
+        p.paused = true;
+        p.pausedUntil = 0;
+      }
+    }
     else if (action === 'resetScreen') {
       p.screenTime = 0;
       p.screenDays = {};

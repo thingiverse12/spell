@@ -36,6 +36,19 @@
 
 .game-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 18px; }
 
+/* Pausad spelare: spelen är låsta, loggen går fortfarande att öppna. */
+.game-grid.is-paused .game-tile:not([data-game="historik"]) {
+  opacity: .5;
+  filter: grayscale(.35);
+  cursor: not-allowed;
+}
+.game-grid.is-paused .game-tile:not([data-game="historik"]):hover { transform: none; }
+
+.banner-strip--pause {
+  background: color-mix(in srgb, var(--amber) 16%, transparent);
+  border-color: color-mix(in srgb, var(--amber) 35%, transparent);
+}
+
 .game-tile {
   position: relative;
   overflow: hidden;
