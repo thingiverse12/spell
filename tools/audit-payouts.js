@@ -363,6 +363,19 @@ const adminSrc2 = read('public/js/admin.js');
   ['fliken Ekonomi finns i adminpanelen', /key: 'ekonomi'/.test(adminSrc2) && /renderEkonomi\(content, root, data\)/.test(adminSrc2)]
 ].forEach(([label, ok2]) => (ok2 ? ok(label) : bad(label)));
 
+console.log('\nSäker skrivning (samtidiga spelare)');
+
+const apiSrc4 = read('lib/api.js');
+const storeSrc = read('lib/store.js');
+[
+  ['lagret skriver aldrig tillbaka en gammal kopia', /err\.conflict = true/.test(storeSrc) && !/for \(let attempt = 0; attempt < 4/.test(storeSrc)],
+  ['API:t kör om förfrågan vid skrivkonflikt', /MAX_ATTEMPTS/.test(apiSrc4) && /err\.conflict && attempt < MAX_ATTEMPTS/.test(apiSrc4)],
+  ['förfrågningarna körs en i taget i samma instans', /let queue = Promise\.resolve\(\)/.test(apiSrc4)],
+  ['begäran-kroppen kan läsas om vid omförsök', /__parsedBody/.test(apiSrc4)],
+  ['osparad ändring ger 503 i stället för falskt ok', /retry: true/.test(apiSrc4)],
+  ['klienten gör om anropet vid 503', /err\.retry = true/.test(read('public/js/core.js'))]
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label)));
+
 console.log('\nUtbetalning av stora vinster');
 
 const apiSrc3 = read('lib/api.js');

@@ -282,6 +282,20 @@ omgång efter 30 minuters paus) och senaste rapport. Admin ser siffrorna i **Öv
 tiden för dag-för-dag och **Nollställ skärmtid**. Går servern inte att nå sparas tiden lokalt
 och skickas nästa gång.
 
+### Många spelare samtidigt
+
+Hela spelarregistret ligger som en JSON-rad i Supabase, så två skrivningar som sker samtidigt
+kan krocka. Det hanteras i tre steg:
+
+1. **En förfrågan i taget** per serverinstans (`lib/api.js`), eftersom alla delar samma
+   databasobjekt i minnet.
+2. **Versionskontroll i lagret** (`lib/store.js`): sparas bara om ingen annan hunnit skriva.
+   Vid krock kastas en konflikt i stället för att en gammal kopia skrivs tillbaka – det var
+   tidigare ett sätt att tappa en adminändring eller en vinst.
+3. **Omförsök**: API:t läser då om databasen och kör om själva förfrågan med färska siffror
+   (upp till tre gånger). Klienten gör också om anropet om servern svarar `503` + `retry`, och
+   en osparad ändring ger alltid `503` – aldrig ett falskt "ok".
+
 ### Ändringar slår igenom direkt
 Klienten frågar servern var femte sekund (bara när fliken är synlig) om inställningarna har
 ändrats – `GET /api/settings` svarar med en kort **version** som räknas fram ur inställningarna.

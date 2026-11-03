@@ -252,42 +252,54 @@ const headers = (extra = {}) => {
 };
 
 async function request(path, { method = 'GET', body, keepalive = false } = {}) {
-  let res;
-  try {
-    res = await fetch(path, {
-      method,
-      headers: headers(),
-      body: body ? JSON.stringify(body) : undefined,
-      ...(keepalive ? { keepalive: true } : {})
-    });
-  } catch (err) {
-    const offlineError = new Error('offline');
-    offlineError.offline = true;
-    throw offlineError;
-  }
-  const contentType = res.headers.get('content-type') || '';
-  if (!contentType.includes('application/json')) {
-    // Ingen API-server på adressen (t.ex. ren statisk host) -> lokalt läge
-    const offlineError = new Error('Ingen API-server');
-    offlineError.offline = true;
-    throw offlineError;
-  }
+  /* Servern kan svara 503 + retry när databasen hann ändras av en annan
+     förfrågan. Då gör vi om anropet ett par gånger i stället för att tro att
+     vi är offline (då skulle vinsten hamna bara i webbläsaren). */
+  for (let attempt = 0; ; attempt += 1) {
+    let res;
+    try {
+      res = await fetch(path, {
+        method,
+        headers: headers(),
+        body: body ? JSON.stringify(body) : undefined,
+        ...(keepalive ? { keepalive: true } : {})
+      });
+    } catch (err) {
+      const offlineError = new Error('offline');
+      offlineError.offline = true;
+      throw offlineError;
+    }
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      // Ingen API-server på adressen (t.ex. ren statisk host) -> lokalt läge
+      const offlineError = new Error('Ingen API-server');
+      offlineError.offline = true;
+      throw offlineError;
+    }
 
-  let data = {};
-  try {
-    data = await res.json();
-  } catch (e) {
-    data = {};
-  }
-  if (!res.ok) {
+    let data = {};
+    try {
+      data = await res.json();
+    } catch (e) {
+      data = {};
+    }
+    if (res.ok) return data;
+
     const err = new Error(data.error || 'Något gick fel');
     err.status = res.status;
     err.data = data;
-    // 5xx betyder att backend/databasen inte svarar -> använd lokal lagring
-    if (res.status >= 500) err.offline = true;
+    if (data.retry) {
+      err.retry = true; // tillfälligt hinder, inte offline
+      if (attempt < 2) {
+        await sleep(250 * (attempt + 1));
+        continue;
+      }
+    } else if (res.status >= 500) {
+      // 5xx betyder att backend/databasen inte svarar -> använd lokal lagring
+      err.offline = true;
+    }
     throw err;
   }
-  return data;
 }
 
 /* -------- lokal fallback om servern inte svarar -------- */

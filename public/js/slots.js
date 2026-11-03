@@ -360,11 +360,20 @@ async function spin(root) {
   ].join('');
 
   if (result.total > 0) {
-    await api.credit('slots', result.total);
-    updateBalanceUI();
-    if (result.total >= bet * 10) sfx.bigWin();
-    else sfx.win();
-    if (result.total >= bet * 15) toast(`STORVINST! ${kr(result.total)}`, 'gold', 3200);
+    let saved = true;
+    try {
+      await api.credit('slots', result.total);
+      updateBalanceUI();
+    } catch (err) {
+      saved = false;
+      toast(`Vinsten på ${kr(result.total)} kunde inte sparas – försök igen`, 'bad', 6000);
+      console.error('Kunde inte kreditera vinsten:', err);
+    }
+    if (saved) {
+      if (result.total >= bet * 10) sfx.bigWin();
+      else sfx.win();
+      if (result.total >= bet * 15) toast(`STORVINST! ${kr(result.total)}`, 'gold', 3200);
+    }
   } else {
     sfx.lose();
   }
