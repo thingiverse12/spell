@@ -2184,3 +2184,141 @@
   .rvb__clock { flex: 0 0 70px; }
   .rvb .revolver__stage { min-height: 210px; }
 }
+
+/* ------------------------------ Finns i sjön ------------------------------ */
+
+.finns { display: flex; flex-direction: column; gap: 16px; }
+
+.finns__board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 16px;
+  align-items: start;
+}
+
+.finns__opponents {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.finns__seat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  text-align: left;
+  border-radius: var(--r-lg, 18px);
+  border: 1px solid var(--line);
+  background: linear-gradient(160deg, rgba(255, 255, 255, .05), rgba(0, 0, 0, .22));
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform .18s var(--ease, ease), border-color .18s, box-shadow .18s, background .18s;
+}
+.finns__seat:hover:not(:disabled) { transform: translateY(-2px); border-color: rgba(231, 196, 106, .5); }
+.finns__seat:disabled { cursor: default; }
+.finns__seat.is-turn {
+  border-color: rgba(231, 196, 106, .75);
+  box-shadow: 0 0 0 1px rgba(231, 196, 106, .35), 0 16px 32px -24px rgba(231, 196, 106, .9);
+  background: linear-gradient(160deg, rgba(231, 196, 106, .16), rgba(0, 0, 0, .24));
+}
+.finns__seat.is-picked {
+  border-color: #6ff0b8;
+  box-shadow: 0 0 0 2px rgba(111, 240, 184, .35);
+}
+.finns__seat.is-out { opacity: .55; }
+.finns__seat.is-left { opacity: .38; }
+.finns__seat.is-empty { border-style: dashed; opacity: .6; cursor: default; }
+
+.finns__seat-top { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.finns__seat-emoji { font-size: 26px; line-height: 1; flex: none; }
+.finns__seat-name { display: flex; flex-direction: column; min-width: 0; }
+.finns__seat-name b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.finns__seat-name small { font-size: 11px; color: var(--text-soft, #9aa0ad); text-transform: uppercase; letter-spacing: .06em; }
+
+.finns__seat-cards { display: flex; align-items: center; gap: 8px; }
+.finns__backs { display: flex; }
+.finns__back {
+  width: 15px; height: 21px; border-radius: 3px; flex: none;
+  background:
+    repeating-linear-gradient(45deg, rgba(231, 196, 106, .35) 0 2px, transparent 2px 5px),
+    linear-gradient(150deg, #2a3550, #171d2c);
+  border: 1px solid rgba(231, 196, 106, .35);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .4);
+}
+.finns__back + .finns__back { margin-left: -7px; }
+.finns__count { font-size: 12px; color: var(--text-soft, #9aa0ad); font-variant-numeric: tabular-nums; }
+
+.finns__books { display: flex; flex-wrap: wrap; gap: 4px; }
+.finns__book {
+  min-width: 22px; padding: 2px 6px; border-radius: 6px; text-align: center;
+  font-size: 11px; font-weight: 800; letter-spacing: .02em;
+  color: #14161d; background: linear-gradient(160deg, #f2dfa0, #d0b25b);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .35);
+}
+
+.finns__sea {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; padding: 18px 12px; text-align: center;
+  border-radius: var(--r-lg, 18px);
+  border: 1px dashed rgba(120, 180, 255, .45);
+  background: radial-gradient(circle at 50% 20%, rgba(52, 116, 200, .28), rgba(10, 20, 38, .5));
+}
+.finns__sea.is-empty { border-color: var(--line); background: rgba(0, 0, 0, .2); opacity: .7; }
+.finns__sea-icon { font-size: 30px; line-height: 1; }
+.finns__sea-label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--text-soft, #9aa0ad); }
+.finns__sea-count { font-size: 26px; font-variant-numeric: tabular-nums; }
+.finns__sea-sub { font-size: 11px; color: var(--text-soft, #9aa0ad); }
+
+.finns__mine {
+  padding: 16px 18px;
+  border-radius: var(--r-lg, 18px);
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, .22);
+}
+.finns__mine-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.finns__mine-head h3 { font-size: 14px; margin: 0; }
+.finns__hand { display: flex; flex-wrap: wrap; gap: 8px; }
+.finns__card {
+  padding: 0; border: 0; background: none; cursor: pointer;
+  border-radius: 8px; line-height: 0;
+  transition: transform .16s var(--ease, ease), filter .16s;
+}
+.finns__card:hover { transform: translateY(-6px); }
+.finns__card.is-picked { transform: translateY(-8px); filter: drop-shadow(0 0 8px rgba(111, 240, 184, .85)); }
+.finns__card.is-picked .playing-card { border-color: #6ff0b8; box-shadow: 0 0 0 2px rgba(111, 240, 184, .5); }
+.finns__hand-empty { font-size: 13px; color: var(--text-soft, #9aa0ad); }
+.finns__my-books { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+
+.finns__ask {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 14px 16px;
+  border-radius: var(--r-lg, 18px);
+  border: 1px solid var(--line);
+  background: linear-gradient(160deg, rgba(255, 255, 255, .05), rgba(0, 0, 0, .2));
+}
+.finns__targets { display: flex; flex-wrap: wrap; gap: 8px; }
+.finns__target {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--line); background: rgba(255, 255, 255, .05);
+  color: inherit; font: inherit; font-size: 13px;
+  transition: border-color .16s, background .16s, transform .16s;
+}
+.finns__target small { color: var(--text-soft, #9aa0ad); font-size: 11px; }
+.finns__target:hover { transform: translateY(-1px); border-color: rgba(231, 196, 106, .55); }
+.finns__target.is-picked { border-color: #6ff0b8; background: rgba(111, 240, 184, .14); }
+.finns__ask-btn { min-width: 220px; }
+.finns__hint { font-size: 12px; color: var(--text-soft, #9aa0ad); max-width: 520px; line-height: 1.45; }
+
+.finns__rules-title { font-size: 14px; margin: 22px 0 8px; }
+.finns__rules { margin: 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: var(--text-soft, #c3c8d2); }
+.finns__rules li { margin-bottom: 4px; }
+
+@media (max-width: 860px) {
+  .finns__board { grid-template-columns: minmax(0, 1fr); }
+  .finns__sea { flex-direction: row; gap: 10px; padding: 12px; }
+  .finns__sea-sub { display: none; }
+  .finns__ask-btn { width: 100%; }
+}

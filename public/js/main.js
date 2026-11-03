@@ -18,6 +18,7 @@ import './scratch.js';
 import './videopoker.js';
 import './roulette.js';
 import './revolver.js';
+import './finns.js';
 import './history.js';
 import './rank.js';
 import './sport.js';
@@ -49,6 +50,7 @@ const CASINO_NAV = [
   { path: '/kasino/roulette', label: 'Roulette' },
   { path: '/kasino/revolver', label: 'Rysk roulette' },
   { path: '/kasino/revolver/bord', label: 'Rysk roulette – bord' },
+  { path: '/kasino/finns', label: 'Finns i sjön' },
   { path: '/kasino/sport', label: 'Live Sport' },
   { path: '/kasino/kortleken', label: 'Kortleken' },
   { path: '/kasino/rikast', label: 'Rikast' },

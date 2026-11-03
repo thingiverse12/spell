@@ -86,6 +86,8 @@ Inga beroenden behövs – servern är ren Node (>= 18).
   (1,15× → 5,6×), kulan tar insatsen och efter fem klick tar du vinsten automatiskt (RTP ≈ 93 %).
 - **Rysk roulette – bord** – spela mot varandra: 2–6 spelare lägger samma insats i en gemensam
   kassa och den som står kvar ensam tar allt (se nedan).
+- **Finns i sjön** – det klassiska kortspellet mot klasskamrater: 2–6 spelare, en sjö på
+  bordet och en gemensam kassa. Samla fyrtal och ta kassan (se nedan).
 - **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett nummer (36×),
   dussin eller kolumn (3×), röd/svart, jämn/udda eller låg/hög (2×) och tryck **SNURRA**.
   Hjulet stannar exakt på det dragna numret, historiken visar de senaste snurren och
@@ -186,6 +188,32 @@ Alla bordsanrop kräver ett eget konto (namn + PIN): `GET /api/revolver/tables` 
 bord), `POST /api/revolver/table` (öppna ett bord), `GET /api/revolver/table?id=` (bordets läge),
 `POST /api/revolver/join`, `POST /api/revolver/start`, `POST /api/revolver/pull` och
 `POST /api/revolver/leave`.
+
+### 🐟 Finns i sjön – fråga, samla fyrtal, ta kassan
+
+Kortspel för 2–6 spelare, med samma bordstanke som rysk roulette: alla lägger **samma insats**
+i en gemensam kassa och den som har **flest fyrtal** när korten är slut tar allt. Vyn ligger på
+`#/kasino/finns` och nås från rutan **Finns i sjön** i spelhallen.
+
+- **Korten delas ut på servern.** Sju kort var vid 2–3 spelare, fem var vid 4–6 – resten bildar
+  **sjön** i mitten av bordet. Klienten får bara se sin egen hand och *hur många* kort de andra
+  har, så ingen kan läsa av motståndarnas kort i webbläsaren.
+- **Du får bara fråga efter en valör du har själv.** Fråga en motspelare: har hen korten får du
+  dem och får fråga igen. Har hen inte korten säger hen **"Finns i sjön!"** och du drar ett kort
+  ur sjön – drar du rätt valör får du fråga en gång till.
+- **Fyra lika blir ett fyrtal** som läggs ner framför dig. När alla 13 fyrtal är nere, eller när
+  sjön och händerna är tomma, räknas fyrtalen: flest vinner kassan, lika många **delar lika**.
+  Huset tar ingenting – RTP är 100 % och mynten byter bara ägare.
+- **Tiden är din fiende.** Varje spelare har **45 sekunder** på sig att fråga; annars frågar
+  bordet åt hen (en slumpad valör till en slumpad motspelare) så matchen aldrig stannar.
+  Lämnar man **väntrummet** får man tillbaka insatsen; lämnar man mitt i matchen ligger
+  insatsen kvar i kassan.
+- Insats och vinst går genom samma bokföring som resten av spelhallen och hamnar i loggen som
+  **Finns i sjön**. Spelarnas figurer från ateljén syns vid bordet.
+
+Alla kortbordsanrop kräver ett eget konto (namn + PIN): `GET /api/finns/tables`,
+`POST /api/finns/table`, `GET /api/finns/table?id=`, `POST /api/finns/join`,
+`POST /api/finns/start`, `POST /api/finns/ask` och `POST /api/finns/leave`.
 
 ### 👤 Konton – alla måste ha ett
 - **Alla måste skapa ett konto** med namn + fyrsiffrig PIN innan de kommer in i appen.
@@ -576,6 +604,7 @@ snabbt kan växla tillbaka till studiematerialet.
 | `public/js/slots.js` | Star Fortune |
 | `public/js/videopoker.js` | Videopoker |
 | `public/js/scratch.js` | Skraplotter |
+| `public/js/finns.js` | Finns i sjön – kortbordet |
 | `public/js/casino.js` | Spelhallen (lobby) |
 | `public/js/admin.js` | Adminpanelen |
 | `public/js/main.js` | Skal, navigation, hemlig upplåsning |
@@ -584,6 +613,8 @@ snabbt kan växla tillbaka till studiematerialet.
 - Klienten har en lokal fallback i `localStorage` om servern inte skulle svara.
 - `watchSettings()` i `core.js` pollar inställningarnas version och laddar om sidan när admin
   sparar; spelen anmäler pågående rundor med `guardRound()` så att omladdningen väntar.
+- Finns i sjön: `GET /api/finns/tables`, `POST /api/finns/table`, `GET /api/finns/table`,
+  `POST /api/finns/join`, `POST /api/finns/start`, `POST /api/finns/ask`, `POST /api/finns/leave`.
 - Ateljén: `GET /api/atelje`, `POST /api/atelje/buy`, `POST /api/atelje/look` (katalog i
   `public/js/look.js` + `lib/api.js`).
 - API: `GET /api/settings` (med `version`), `POST /api/guest`, `GET /api/me`, `POST /api/bet`, `POST /api/credit`,

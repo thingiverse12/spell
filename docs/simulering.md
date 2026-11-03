@@ -290,6 +290,23 @@ hanen är densamma för alla – trumman laddas om efter varje pang. Positionen 
 påverkar därför inte oddsen över en hel match: den som börjar en laddning har lika stor chans
 att få kulan som den som står sist, och startspelaren avgörs slumpmässigt vid start.
 
+### Finns i sjön – bordet
+
+Kortspelet har ingen husmarginal alls: kassan är `insats × antal spelare` och betalas ut i sin
+helhet till den (eller de) som har flest fyrtal. Förväntad utbetalning per spelare är
+`n × insats × (1/n) = insats` – **RTP 100 %** – så ett bord flyttar bara mynt mellan spelarna.
+
+| Spelare | Kassan (insats 100 kr) | Kort på hand | Sjön | Chans att ta kassan* |
+| --- | --- | --- | --- | --- |
+| 2 | 200 kr | 7 var | 38 | ca 50 % |
+| 3 | 300 kr | 7 var | 31 | ca 33 % |
+| 4 | 400 kr | 5 var | 32 | ca 25 % |
+| 6 | 600 kr | 5 var | 22 | ca 17 % |
+
+\* Om alla spelar lika bra. Spelet är skicklighetsbaserat – den som minns vilka valörer som
+efterfrågats och håller reda på fyrtalen vinner oftare än slumpen, precis som i den riktiga
+versionen. Bordet har därför *ingen* turjustering (gummibandet rör inte kortspelet).
+
 ## 9. Allt i en tabell
 
 | Spel | RTP vid normal tur | Marginal | Spann över hela gummibandet |
@@ -302,6 +319,7 @@ att få kulan som den som står sist, och startspelaren avgörs slumpmässigt vi
 | Blackjack ×1,00 (snäll dealer) | 115,1 % | −15,1 % | 98,8 % – 133,9 % |
 | Rysk roulette (valfritt antal klick) | 92,5 % – 95,8 % | 4,2 % – 7,5 % | följer gummibandet |
 | Rysk roulette mot varandra (bord) | 100 % | 0 % | ingen – kassan delas ut i sin helhet |
+| Finns i sjön (bord) | 100 % | 0 % | ingen – kassan delas ut i sin helhet |
 
 ## Vad siffrorna betyder för inställningarna
 

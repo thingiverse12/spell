@@ -496,6 +496,79 @@ const ateljeChecks = [
 ];
 ateljeChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'ateljén')));
 
+/* ------------------------------ Finns i sjön ------------------------------ */
+
+console.log('\nFinns i sjön – kortspel vid ett bord');
+
+const finnsSrc = read('public/js/finns.js');
+const finnsMath = literal(finnsSrc, 'export const FINNS_MATH');
+const finnsServer = apiSrcBj;
+
+if (
+  Number(finnsMath.MIN_SEATS) === 2 &&
+  Number(finnsMath.MAX_SEATS) === 6 &&
+  Number(finnsMath.HAND_SMALL) === 7 &&
+  Number(finnsMath.HAND_BIG) === 5
+) {
+  ok(
+    'bordet tar 2–6 spelare, sju kort var vid 2–3 och fem var vid 4–6',
+    `${finnsMath.MIN_SEATS}–${finnsMath.MAX_SEATS} spelare`
+  );
+} else bad('spelreglerna stämmer inte', JSON.stringify(finnsMath));
+
+if (Number(finnsMath.CARDS) === 52 && Number(finnsMath.RANKS) === 13) {
+  ok('leken är 52 kort: 13 valörer i fyra färger');
+} else bad('kortleken stämmer inte', `${finnsMath.CARDS} kort, ${finnsMath.RANKS} valörer`);
+
+if (Number(finnsMath.HOUSE_CUT) === 0) ok('huset tar ingenting av kassan');
+else bad('huset tar en andel av kassan', finnsMath.HOUSE_CUT);
+
+/* Kassan är insats × spelare och betalas ut i sin helhet → RTP 100 %. */
+[2, 3, 4, 5, 6].forEach((players) => {
+  const ante = 100;
+  const pot = players * ante;
+  const rtp = ((pot / players) / ante) * 100;
+  if (Math.abs(rtp - 100) < 0.001) {
+    ok(`${players} spelare: kassan ${pot} kr, chans 1/${players} → RTP ${rtp.toFixed(1)} %`);
+  } else bad(`${players} spelare ger RTP ${rtp.toFixed(1)} % (ska vara 100)`);
+});
+
+const finnsChecks = [
+  ['servern blandar och delar korten', /function finnsDeck\(\)/.test(finnsServer) && /crypto\.randomInt/.test(finnsServer)],
+  [
+    'bara den egna handen skickas till klienten',
+    (() => {
+      const start = finnsServer.indexOf('function finnsPublic(');
+      const end = finnsServer.indexOf('function finnsActiveTableOf(');
+      if (start < 0 || end < 0) return false;
+      const pub = finnsServer.slice(start, end);
+      return /cards: finnsCards\(seat\)\.length/.test(pub) && !/hand: finnsCards\(seat\)/.test(pub) && /hand,/.test(pub);
+    })()
+  ],
+  ['man måste ha valören själv för att fråga efter den', /Du måste ha minst ett/.test(finnsServer) && /Du får bara fråga efter en valör du har själv/.test(finnsSrc)],
+  ['miss säger "Finns i sjön!" och ger ett kort ur sjön', /Finns i sjön!/.test(finnsServer) && /seat\.hand\.push\(drawn\)/.test(finnsServer)],
+  ['rätt valör på draget ger en fråga till', /drawn\.r === wanted/.test(finnsServer) && /keepsTurn/.test(finnsServer)],
+  ['fyra lika blir ett fyrtal', /finnsRankCount\(seat, rank\) < 4/.test(finnsServer) && /ett fyrtal/.test(finnsServer)],
+  ['flest fyrtal vinner – lika delar kassan', /const best = seats\.reduce/.test(finnsServer) && /const share = round2\(prize \/ top\.length\)/.test(finnsServer)],
+  ['insatsen dras som en riktig transaktion', /logTransaction\(player, 'insats', FINNS_GAME/.test(finnsServer) && /bumpGame\(player, FINNS_GAME, 'bet'/.test(finnsServer)],
+  ['vinsten betalas via servern', /function finnsPayWin\(player, amount\)/.test(finnsServer) && /logTransaction\(player, 'vinst', FINNS_GAME/.test(finnsServer)],
+  ['lämnat väntrum betalar tillbaka insatsen', /finnsRefund\(player, table\.ante\)/.test(finnsServer)],
+  ['bara värden delar ut korten', /if \(table\.hostId !== player\.id\) return json\(res, 403/.test(finnsServer)],
+  ['minst två spelare krävs', /seats\.length < FINNS\.MIN_SEATS/.test(finnsServer)],
+  ['tiden rinner ut och bordet frågar åt spelaren', /function finnsAutoAdvance\(table\)/.test(finnsServer) && /tvekade/.test(finnsServer)],
+  ['sjön tar slut och fyrtalen räknas', /Ingen hade kort kvar att fråga om/.test(finnsServer) && /function finnsShouldFinish\(table\)/.test(finnsServer)],
+  ['gäst utan konto nekas kortbordet', /rvbPlayerOrError\(req, res\)/.test(finnsServer) && /ACCOUNT_REQUIRED/.test(finnsServer)],
+  ['vyn pollar bordet och stoppar när man lämnar', /POLL_MS/.test(finnsSrc) && /function onFinnsRoute\(\)/.test(finnsSrc)],
+  ['vyn nås från spelhallen och menyn', /key: 'finns'/.test(read('public/js/casino.js')) && /'\/kasino\/finns'/.test(read('public/js/main.js'))],
+  ['figuren från ateljén syns vid bordet', /function finnsEmblemOf\(playerId\)/.test(finnsServer)],
+  ['loggen visar Finns i sjön', /finns: 'Finns i sjön'/.test(read('public/js/history.js')) && /finns: '🐟'/.test(read('public/js/history.js'))],
+  ['adminpanelen visar Finns i sjön', /finns: 'Finns i sjön'/.test(read('public/js/admin.js'))],
+  ['selftestet delar ut kort och räknar alla 52', /finns i sjön: korten delas ut och bara den egna handen syns/.test(finnsServer) && /finns i sjön: ett drag lämnar alla 52 kort på bordet/.test(finnsServer)],
+  ['README beskriver Finns i sjön', /Finns i sjön/.test(read('README.md')) && /fyrtal/.test(read('README.md'))],
+  ['simuleringen räknar på kortspelet', /Finns i sjön/.test(read('docs/simulering.md'))]
+];
+finnsChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'Finns i sjön')));
+
 /* -------------------------------- sport -------------------------------- */
 
 console.log('\nSport – spel till fasta odds');

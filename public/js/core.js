@@ -751,6 +751,26 @@ export const api = {
     }
   },
 
+  /* ---------- Finns i sjön ----------
+     Kortbordet kräver att alla sitter på samma server. Går servern inte att
+     nå säger vi det i stället för att låtsas att korten finns lokalt. */
+  async finns(path, body) {
+    try {
+      const data = body
+        ? await request('/api/finns/' + path, { method: 'POST', body })
+        : await request('/api/finns/' + path);
+      if (data && typeof data.balance === 'number' && state.player) state.player.balance = data.balance;
+      return data;
+    } catch (err) {
+      if (err.offline) {
+        const offline = new Error('Kortbordet kräver uppkoppling – prova igen när nätet är tillbaka');
+        offline.offline = true;
+        throw offline;
+      }
+      throw err;
+    }
+  },
+
   /** Loggar ett svar i studieloggen. Lokalt om servern inte svarar. */
   async studyEvent(event) {
     const entry = {
