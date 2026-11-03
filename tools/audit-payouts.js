@@ -569,6 +569,52 @@ const finnsChecks = [
 ];
 finnsChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'Finns i sjön')));
 
+/* ------------------------------ Inpostern ------------------------------ */
+
+console.log('\nInpostern – ett ord, en bluff');
+
+const impSrc = read('public/js/imposter.js');
+const impRules = literal(impSrc, 'export const IMPOSTER = {');
+const impWords = literal(impSrc, 'export const IMPOSTER_WORDS = [');
+
+if (Number(impRules.MIN_PLAYERS) === 3 && Number(impRules.MAX_PLAYERS) === 12) {
+  ok('spelet tar 3–12 spelare', `${impRules.MIN_PLAYERS}–${impRules.MAX_PLAYERS}`);
+} else bad('antalet spelare stämmer inte', JSON.stringify(impRules));
+
+if (impWords.length >= 40) ok('ordlistan är stor nog att spela många omgångar', `${impWords.length} ord`);
+else bad('ordlistan är för liten', `${impWords.length} ord`);
+
+const impMissingHint = impWords.filter((entry) => !entry.hint || !String(entry.hint).trim());
+if (!impMissingHint.length) ok('varje ord har en ledtråd till inpostern');
+else bad('några ord saknar ledtråd', impMissingHint.map((e) => e.word).join(', '));
+
+const impDuplicates = impWords.map((e) => e.word).filter((word, i, all) => all.indexOf(word) !== i);
+if (!impDuplicates.length) ok('inga ord förekommer två gånger');
+else bad('samma ord finns flera gånger', impDuplicates.join(', '));
+
+const impHints = new Set(impWords.map((e) => e.hint));
+if (impHints.size >= 8) ok('ledtrådarna är breda kategorier, inte orden', `${impHints.size} kategorier`);
+else bad('för få kategorier i ordlistan', impHints.size);
+
+const impCardSrc = impSrc.slice(impSrc.indexOf('function dealHTML()'), impSrc.indexOf('function tableHTML()'));
+const imposterBranch = impCardSrc.slice(impCardSrc.indexOf('isImposter'), impCardSrc.indexOf(': `<div class="imp__card">'));
+if (/ui\.clue/.test(imposterBranch) && !/ui\.secret/.test(imposterBranch)) {
+  ok('inpostern får ledtråden – aldrig själva ordet');
+} else bad('inpostern kan se ordet i sin vy');
+
+const impChecks = [
+  ['rollerna slumpas för varje omgång', /randomIndex\(0, ui\.count - 1\)/.test(impSrc)],
+  ['spelledaren som väljer ord blir aldrig inposter', /randomIndex\(1, ui\.count - 1\)/.test(impSrc)],
+  ['eget ord krävs innan utdelningen', /word\.length < 2/.test(impSrc) && /Skriv ordet som spelarna ska gissa på/.test(impSrc)],
+  ['varje spelare tittar själv – telefonen skickas runt', /Ge telefonen till/.test(impSrc) && /Visa min roll/.test(impSrc)],
+  ['rollerna avslöjas först när alla har sett', /Vem var inpostern\?/.test(impSrc) && /imp-reveal/.test(impSrc)],
+  ['man kan spela igen med samma spelare', /imp-again/.test(impSrc) && /ui\.round \+= 1/.test(impSrc)],
+  ['spelet kostar inga spelmynt', /Kostar <strong>0 kr/.test(impSrc) && !/api\.bet\(/.test(impSrc)],
+  ['vyn nås från spelhallen och menyn', /key: 'imposter'/.test(read('public/js/casino.js')) && /'\/kasino\/imposter'/.test(read('public/js/main.js'))],
+  ['README beskriver Inpostern', /Inpostern/.test(read('README.md')) && /inposter/.test(read('README.md'))]
+];
+impChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'Inpostern')));
+
 /* -------------------------------- sport -------------------------------- */
 
 console.log('\nSport – spel till fasta odds');

@@ -88,6 +88,8 @@ Inga beroenden behövs – servern är ren Node (>= 18).
   kassa och den som står kvar ensam tar allt (se nedan).
 - **Finns i sjön** – det klassiska kortspellet mot klasskamrater: 2–6 spelare, en sjö på
   bordet och en gemensam kassa. Samla fyrtal och ta kassan (se nedan).
+- **Inpostern** – sällskapsspel: en telefon, en hemlig roll och ett ord. Alla utom inpostern får
+  samma ord, inpostern får en svår ledtråd (se nedan).
 - **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett nummer (36×),
   dussin eller kolumn (3×), röd/svart, jämn/udda eller låg/hög (2×) och tryck **SNURRA**.
   Hjulet stannar exakt på det dragna numret, historiken visar de senaste snurren och
@@ -214,6 +216,27 @@ i en gemensam kassa och den som har **flest fyrtal** när korten är slut tar al
 Alla kortbordsanrop kräver ett eget konto (namn + PIN): `GET /api/finns/tables`,
 `POST /api/finns/table`, `GET /api/finns/table?id=`, `POST /api/finns/join`,
 `POST /api/finns/start`, `POST /api/finns/ask` och `POST /api/finns/leave`.
+
+### 🎭 Inpostern – ett ord, en bluff
+
+Sällskapsspel för 3–12 spelare som spelas på **en enda telefon**. Vyn ligger på `#/kasino/imposter`
+och nås från rutan **Inpostern** i spelhallen. Det kostar inga spelmynt – det är ett spel, inte ett vad.
+
+- **En spelare blir inposter.** Alla andra får samma **ord**, inpostern får bara en **svår ledtråd**
+  – en bred kategori som *Mat*, *Djur* eller *Plats*. Ordet får hen aldrig se.
+- **Telefonen skickas runt.** Varje spelare får en egen skärm – *"Ge telefonen till Elsa"* – och
+  trycker själv fram sitt kort. Ingen annan ser rollen, och rollerna syns först när man trycker
+  **Vem var inpostern?**
+- **Så avgörs omgången:** alla beskriver ordet med **ett enda ord**, sedan diskuterar man och röstar.
+  Inpostern vinner om hen listar ut ordet, eller om ni röstar ut fel person.
+- **Spelledaren kan välja ord själv.** Slå på *Spelledaren väljer ordet* och skriv in ordet (och en
+  egen ledtråd om du vill). Då får spelledaren ordet från start och **kan därför aldrig bli
+  inpostern** – rollen går till någon av de andra. Lämnas ledtråden tom får inpostern bara
+  "Spelledaren valde ordet".
+- **Ordlistan** har 112 ord i 15 kategorier, så det blir nya ord för varje omgång. Rollerna blandas
+  om vid **Spela igen**, och **Nytt spel** går tillbaka till starten med antal spelare och namn kvar.
+
+Spelet kräver ingen server och inga konton – rollerna delas ut och blandas i klienten.
 
 ### 👤 Konton – alla måste ha ett
 - **Alla måste skapa ett konto** med namn + fyrsiffrig PIN innan de kommer in i appen.
@@ -605,6 +628,7 @@ snabbt kan växla tillbaka till studiematerialet.
 | `public/js/videopoker.js` | Videopoker |
 | `public/js/scratch.js` | Skraplotter |
 | `public/js/finns.js` | Finns i sjön – kortbordet |
+| `public/js/imposter.js` | Inpostern – ord, roller och ledtrådar |
 | `public/js/casino.js` | Spelhallen (lobby) |
 | `public/js/admin.js` | Adminpanelen |
 | `public/js/main.js` | Skal, navigation, hemlig upplåsning |

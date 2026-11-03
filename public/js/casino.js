@@ -14,6 +14,7 @@ const GAMES = [
   { key: 'revolver', icon: '🔫', title: 'Rysk roulette', text: 'En kula, sex kammare – hur många klick vågar du?', badge: 'Ny', tile: 'revolver' },
   { key: 'revolver/bord', icon: '👥', title: 'Rysk roulette – bord', text: 'Spela mot varandra: alla lägger insats, en tar hela kassan.', badge: 'Mot varandra', tile: 'revolver' },
   { key: 'finns', icon: '🐟', title: 'Finns i sjön', text: 'Kortspel mot varandra: samla fyrtal och ta kassan.', badge: 'Kortspel', tile: 'deck' },
+  { key: 'imposter', icon: '🎭', title: 'Inpostern', text: 'Alla får samma ord – utom en. Hitta bluffen.', badge: 'Sällskapsspel', tile: 'imposter' },
   { key: 'sport', icon: '⚽', title: 'Live Sport', text: 'Fotboll, SHL och NHL med live-odds.', badge: 'Live', tile: 'sport' },
   { key: 'kortleken', icon: '📖', title: 'Kortleken', text: 'Alla 52 kort – namn på svenska och engelska.', badge: 'Lär dig', tile: 'deck' },
   { key: 'rikast', icon: '🏆', title: 'Rikast', text: 'Topplistan: vem som har mest spelmynt just nu.', badge: 'Topplista', tile: 'deck' },
