@@ -238,6 +238,20 @@ Alla satsningar har samma teoretiska återbetalning, 36/37 = **97,3 %**. Tur-ins
 `rouletteLuck` i adminpanelen multipliceras in i vinsten på samma sätt som i de andra spelen,
 och en vinst ger alltid tillbaka mer än markern kostade – även när turen står på lägsta nivå.
 
+### Roulettens kontrollrum
+
+Roulette har en egen, hemlig admin-kod: **333333**. Skriv siffrorna på roulettesidan
+(inte i ett inmatningsfält) så öppnas ett kontrollrum med alla spelare. Där väljer du
+läge – **Nästa snurr** eller **Tills jag släpper** – och trycker på spelaren. Nästa gång
+den spelaren snurrar landar hjulet på ett nummer där ingen av markerna ger vinst, så
+snurret blir en förlust. Hjulet ritar och snurrar precis som vanligt, och utbetalningen
+går fortfarande genom servern.
+
+Kontrollen gäller **bara roulette**: inga andra spel, inga saldon och ingen statistik
+ändras, och en tvingad förlust som inte används släpps av sig själv efter 15 minuter.
+Koden finns i `ROULETTE_CODE` i `lib/api.js` och `CONTROL_CODE` i `public/js/roulette.js`
+– byt på båda ställena om du vill ha en annan.
+
 `npm run audit` kontrollerar utbetalningarna i alla spel: att varje vinst ger mer än insatsen,
 att blackjack betalar 2×/2,5×/1×, att vinsttabellerna är sorterade, att slotsens RTP ligger
 mellan 88 och 97 procent och att skraplotternas RTP ligger mellan 85 och 93 procent.

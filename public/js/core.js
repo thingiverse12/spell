@@ -251,7 +251,7 @@ const headers = (extra = {}) => {
   return h;
 };
 
-async function request(path, { method = 'GET', body, keepalive = false } = {}) {
+async function request(path, { method = 'GET', body, keepalive = false, headers: extra = null } = {}) {
   /* Servern kan svara 503 + retry när databasen hann ändras av en annan
      förfrågan. Då gör vi om anropet ett par gånger i stället för att tro att
      vi är offline (då skulle vinsten hamna bara i webbläsaren). */
@@ -260,7 +260,7 @@ async function request(path, { method = 'GET', body, keepalive = false } = {}) {
     try {
       res = await fetch(path, {
         method,
-        headers: headers(),
+        headers: headers(extra || {}),
         body: body ? JSON.stringify(body) : undefined,
         ...(keepalive ? { keepalive: true } : {})
       });
@@ -593,11 +593,12 @@ export const api = {
     return data.player;
   },
 
+  /** Satsar spelmynt. Svarar med saldot och om rouletten tvingat fram ett utfall. */
   async bet(game, amount) {
     try {
       const data = await request('/api/bet', { method: 'POST', body: { game, amount } });
       if (state.player) state.player.balance = data.balance;
-      return data.balance;
+      return { balance: data.balance, rig: data.rig || null };
     } catch (err) {
       if (!localFail(err)) throw err;
       const p = localPlayer();
@@ -608,7 +609,7 @@ export const api = {
       saveLocal(p);
       localTx('insats', game, -amount, p.balance);
       state.player = p;
-      return p.balance;
+      return { balance: p.balance, rig: null };
     }
   },
 
@@ -631,6 +632,13 @@ export const api = {
       state.player = p;
       return p.balance;
     }
+  },
+
+  /** Roulettens kontrollpanel – kräver den hemliga roulettekoden. */
+  async rouletteControl(payload, code) {
+    const codeHeader = { 'x-roulette-code': String(code || '') };
+    if (!payload) return request('/api/roulette/control', { headers: codeHeader });
+    return request('/api/roulette/control', { method: 'POST', body: payload, headers: codeHeader });
   },
 
   async bonus() {

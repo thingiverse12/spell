@@ -490,6 +490,31 @@ const allSameRtp = [rtp(ruPay.straight, 1), rtp(ruPay.dozen, 12), rtp(ruPay.even
   ['turen multipliceras in i varje vinst', /luckPayout\(amount, Math\.max\(1\.01, mult \* luck\), factor\)/.test(ruSrc) && /rouletteLuck/.test(ruSrc)],
   ['en vinst ger alltid mer än insatsen, även vid lägsta tur', luckPayout(100, Math.max(1.01, 2 * 0.1), LUCK_MIN) > 100],
   [
+    'kontrollrummet öppnas bara med koden 333333',
+    /const ROULETTE_CODE = '333333';/.test(apiSrc3) &&
+      /const CONTROL_CODE = '333333';/.test(ruSrc) &&
+      /code === ROULETTE_CODE/.test(apiSrc3) &&
+      /if \(!rouletteController\(req\)\) return json\(res, 401/.test(apiSrc3)
+  ],
+  [
+    'kontrollrummet gäller bara roulette och bara nästa snurr',
+    /if \(game === 'roulette'\) \{\s*\n?\s*const pending = activeRig\(player\.id\);/.test(apiSrc3) &&
+      /delete rouletteRigMap\(\)\[player\.id\];/.test(apiSrc3) &&
+      /rigBet\.rig === 'lose' && cleanBet\.rig === null/.test(apiSrc3)
+  ],
+  [
+    'förlusten kan gälla en snurr eller tills admin släpper',
+    /action !== 'lose' && action !== 'loseAlways'/.test(apiSrc3) &&
+      /pending\.mode === 'loseAlways'/.test(apiSrc3) &&
+      /data-mode="loseAlways"/.test(ruSrc)
+  ],
+  ['en tvingad förlust släpps efter en stund', /const RIG_TTL_MS = 15 \* 60 \* 1000;/.test(apiSrc3) && /now\(\) - rig\.at > RIG_TTL_MS/.test(apiSrc3)],
+  [
+    'tvingad förlust landar på en ficka utan vinst',
+    /rig === 'lose' \? losingPocket\(game\.chips\) : randomPocket\(\)/.test(ruSrc) &&
+      /const safe = WHEEL\.filter\(\(n\) => totalFor\(n\) === 0\)/.test(ruSrc)
+  ],
+  [
     'roulette finns i spelhallen, menyn och adminpanelen',
     /registerView\('roulette'/.test(ruSrc) &&
       /key: 'roulette'/.test(read('public/js/casino.js')) &&

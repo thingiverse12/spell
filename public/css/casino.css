@@ -1524,3 +1524,49 @@
 .ru-red { --pocket: #c8232f; }
 .ru-black { --pocket: #16161c; }
 .ru-green { --pocket: #0f7a4f; }
+
+/* ------------------------------ Roulettens kontrollrum ------------------------------ */
+
+.ru-ctl__head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+.ru-ctl__head .input { flex: 1; min-width: 170px; }
+.ru-ctl__modes { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.ru-ctl__modes .chip { cursor: pointer; opacity: .65; }
+.ru-ctl__modes .chip.is-on {
+  opacity: 1;
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: transparent;
+}
+.ru-ctl__list {
+  margin-top: 12px;
+  max-height: 46vh;
+  overflow: auto;
+  display: grid;
+  gap: 6px;
+}
+.ru-ctl__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+.ru-ctl__row.is-rigged {
+  border-color: rgba(220, 47, 72, .55);
+  background: rgba(220, 47, 72, .12);
+}
+.ru-ctl__who { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.ru-ctl__who strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ru-ctl__flag {
+  background: rgba(220, 47, 72, .16);
+  color: #ff8a9b;
+  border-color: transparent;
+  font-size: 11px;
+  white-space: nowrap;
+}
+@media (max-width: 560px) {
+  .ru-ctl__row { flex-wrap: wrap; }
+  .ru-ctl__row .btn { width: 100%; }
+}

