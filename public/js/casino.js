@@ -12,7 +12,8 @@ const GAMES = [
   { key: 'videopoker', icon: '🃏', title: 'Videopoker', text: 'Jacks or Better med held kort.', badge: 'Skicklighet', tile: 'poker' },
   { key: 'roulette', icon: '🎡', title: 'Roulette', text: '37 nummer, rött eller svart – snurra hjulet.', badge: 'Ny', tile: 'roulette' },
   { key: 'sport', icon: '⚽', title: 'Live Sport', text: 'Fotboll, SHL och NHL med live-odds.', badge: 'Live', tile: 'sport' },
-  { key: 'kortleken', icon: '📖', title: 'Kortleken', text: 'Alla 52 kort – namn på svenska och engelska.', badge: 'Lär dig', tile: 'deck' }
+  { key: 'kortleken', icon: '📖', title: 'Kortleken', text: 'Alla 52 kort – namn på svenska och engelska.', badge: 'Lär dig', tile: 'deck' },
+  { key: 'historik', icon: '🧾', title: 'Logg', text: 'Allt som hänt med dina spelmynt – insatser, vinster och bonusar.', badge: 'Kvitto', tile: 'deck' }
 ];
 
 function renderCasino(root) {

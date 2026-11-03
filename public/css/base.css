@@ -279,6 +279,20 @@ body.theme-casino .btn--primary { --btn-bg: linear-gradient(160deg, #f6e3a2, #d8
 .chip--mint { background: var(--mint-soft); color: var(--mint); border-color: transparent; }
 .chip--amber { background: var(--amber-soft); color: var(--amber); border-color: transparent; }
 .chip--accent { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+.chip[data-filter] { cursor: pointer; }
+.chip.is-on { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
+
+/* Loggarna: plugget för sig, spelhallen för sig. */
+.study-log__day { margin-bottom: 18px; }
+.study-log__day-head {
+  display: flex; align-items: center; gap: 8px;
+  font-weight: 800; font-size: 14px; margin-bottom: 8px;
+}
+.study-log__what { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.study-log__icon { font-size: 15px; }
+.study-log__ok { background: var(--mint-soft); color: #0b6b4f; border-color: transparent; }
+.study-log__no { background: rgba(220, 47, 72, .12); color: #a01227; border-color: transparent; }
+.log-row__amount.is-muted { color: var(--muted); }
 
 .muted { color: var(--muted); }
 .small { font-size: 13px; }

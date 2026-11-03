@@ -16,6 +16,7 @@ import './slots.js';
 import './scratch.js';
 import './videopoker.js';
 import './roulette.js';
+import './history.js';
 import './sport.js';
 import './admin.js';
 import { syncAccountGate } from './gate.js';
@@ -30,6 +31,7 @@ const STUDY_NAV = [
   { path: '/svenska', label: 'Svenska' },
   { path: '/geografi', label: 'Geografi' },
   { path: '/framsteg', label: 'Framsteg' },
+  { path: '/logg', label: 'Logg' },
   { path: '/konto', label: 'Konto' }
 ];
 
@@ -41,7 +43,8 @@ const CASINO_NAV = [
   { path: '/kasino/videopoker', label: 'Videopoker' },
   { path: '/kasino/roulette', label: 'Roulette' },
   { path: '/kasino/sport', label: 'Live Sport' },
-  { path: '/kasino/kortleken', label: 'Kortleken' }
+  { path: '/kasino/kortleken', label: 'Kortleken' },
+  { path: '/kasino/historik', label: 'Logg' }
 ];
 
 function buildShell() {

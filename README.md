@@ -105,6 +105,19 @@ Inga beroenden behövs – servern är ren Node (>= 18).
   namn och PIN för att komma tillbaka till dina mynt.
 - Unika namn och PIN-kod. Adminpanelen på `/admin` går alltid att nå med admin-koden.
 
+### 🧾 Två separata loggar
+Plugget och spelhallen har var sin logg – de blandas aldrig.
+
+- **Pluggets logg** ligger i studiemenyn (`/logg`). Där syns varje svar: ämne, rätt
+  eller fel, tid och hur många mynt svaret gav, grupperat per dag och med filter per
+  ämne. Överst står dagens svar, rätt och mynt. Varje svar sparas på kontot
+  (`POST /api/study/log`, de senaste 120 sparas), så loggen följer med till alla enheter.
+- **Spelhallen har sin egen logg** (`/kasino/historik`, ruta och menyval **Logg** i
+  spelhallen). Där syns insatser, vinster, bonusar, utbetalningar och adminändringar –
+  men aldrig plugget. Den bygger på kontots transaktionslogg (`GET /api/log`) och kan
+  filtreras på insatser, vinster och bonus/övrigt.
+- Båda loggarna kräver ett eget konto, precis som resten av appen.
+
 ### 💸 Egna insatser
 Alla tre spelen har ett fält för **egen insats** (utöver marker och snabbknappar):
 

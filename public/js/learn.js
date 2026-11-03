@@ -56,7 +56,7 @@ function saveStats(next) {
   storage.set('ph.learn', next);
 }
 
-function recordAnswer(subject, correct, continent) {
+function recordAnswer(subject, correct, continent, coins = 0) {
   const stats = getStats();
   const key = stats.subjects[subject] ? subject : 'matte';
   const slot = stats.subjects[key] || { correct: 0, total: 0 };
@@ -83,6 +83,10 @@ function recordAnswer(subject, correct, continent) {
   }
   stats.dailyCount += 1;
   saveStats(stats);
+
+  // Varje svar hamnar i studieloggen, så eleven kan se vad hen gjort.
+  api.studyEvent({ subject: stats.subjects[subject] ? subject : 'utmaning', correct, coins: correct ? coins : 0 });
+
   return stats;
 }
 
@@ -539,7 +543,7 @@ function answer(selected, root) {
     </div>`;
   }
 
-  recordAnswer(quiz.subject, correct, quiz.continent);
+  recordAnswer(quiz.subject, correct, quiz.continent, correct ? reward : 0);
   const nextBtn = root.querySelector('#quiz-next');
   nextBtn.classList.remove('hide');
   nextBtn.textContent = quiz.index + 1 >= quiz.questions.length ? 'Visa resultat →' : 'Nästa →';
@@ -1030,6 +1034,171 @@ function renderLararpanel(root) {
 
 /* ------------------------------ Registrera vyer ------------------------------ */
 
+/* ------------------------------ Logg ------------------------------ */
+
+/* Pluggets egen logg. Kasinots logg är en separat lista som ligger inne i
+   spelhallen, så de två aldrig blandas ihop. */
+
+const STUDY_LABELS = {
+  matte: 'Matematik',
+  engelska: 'Engelska',
+  svenska: 'Svenska',
+  geografi: 'Geografi',
+  utmaning: 'Dagens utmaning'
+};
+
+const STUDY_ICONS = { matte: '➗', engelska: '📘', svenska: '✏️', geografi: '🌍', utmaning: '🎯' };
+
+function logDayKey(ts) {
+  try {
+    return new Date(Number(ts) || 0).toLocaleDateString('sv-SE', { timeZone: 'Europe/Stockholm' });
+  } catch (e) {
+    return '';
+  }
+}
+
+function logDayLabel(ts) {
+  const today = logDayKey(Date.now());
+  const yesterday = logDayKey(Date.now() - 86400000);
+  const key = logDayKey(ts);
+  if (key === today) return 'Idag';
+  if (key === yesterday) return 'Igår';
+  try {
+    return new Date(ts).toLocaleDateString('sv-SE', { day: 'numeric', month: 'long', timeZone: 'Europe/Stockholm' });
+  } catch (e) {
+    return key;
+  }
+}
+
+function logTime(ts) {
+  try {
+    return new Date(Number(ts) || 0).toLocaleTimeString('sv-SE', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Europe/Stockholm'
+    });
+  } catch (e) {
+    return '–';
+  }
+}
+
+function renderLoggRows(entries, filter) {
+  const list = entries.filter((e) => filter === 'alla' || e.subject === filter);
+  if (!list.length) {
+    return `<p class="muted small">Inget loggat än. Svara på några frågor i Matematik, Engelska, Svenska eller Geografi, så dyker de upp här.</p>`;
+  }
+  const groups = [];
+  list.forEach((e) => {
+    const label = logDayLabel(e.t);
+    let group = groups.find((g) => g.label === label);
+    if (!group) {
+      group = { label, rows: [] };
+      groups.push(group);
+    }
+    group.rows.push(e);
+  });
+  return groups
+    .map(
+      (g) => `
+      <div class="study-log__day">
+        <div class="study-log__day-head">${esc(g.label)} <span class="tiny muted">${g.rows.length} svar</span></div>
+        <div class="log-list">
+          ${g.rows
+            .map(
+              (e) => `
+            <div class="log-row">
+              <span class="log-row__time">${logTime(e.t)}</span>
+              <span class="study-log__what">
+                <span class="study-log__icon">${STUDY_ICONS[e.subject] || '📚'}</span>
+                ${esc(STUDY_LABELS[e.subject] || 'Plugg')}
+                <span class="chip ${e.correct ? 'study-log__ok' : 'study-log__no'}">${e.correct ? 'Rätt' : 'Fel'}</span>
+              </span>
+              <span class="log-row__amount ${e.coins > 0 ? 'is-plus' : 'is-muted'}">${e.coins > 0 ? '+' + kr(e.coins) : '–'}</span>
+            </div>`
+            )
+            .join('')}
+        </div>
+      </div>`
+    )
+    .join('');
+}
+
+async function renderLogg(root) {
+  root.innerHTML = `
+    <div class="wrap">
+      <section class="section">
+        <div class="section__head">
+          <div>
+            <h2 class="section__title">Logg</h2>
+            <p class="section__sub">Allt du gjort i plugget – vilka frågor du svarat på och vad de gav.</p>
+          </div>
+          <button class="btn btn--sm btn--ghost" data-go="/">← Tillbaka</button>
+        </div>
+        <div id="logg-body"><p class="muted small">Hämtar loggen…</p></div>
+        <p class="tiny muted" style="margin-top:16px">
+          Här ligger bara plugget. Myntens historia – insatser, vinster och bonusar – ligger i
+          spelhallens egen logg.
+        </p>
+      </section>
+    </div>`;
+
+  root.querySelectorAll('[data-go]').forEach((el) =>
+    el.addEventListener('click', () => navigate(el.dataset.go))
+  );
+
+  const body = root.querySelector('#logg-body');
+  let filter = 'alla';
+  let data = null;
+
+  const draw = () => {
+    if (!data) return;
+    const entries = data.study || [];
+    const today = data.today || {};
+    body.innerHTML = `
+      <div class="grid grid--3" style="margin-bottom:16px">
+        <div class="panel" style="padding:18px;background:var(--surface-2)">
+          <div class="stat-tile__value">${num(today.answers || 0)}</div>
+          <div class="stat-tile__label">Svar idag</div>
+        </div>
+        <div class="panel" style="padding:18px;background:var(--surface-2)">
+          <div class="stat-tile__value">${num(today.correct || 0)}</div>
+          <div class="stat-tile__label">Rätt idag</div>
+        </div>
+        <div class="panel" style="padding:18px;background:var(--surface-2)">
+          <div class="stat-tile__value">${kr(today.coins || 0)}</div>
+          <div class="stat-tile__label">Mynt från plugget idag</div>
+        </div>
+      </div>
+
+      <div class="wrap-gap" style="margin-bottom:14px">
+        ${[['alla', 'Alla'], ...Object.entries(STUDY_LABELS)]
+          .map(
+            ([key, label]) =>
+              `<button class="chip${filter === key ? ' is-on' : ''}" data-filter="${key}">${esc(label)}</button>`
+          )
+          .join('')}
+      </div>
+
+      <div id="logg-rows">${renderLoggRows(entries, filter)}</div>`;
+
+    body.querySelectorAll('[data-filter]').forEach((chip) => {
+      chip.addEventListener('click', () => {
+        filter = chip.dataset.filter;
+        draw();
+      });
+    });
+  };
+
+  try {
+    data = await api.log();
+    draw();
+  } catch (err) {
+    body.innerHTML = `<p class="small" style="color:var(--bad)">${esc(
+      err.message || 'Kunde inte hämta loggen'
+    )} – försök igen om en stund.</p>`;
+  }
+}
+
 registerView('home', renderHome);
 registerView('matte', renderSubject('matte'));
 registerView('engelska', renderSubject('engelska'));
@@ -1038,6 +1207,7 @@ registerView('geografi', renderGeografi);
 registerView('utmaning', renderSubject('utmaning'));
 registerView('framsteg', renderFramsteg);
 registerView('konto', renderKonto);
+registerView('logg', renderLogg);
 registerView('profil', renderKonto);
 registerView('lararpanel', renderLararpanel);
 

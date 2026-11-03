@@ -634,6 +634,43 @@ export const api = {
     }
   },
 
+  /** Loggar ett svar i studieloggen. Lokalt om servern inte svarar. */
+  async studyEvent(event) {
+    const entry = {
+      subject: String(event.subject || 'utmaning'),
+      correct: event.correct !== false,
+      coins: Math.max(0, Math.round(Number(event.coins) || 0))
+    };
+    try {
+      await request('/api/study/log', { method: 'POST', body: entry });
+      return true;
+    } catch (err) {
+      if (!localFail(err)) return false;
+      const list = store.get('ph.studylog', []) || [];
+      list.unshift({ t: Date.now(), ...entry });
+      store.set('ph.studylog', list.slice(0, 120));
+      return true;
+    }
+  },
+
+  /** Spelarens två loggar: plugget och mynten. */
+  async log() {
+    try {
+      return await request('/api/log');
+    } catch (err) {
+      if (!localFail(err)) throw err;
+      const p = localPlayer();
+      return {
+        study: store.get('ph.studylog', []) || [],
+        coins: store.get('ph.tx', []) || [],
+        balance: p.balance,
+        quizCorrect: p.quizCorrect || 0,
+        today: {},
+        local: true
+      };
+    }
+  },
+
   /** Roulettens kontrollpanel – kräver den hemliga roulettekoden. */
   async rouletteControl(payload, code) {
     const codeHeader = { 'x-roulette-code': String(code || '') };
@@ -1056,6 +1093,7 @@ const ROUTES = {
   geografi: 'geografi',
   utmaning: 'utmaning',
   framsteg: 'framsteg',
+  logg: 'logg',
   profil: 'konto',
   konto: 'konto',
   lararpanel: 'lararpanel',

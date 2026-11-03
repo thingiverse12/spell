@@ -561,6 +561,46 @@ const sportSrc = read('public/js/sport.js');
   ['selftestet rapporterar underhållsläget', /maintenance: !!db\.settings\.maintenance/.test(apiSrc3)]
 ].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'saknas i källkoden')));
 
+console.log('\nTvå loggar');
+
+const learnSrc = read('public/js/learn.js');
+const historySrc = read('public/js/history.js');
+const coreSrcLog = read('public/js/core.js');
+const apiSrcLog = read('lib/api.js');
+const mainSrcLog = read('public/js/main.js');
+[
+  ['plugget loggar varje svar', /api\.studyEvent\(\{ subject/.test(learnSrc) && /'POST \/api\/study\/log'/.test(apiSrcLog)],
+  [
+    'pluggets logg är en egen lista',
+    /'GET \/api\/log'/.test(apiSrcLog) &&
+      /const study = Array\.isArray\(player\.studyLog\)/.test(apiSrcLog) &&
+      /const coins = Array\.isArray\(player\.log\)/.test(apiSrcLog) &&
+      /player\.studyLog\.unshift\(entry\)/.test(apiSrcLog)
+  ],
+  [
+    'pluggets logg har egen sida i studiemenyn',
+    /logg: 'logg'/.test(coreSrcLog) &&
+      /registerView\('logg', renderLogg\)/.test(learnSrc) &&
+      /path: '\/logg', label: 'Logg'/.test(mainSrcLog) &&
+      /Här ligger bara plugget/.test(learnSrc)
+  ],
+  [
+    'spelhallen har en egen logg',
+    /registerView\('historik', renderHistorik\)/.test(historySrc) &&
+      /key: 'historik'/.test(read('public/js/casino.js')) &&
+      /import '\.\/history\.js'/.test(mainSrcLog) &&
+      /path: '\/kasino\/historik', label: 'Logg'/.test(mainSrcLog)
+  ],
+  [
+    'kasinologgen blandar inte in plugget',
+    /entry\.game === 'quiz'/.test(historySrc) && /isCasinoEntry/.test(historySrc)
+  ],
+  [
+    'båda loggarna kräver ett eget konto',
+    (apiSrcLog.match(/accountBlocked\(player\)/g) || []).length >= 5 && /'POST \/api\/study\/log'/.test(apiSrcLog)
+  ]
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'loggarna')));
+
 console.log('\nKonto för alla');
 
 const gateSrc = read('public/js/gate.js');
