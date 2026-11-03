@@ -900,7 +900,10 @@ function roundInProgress() {
 let settingsWatch = null;
 
 function applyRemoteSettings(settings) {
-  if (settings) state.settings = { ...DEFAULT_SETTINGS, ...settings };
+  if (!settings) return;
+  state.settings = { ...DEFAULT_SETTINGS, ...settings };
+  // Spelen lyssnar på detta och ritar om sina turmärken direkt.
+  if (typeof document !== 'undefined') document.dispatchEvent(new Event('settings:updated'));
 }
 
 async function readSettingsVersion() {

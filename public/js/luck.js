@@ -81,6 +81,59 @@ export function luckTone(factor) {
   return 'luck-pill--flat';
 }
 
+/** Nivåerna som adminpanelen erbjuder – samma namn i spelen. */
+export const LUCK_LEVELS = [
+  { value: 0.25, label: 'Mycket låg' },
+  { value: 0.7, label: 'Låg' },
+  { value: 1, label: 'Normal' },
+  { value: 1.4, label: 'Hög' },
+  { value: 2, label: 'Mycket hög' },
+  { value: 3, label: 'Extrem' }
+];
+
+/** Tur-inställningen för ett spel (slotLuck, videoPokerLuck, scratchLuck). */
+export function settingLuck(key) {
+  return clampLuckSetting(state.settings && state.settings[key]);
+}
+
+/** Namnet på nivån, t.ex. "Hög" – null om admin satt ett eget värde. */
+export function luckLevelName(value) {
+  const v = clampLuckSetting(value);
+  const hit = LUCK_LEVELS.find((level) => Math.abs(level.value - v) < 0.005);
+  return hit ? hit.label : null;
+}
+
+const shortLuck = (value) => '×' + Number(value).toFixed(2).replace('.', ',');
+
+/**
+ * Märket som sitter i spelautomaterna. Det visar den tur admin har ställt in
+ * (den som faktiskt styr utbetalningen) och, om gummibandet är på, dess faktor.
+ */
+export function machineLuckPill(key) {
+  const level = settingLuck(key);
+  const band = currentLuck();
+  const name = luckLevelName(level) || 'Egen nivå';
+  const parts = [`Tur ${shortLuck(level)}`, name];
+  if (band !== 1) parts.push(`gummiband ${shortLuck(band)}`);
+  const tone = level > 1.02 ? 'luck-pill--up' : level < 0.98 ? 'luck-pill--down' : 'luck-pill--flat';
+  return `<span class="luck-pill luck-pill--setting ${tone}" data-luck-key="${key}" data-luck-setting="${level}">
+    <span class="luck-pill__dot"></span>${parts.join(' · ')}</span>`;
+}
+
+/** Uppdaterar alla turmärken som finns på sidan just nu. */
+export function refreshLuckPills(root = typeof document !== 'undefined' ? document : null) {
+  if (!root) return;
+  root.querySelectorAll('[data-luck-cell]').forEach((el) => {
+    el.innerHTML = machineLuckPill(el.dataset.luckCell || 'slotLuck');
+  });
+}
+
+/** Håller turmärkena i takt med inställningarna utan att sidan laddas om. */
+export function watchLuck() {
+  if (typeof document === 'undefined') return;
+  document.addEventListener('settings:updated', () => refreshLuckPills());
+}
+
 /** Litet märke som visas i spelen. */
 export function luckPill(factor = currentLuck()) {
   return `<span class="luck-pill ${luckTone(factor)}" data-luck="${factor}">

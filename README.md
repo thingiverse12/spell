@@ -215,8 +215,11 @@ Sport**:
   tillbaka – sämsta tänkbara fall (lägsta tur + lägsta vinstrad) är ändå plus.
 - Turen **låses när en runda startar** (given i blackjack, snurret i slots, given i videopoker)
   och sparas på sportspelen när de läggs, så utbetalningen alltid matchar det som visades.
-- Alla spel visar ett litet märke – *"Tur ×1,18 · du har lite kvar"* – så det går att se vad som
-  gäller. Spelkvittot i blackjack och sport visar också vilken tur som användes.
+- Slots, videopoker och skraplotter visar adminens nivå direkt i maskinen – *"Tur ×3,00 ·
+  Extrem"* – och lägger till *"· gummiband ×1,18"* när gummibandet drar upp eller ned. Märket
+  ritas om direkt när admin ändrar nivån, utan att sidan behöver laddas om, så det syns alltid
+  vilken tur som gäller. Vinsttabellen i slots visar också nivån. Blackjack och sport visar
+  gummibandets faktor (*"Tur ×1,18 · du har lite kvar"*) och kvittot vilken tur som användes.
 - Gummibandet slås på/av med en kryssruta i adminpanelen → **Spelinställningar → Gummiband
   (dynamisk tur)**. Tur-nivåerna för slots, videopoker och skraplotter väljs med kryssrutor –
   Mycket låg ×0,25 / Låg ×0,70 / Normal ×1,00 / Hög ×1,40 / Mycket hög ×2,00 / Extrem ×3,00 –

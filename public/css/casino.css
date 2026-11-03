@@ -127,6 +127,7 @@
 .luck-pill--up { color: #4ade80; border-color: rgba(74,222,128,.4); background: rgba(74,222,128,.12); }
 .luck-pill--down { color: #fbbf24; border-color: rgba(251,191,36,.35); background: rgba(251,191,36,.1); }
 .luck-pill--flat { color: var(--text-soft); }
+.luck-pill--setting { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
 .bj-receipt .bj-receipt__luck strong { color: var(--gold, #d4af37); }
 
 /* ------------------------------ Spelkort ------------------------------ */

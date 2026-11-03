@@ -363,6 +363,47 @@ const adminSrc2 = read('public/js/admin.js');
   ['fliken Ekonomi finns i adminpanelen', /key: 'ekonomi'/.test(adminSrc2) && /renderEkonomi\(content, root, data\)/.test(adminSrc2)]
 ].forEach(([label, ok2]) => (ok2 ? ok(label) : bad(label)));
 
+console.log('\nTur-märket i spelen');
+
+const luckSrc3 = read('public/js/luck.js');
+const coreSrc3 = read('public/js/core.js');
+const machines = ['slots', 'videopoker', 'scratch'];
+[
+  [
+    'märket visar adminens tur (inte bara gummibandet)',
+    /export function machineLuckPill\(key\)/.test(luckSrc3) && /settingLuck\(key\)/.test(luckSrc3)
+  ],
+  [
+    'nivåerna heter samma sak i panelen och spelen',
+    /export const LUCK_LEVELS = \[/.test(luckSrc3) &&
+      ['Mycket låg', 'Låg', 'Normal', 'Hög', 'Mycket hög', 'Extrem'].every((n) => luckSrc3.includes(n))
+  ],
+  [
+    'slots, videopoker och skraplotter visar märket',
+    machines.every((g) => /machineLuckPill\('/.test(read(`public/js/${g}.js`)))
+  ],
+  [
+    'märket uppdateras när admin ändrar',
+    machines.every((g) => /data-luck-cell=/.test(read(`public/js/${g}.js`))) &&
+      /settings:updated/.test(coreSrc3) &&
+      /refreshLuckPills/.test(luckSrc3)
+  ],
+  [
+    'turen multipliceras in i slotsens utbetalning',
+    /luckPayout\(bet, mult \* luck\(\), factor\)/.test(slotsSrc) &&
+      /clampLuckSetting\(state\.settings\.slotLuck\)/.test(slotsSrc)
+  ],
+  [
+    'högre tur ger mer betalt per vinst',
+    luckPayout(100, 5 * 3, 1) > luckPayout(100, 5 * 1, 1) &&
+      luckPayout(100, 5 * 1, 1) > luckPayout(100, 5 * 0.25, 1)
+  ]
+].forEach(([label, passed]) =>
+  passed
+    ? ok(label)
+    : bad(label, 'saknas i ' + (label.includes('märket') ? 'luck.js/spelen' : 'källkoden'))
+);
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

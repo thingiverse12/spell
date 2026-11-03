@@ -6,7 +6,9 @@
    ===================================================================== */
 
 import { registerView, state, api, sfx, toast, kr, navigate, openModal, updateBalanceUI, guardRound } from './core.js';
-import { currentLuck, clampLuckSetting, luckPayout, luckPill } from './luck.js';
+import {
+  currentLuck, clampLuckSetting, luckPayout, machineLuckPill, watchLuck
+} from './luck.js';
 
 /* Vinsttrappan: multiplar av lottpriset och hur många av 10 000 lott
    som ger respektive nivå. Resten är nitlott. */
@@ -53,6 +55,9 @@ guardRound(
 function luck() {
   return clampLuckSetting(state.settings.scratchLuck);
 }
+
+/* Turmärket följer adminens nivå direkt. */
+watchLuck();
 
 function drawTier() {
   let roll = Math.random() * TOTAL_WEIGHT;
@@ -244,8 +249,8 @@ function renderScratch(root) {
 
           <div class="scratch-panel">
             <span class="scratch-panel__label">Tur</span>
-            <div id="sc-luck">${luckPill(currentLuck())}</div>
-            <p class="tiny muted" style="margin-top:8px">Har du lite kvar på kontot blir vinsterna större.</p>
+            <div id="sc-luck" data-luck-cell="scratchLuck">${machineLuckPill('scratchLuck')}</div>
+            <p class="tiny muted" style="margin-top:8px">Turen är adminens nivå gånger gummibandet – har du lite kvar på kontot blir vinsterna större.</p>
           </div>
 
           <div class="scratch-panel">

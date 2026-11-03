@@ -3,7 +3,9 @@
    ===================================================================== */
 
 import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI, guardRound } from './core.js';
-import { currentLuck, clampLuckSetting, luckPayout, luckPill } from './luck.js';
+import {
+  currentLuck, clampLuckSetting, luckPayout, machineLuckPill, luckLevelName, settingLuck, watchLuck
+} from './luck.js';
 
 const SYMBOLS = {
   wild: { glyph: '★', cls: 'sym--star', weight: 2, name: 'Stjärna (joker)' },
@@ -86,6 +88,11 @@ function luck() {
   return clampLuckSetting(state.settings.slotLuck);
 }
 
+const shortLuckText = (value) => '×' + Number(value).toFixed(2).replace('.', ',');
+
+/* Turmärket ska visa adminens nivå direkt när den ändras. */
+watchLuck();
+
 export function evaluate(grid, bet, factor = 1) {
   const lines = [];
   let total = 0;
@@ -152,7 +159,7 @@ function renderMachine(root) {
       <div class="slot-machine">
         <div class="slot-title">Star Fortune</div>
         <div class="slot-sub">20 vinstlinjer · jokern ersätter alla symboler</div>
-        <div class="luck-row" id="sl-luck">${luckPill(currentLuck())}</div>
+        <div class="luck-row" id="sl-luck" data-luck-cell="slotLuck">${machineLuckPill('slotLuck')}</div>
 
         <div class="reels" id="reels"></div>
         <div class="win-lines" id="win-lines"></div>
@@ -363,7 +370,7 @@ async function spin(root) {
   }
 
   const luckEl = root.querySelector('#sl-luck');
-  if (luckEl) luckEl.innerHTML = luckPill(currentLuck());
+  if (luckEl) luckEl.innerHTML = machineLuckPill('slotLuck');
 
   const balanceEl = root.querySelector('.mini-pill strong');
   if (balanceEl) balanceEl.textContent = kr(state.player?.balance ?? 0);
@@ -388,11 +395,12 @@ function showInfo(root) {
   const rows = Object.entries(PAYTABLE)
     .map(([key, pays]) => {
       const s = SYMBOLS[key];
+      const cell = (n) => (pays[n] ? `${pays[n]}×` : '–');
       return `<tr>
         <td style="font-size:20px">${symbolHTML(key)}</td>
-        <td class="num">${pays[5]}×</td>
-        <td class="num">${pays[4]}×</td>
-        <td class="num">${pays[3]}×</td>
+        <td class="num">${cell(5)}</td>
+        <td class="num">${cell(4)}</td>
+        <td class="num">${cell(3)}</td>
       </tr>`;
     })
     .join('');
@@ -405,7 +413,11 @@ function showInfo(root) {
         <thead><tr><th>Symbol</th><th>5 i rad</th><th>4 i rad</th><th>3 i rad</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
-      <p class="tiny muted" style="margin-top:14px">★ Stjärnan är joker och ersätter alla symboler. Allt spelas med spelmynt – aldrig riktiga pengar.</p>`,
+      <p class="tiny muted" style="margin-top:14px">★ Stjärnan är joker och ersätter alla symboler. Allt spelas med spelmynt – aldrig riktiga pengar.</p>
+      <div class="disclaimer" style="margin-top:12px"><span>🍀</span><div>
+        Gällande tur: <strong>${shortLuckText(settingLuck('slotLuck'))}</strong>
+        ${luckLevelName(settingLuck('slotLuck')) ? `(${luckLevelName(settingLuck('slotLuck'))})` : '(egen nivå)'}
+        – den multiplicerar varje vinst. Admin kan ändra den i panelen.</div></div>`,
     actions: [{ label: 'Stäng' }]
   });
 }
