@@ -7,7 +7,7 @@
    satsad spelmynt; negativ marginal betyder att spelaren har övertag.
    ===================================================================== */
 
-import { state, kr, num, esc } from './core.js';
+import { state, kr, num } from './core.js';
 import { luckFactor, luckPayout, LUCK_MIN, LUCK_MAX } from './luck.js';
 import { SLOT_MATH } from './slots.js';
 import { SCRATCH_MATH } from './scratch.js';
@@ -177,8 +177,6 @@ export function runSimulation({ spins = 20000, bet = 20, start = 2500, sessionSp
 }
 
 /* ------------------------------- panel ------------------------------- */
-
-const markup = (value) => (value >= 0 ? 'chip--mint' : 'chip--amber');
 
 function statRow(value, label, extra = '') {
   return `<div class="admin-stat">
