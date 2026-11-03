@@ -551,6 +551,33 @@ const sportSrc = read('public/js/sport.js');
   ['selftestet rapporterar underhållsläget', /maintenance: !!db\.settings\.maintenance/.test(apiSrc3)]
 ].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'saknas i källkoden')));
 
+console.log('\nKonto för alla');
+
+const gateSrc = read('public/js/gate.js');
+const mainSrc = read('public/js/main.js');
+const apiSrcAccount = read('lib/api.js');
+[
+  ['porten visas för alla utan konto', /export function syncAccountGate/.test(gateSrc) && /return !player\.hasPin;/.test(gateSrc)],
+  ['porten kopplas in vid start och på varje sida', (mainSrc.match(/syncAccountGate\(\)/g) || []).length >= 2 && /import \{ syncAccountGate \} from '\.\/gate\.js';/.test(mainSrc)],
+  ['porten går inte att stänga med Escape', !/Escape/.test(gateSrc) && !/dismissible/.test(gateSrc)],
+  [
+    'porten kräver namn och fyrsiffrig PIN',
+    /name\.length < 2/.test(gateSrc) &&
+      /PIN-koden måste vara fyra siffror/.test(gateSrc) &&
+      /again !== pin/.test(gateSrc) &&
+      /PIN-koderna är inte lika/.test(gateSrc)
+  ],
+  ['den som redan har konto kan logga in i porten', /api\.login\(name, pin\)/.test(gateSrc) && /gate-show-login/.test(gateSrc)],
+  [
+    'servern nekar gäst att satsa, vinna och ta bonus',
+    (apiSrcAccount.match(/if \(accountBlocked\(player\)\) \{/g) || []).length >= 4 &&
+      /needAccount: true/.test(apiSrcAccount) &&
+      /ACCOUNT_REQUIRED/.test(apiSrcAccount)
+  ],
+  ['roulettens kontrollrum kräver ett eget konto', /if \(accountBlocked\(player\)\) return null;/.test(apiSrcAccount)],
+  ['selftestet provar att en gäst nekas spela', /gäst utan konto nekas spela/.test(apiSrcAccount)]
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'saknas i källkoden')));
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

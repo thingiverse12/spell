@@ -18,6 +18,7 @@ import './videopoker.js';
 import './roulette.js';
 import './sport.js';
 import './admin.js';
+import { syncAccountGate } from './gate.js';
 import { initReklam } from './reklam.js';
 
 const app = document.getElementById('app');
@@ -194,6 +195,7 @@ async function boot() {
   hooks.onRoute = (route) => {
     renderTopbar();
     updateBalanceUI();
+    syncAccountGate();
   };
 
   try {
@@ -212,6 +214,7 @@ async function boot() {
   state.broadcast = state.settings.banner || '';
   renderTopbar();
   renderRoute();
+  syncAccountGate();
   initReklam();
 
   // Ladda om sidan när admin ändrar inställningarna.

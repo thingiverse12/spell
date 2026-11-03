@@ -90,11 +90,20 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 - **Kortleken** – alla 52 kort + 2 jokrar med svenska och engelska namn.
 - Daglig bonus, saldo och insatsgränser.
 
-### 👤 Konton
-- **Skapa konto** med namn + fyrsiffrig PIN via **Konto** i menyn (gästkontot uppgraderas
-  och behåller saldo och framsteg).
-- **Logga in** med namn + PIN på vilken enhet som helst.
-- Unika namn, PIN-kod och utloggning. Gäster kan spela direkt utan konto.
+### 👤 Konton – alla måste ha ett
+- **Alla måste skapa ett konto** med namn + fyrsiffrig PIN innan de kommer in i appen.
+  Första besöket möts av en port (`public/js/gate.js`) som inte går att stänga – varken
+  med Escape eller genom att klicka utanför. Kontot behåller saldo, mynt och framsteg.
+- **Har du redan ett konto** finns *Logga in i stället* i porten, så du kan fortsätta på
+  en annan mobil eller dator utan att skapa ett nytt konto.
+- Servern backar upp porten: ett gästkonto får **inte** satsa, ta emot vinst, ta bonus
+  eller lägga sportspel (`403` med `needAccount`). Det gäller även quizmynt, så ingen
+  kan spela vidare genom att gå förbi gränssnittet.
+- **Roulettens kontrollrum** (koden `333333`) kräver också ett eget konto, så en
+  oregistrerad gäst kommer inte åt panelen.
+- **Logga ut** skapar ett nytt gästkonto, och då möts du av porten igen – logga in med
+  namn och PIN för att komma tillbaka till dina mynt.
+- Unika namn och PIN-kod. Adminpanelen på `/admin` går alltid att nå med admin-koden.
 
 ### 💸 Egna insatser
 Alla tre spelen har ett fält för **egen insats** (utöver marker och snabbknappar):

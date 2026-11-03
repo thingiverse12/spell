@@ -407,6 +407,67 @@ body.theme-casino .btn--primary { --btn-bg: linear-gradient(160deg, #f6e3a2, #d8
 
 .quiz__foot { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 22px; }
 
+/* ------------------------------ Kontoporten ------------------------------ */
+
+body.is-gated { overflow: hidden; }
+
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow: auto;
+  background:
+    radial-gradient(900px 520px at 15% 0%, rgba(79, 70, 229, .20), transparent 62%),
+    radial-gradient(760px 460px at 100% 100%, rgba(16, 185, 129, .16), transparent 62%),
+    var(--bg);
+  animation: fade .25s var(--ease);
+}
+.gate__card {
+  width: min(460px, 100%);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  padding: 30px 28px 24px;
+  box-shadow: 0 40px 90px -40px #000;
+  animation: pop .28s var(--ease);
+}
+.gate__mark {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-size: 24px;
+  background: linear-gradient(150deg, var(--accent), #7c3aed);
+  color: #fff;
+  box-shadow: 0 14px 28px -16px rgba(79, 70, 229, .9);
+  margin-bottom: 16px;
+}
+.gate__title { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; }
+.gate__sub { color: var(--muted); font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
+.gate__foot { margin-top: 16px; font-size: 13px; color: var(--muted); text-align: center; }
+.gate__link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.gate__login { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.gate #gate-error .quiz__feedback { margin-bottom: 14px; }
+@media (max-width: 480px) {
+  .gate { padding: 12px; }
+  .gate__card { padding: 24px 18px 20px; border-radius: 20px; }
+  .gate__title { font-size: 21px; }
+}
+
 /* ------------------------------ Modaler & toast ------------------------------ */
 
 #overlay-root { position: relative; z-index: 90; }

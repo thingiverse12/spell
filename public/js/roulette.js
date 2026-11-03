@@ -575,6 +575,11 @@ function watchControlCode() {
       codeBuffer = '';
       return;
     }
+    // Bara en spelare med eget konto (eller en inloggad admin) kommer åt panelen.
+    if (!(state.player && state.player.hasPin) && !state.adminToken) {
+      codeBuffer = '';
+      return;
+    }
     const target = e.target;
     if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
       codeBuffer = '';
