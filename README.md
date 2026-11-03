@@ -94,6 +94,27 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 - **Kortleken** – alla 52 kort + 2 jokrar med svenska och engelska namn.
 - Daglig bonus, saldo och insatsgränser.
 
+### 🎨 Ateljén – figuren och rummet
+
+Spelmynten behöver något att gå till som inte är spel. I **Ateljén** (egen flik i studiemenyn)
+bygger varje elev sin egen figur och möblerar sin hörna:
+
+- **Figur** – nio olika saker att vara (räven, pandan, enhörningen, drakägget …).
+- **Färg** – sju ringar, från mint till guld.
+- **Accessoar** – rosett, blomma, hörlurar, krona och några till.
+- **Rummet** – tretton saker att ställa i sin hörna (monstera, gitarren, katten, discokulan …),
+  åtta platser. Hörnan syns på startsidan och i toppraden.
+
+Allt köps för **spelmynt** som man tjänar genom att plugga, och allt utom startsakerna kostar
+mellan 100 och 2 500 kr (≈ 4–100 rätt svar). Fyra saker går inte att köpa alls – de **låses upp
+av antal rätt svar** (50, 100, 150 och 200), så ateljén belönar plugg och inte bara tur i spelen.
+
+Priser, ägande och upplåsningar ligger på servern (`GET /api/atelje`, `POST /api/atelje/buy`,
+`POST /api/atelje/look`): klienten skickar bara *vilken* sak som ska köpas eller sättas på, och
+servern ritar alltid bara det spelaren äger. Katalogen finns i två kopior – `public/js/look.js`
+för ritningen och `lib/api.js` för kontrollen – och `npm run audit` jämför dem varje gång, så att
+de inte kan glida isär. Köp hamnar i myntloggen som **Ateljén – köp**.
+
 ### 🂡 Snäll dealer – blackjack utan direkt 21
 
 Blackjack har två specialregler som bara gäller dealern, så att en giv aldrig är förlorad redan
@@ -563,6 +584,8 @@ snabbt kan växla tillbaka till studiematerialet.
 - Klienten har en lokal fallback i `localStorage` om servern inte skulle svara.
 - `watchSettings()` i `core.js` pollar inställningarnas version och laddar om sidan när admin
   sparar; spelen anmäler pågående rundor med `guardRound()` så att omladdningen väntar.
+- Ateljén: `GET /api/atelje`, `POST /api/atelje/buy`, `POST /api/atelje/look` (katalog i
+  `public/js/look.js` + `lib/api.js`).
 - API: `GET /api/settings` (med `version`), `POST /api/guest`, `GET /api/me`, `POST /api/bet`, `POST /api/credit`,
   `POST /api/bonus`, `POST /api/admin/login`, `GET /api/admin/overview`,
   `POST /api/admin/player`, `POST /api/admin/settings`, `POST /api/admin/broadcast`,

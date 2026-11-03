@@ -503,6 +503,21 @@ function localFail(err) {
   return true;
 }
 
+/* Några funktioner finns bara på servern (t.ex. ateljén). Då säger vi det
+   tydligt i stället för att låtsas att det sparades lokalt. */
+async function offlineSafe(promise, message) {
+  try {
+    return await promise;
+  } catch (err) {
+    if (err && err.offline) {
+      const next = new Error(message);
+      next.offline = true;
+      throw next;
+    }
+    throw err;
+  }
+}
+
 export const api = {
   async guest(name) {
     try {
@@ -676,6 +691,43 @@ export const api = {
       state.player = p;
       return p.balance;
     }
+  },
+
+  /* ---------- ateljén ----------
+     Figuren och rummet ligger på spelaren på servern. Klienten frågar bara,
+     och köpen går alltid genom servern så att priset inte kan ändras. */
+  async atelje() {
+    const data = await offlineSafe(request('/api/atelje'), 'Ateljén kräver uppkoppling');
+    if (state.player && data.look) state.player.look = data.look;
+    if (state.player && Array.isArray(data.owned)) state.player.owned = data.owned;
+    if (state.player && typeof data.balance === 'number') state.player.balance = data.balance;
+    return data;
+  },
+
+  async ateljeBuy(id) {
+    const data = await offlineSafe(
+      request('/api/atelje/buy', { method: 'POST', body: { id } }),
+      'Köpet kräver uppkoppling'
+    );
+    if (state.player) {
+      state.player.look = data.look;
+      state.player.owned = data.owned;
+      state.player.balance = data.balance;
+    }
+    return data;
+  },
+
+  async ateljeSave(look) {
+    const data = await offlineSafe(
+      request('/api/atelje/look', { method: 'POST', body: { look } }),
+      'Ateljén kräver uppkoppling'
+    );
+    if (state.player) {
+      state.player.look = data.look;
+      state.player.owned = data.owned;
+      state.player.balance = data.balance;
+    }
+    return data;
   },
 
   /* ---------- rysk roulette mot varandra ----------
@@ -1227,6 +1279,7 @@ const ROUTES = {
   logg: 'logg',
   profil: 'konto',
   konto: 'konto',
+  atelje: 'atelje',
   lararpanel: 'lararpanel',
   kasino: 'casino',
   reklam: 'reklam',

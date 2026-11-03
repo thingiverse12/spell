@@ -431,6 +431,71 @@ const rvbChecks = [
 ];
 rvbChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'rysk roulette mot varandra')));
 
+/* --------------------------------- ateljén --------------------------------- */
+
+console.log('\nAteljén – figur, färg och rum');
+
+const lookSrc = read('public/js/look.js');
+const ateljeSrc = read('public/js/atelje.js');
+const ateljeCatalogClient = literal(lookSrc, 'export const ATELJE_ITEMS = [');
+const ateljeCatalogServer = literal(apiSrcBj, 'const ATELJE_ITEMS = [');
+const ateljeRoomSlots = Number(/export const ATELJE_ROOM_SLOTS = (\d+)/.exec(lookSrc)?.[1]);
+
+if (JSON.stringify(ateljeCatalogClient) === JSON.stringify(ateljeCatalogServer)) {
+  ok('klienten och servern har exakt samma katalog', `${ateljeCatalogClient.length} saker`);
+} else bad('katalogerna har glidit isär – servern och klienten visar olika saker');
+
+const ateljeIds = ateljeCatalogClient.map((item) => item.id);
+if (new Set(ateljeIds).size === ateljeIds.length) ok('varje sak har ett unikt id');
+else bad('samma id finns på flera saker');
+
+if (ateljeCatalogClient.every((item) => Number.isFinite(item.price) && item.price >= 0)) {
+  ok('alla saker har ett pris som är noll eller mer');
+} else bad('någon sak har ett konstigt pris');
+
+const freeItems = ateljeCatalogClient.filter((item) => item.price === 0).map((item) => item.id);
+if (['fox', 'none', 'mint'].every((id) => freeItems.includes(id))) {
+  ok('alla har en gratis figur, färg och tom accessoar från start');
+} else bad('det finns ingen gratis startuppsättning', freeItems.join(', '));
+
+const ateljeKindsSeen = new Set(ateljeCatalogClient.map((item) => item.kind));
+if (['emblem', 'accent', 'color', 'room'].every((kind) => ateljeKindsSeen.has(kind))) {
+  ok('det finns saker i alla fyra kategorierna');
+} else bad('någon kategori är tom', [...ateljeKindsSeen].join(', '));
+
+if (ateljeRoomSlots >= 4) ok('rummet har plats för flera saker', `${ateljeRoomSlots} platser`);
+else bad('rummet har för få platser', ateljeRoomSlots);
+
+/* Alla saker ska gå att spara ihop till genom att plugga – inte bara genom tur. */
+const quizReward = 25;
+const dyrast = ateljeCatalogClient.reduce((max, item) => Math.max(max, item.price), 0);
+const rattSvar = Math.ceil(dyrast / quizReward);
+if (rattSvar <= 200) ok('den dyraste saken går att spara ihop till', `${dyrast} kr ≈ ${rattSvar} rätt svar`);
+else bad('den dyraste saken kräver orimligt många rätt svar', rattSvar);
+
+const lockedItems = ateljeCatalogClient.filter((item) => item.requires && item.requires.quizCorrect > 0);
+if (lockedItems.length >= 2 && lockedItems.every((item) => item.price > 0)) {
+  ok('några saker låses upp av antal rätt svar', lockedItems.map((i) => i.name).join(', '));
+} else bad('det finns inga saker som låses upp av plugg');
+
+const ateljeChecks = [
+  ['servern äger prislistan', /const ATELJE_BY_ID = new Map/.test(apiSrcBj) && /if \(item\.price > player\.balance\)/.test(apiSrcBj)],
+  ['man kan inte köpa samma sak två gånger', /if \(ateljeOwns\(player, item\.id\)\) return json\(res, 409/.test(apiSrcBj)],
+  ['låsta saker går inte att köpa', /function ateljeLocked\(player, item\)/.test(apiSrcBj) && /locked: true/.test(apiSrcBj)],
+  ['bara ägda saker kan sättas på', /function ateljeLook\(player\)/.test(apiSrcBj) && /ateljeOwns\(player, item\.id\) \? item\.id : fallback/.test(apiSrcBj)],
+  ['köpet dras som en riktig transaktion', /logTransaction\(player, 'köp', 'atelje'/.test(apiSrcBj)],
+  ['utseendet följer med spelaren', /look: ateljeLook\(p\)/.test(apiSrcBj) && /owned: ateljeOwned\(p\)/.test(apiSrcBj)],
+  ['gäst utan konto kan inte köpa', /POST \/api\/atelje\/buy/.test(apiSrcBj) && /accountBlocked\(player\)/.test(apiSrcBj)],
+  ['vyn ritar figuren och rummet', /avatarHTML\(look\(\), \{ size: 'xl' \}\)/.test(ateljeSrc) && /roomHTML\(look\(/.test(ateljeSrc)],
+  ['ateljén finns i menyn och på startsidan', /'\/atelje'/.test(read('public/js/main.js')) && /Öppna ateljén/.test(read('public/js/learn.js'))],
+  ['toppraden visar figuren', /avatarHTML\(state\.player\?\.look/.test(read('public/js/main.js'))],
+  ['loggen visar ateljén', /atelje: 'Ateljén'/.test(read('public/js/history.js'))],
+  ['adminpanelen visar ateljén', /atelje: 'Ateljén'/.test(read('public/js/admin.js'))],
+  ['selftestet köper och klär på', /ateljén: köp drar mynt och allt man äger sparas/.test(apiSrcBj) && /ateljén: bara det man äger kan sättas på/.test(apiSrcBj)],
+  ['README beskriver ateljén', /Ateljén/.test(readmeBj) && /spelmynt/.test(readmeBj)]
+];
+ateljeChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'ateljén')));
+
 /* -------------------------------- sport -------------------------------- */
 
 console.log('\nSport – spel till fasta odds');

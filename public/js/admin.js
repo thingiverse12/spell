@@ -61,6 +61,7 @@ const GAME_LABELS = {
   videopoker: 'Videopoker',
   scratch: 'Skraplotter',
   roulette: 'Roulette',
+  atelje: 'Ateljén',
   revolver: 'Rysk roulette',
   revolverbord: 'Rysk roulette (bord)',
   kortleken: 'Kortleken',

@@ -4,11 +4,12 @@
 
 import {
   state, hooks, storage, renderRoute, navigate, ensureSession, api, unlockCasino,
-  sfx, toast, kr, esc, openModal, updateBalanceUI, avatarLetter, toggleMute, watchSettings,
+  sfx, toast, kr, esc, openModal, updateBalanceUI, toggleMute, watchSettings,
   startScreenTime, isPaused, pauseText
 } from './core.js';
 
 import './learn.js';
+import './atelje.js';
 import './casino.js';
 import './cards.js';
 import './blackjack.js';
@@ -21,6 +22,7 @@ import './history.js';
 import './rank.js';
 import './sport.js';
 import './admin.js';
+import { avatarHTML } from './look.js';
 import { syncAccountGate } from './gate.js';
 import { initReklam } from './reklam.js';
 
@@ -33,6 +35,7 @@ const STUDY_NAV = [
   { path: '/svenska', label: 'Svenska' },
   { path: '/geografi', label: 'Geografi' },
   { path: '/framsteg', label: 'Framsteg' },
+ { path: '/atelje', label: 'Ateljén' },
   { path: '/logg', label: 'Logg' },
   { path: '/konto', label: 'Konto' }
 ];
@@ -124,7 +127,7 @@ function renderTopbar() {
       ${
         casino
           ? `<button class="btn btn--sm btn--primary" id="study-btn">Studieläge</button>`
-          : `<button class="btn btn--icon btn--ghost" id="profile-btn" title="Min profil">${esc(avatarLetter(state.player?.name))}</button>`
+          : `<button class="btn btn--icon btn--ghost" id="profile-btn" title="Min profil">${avatarHTML(state.player?.look, { size: 'sm' })}</button>`
       }
     </div>`;
 

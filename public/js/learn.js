@@ -6,6 +6,7 @@ import {
   registerView, state, api, sfx, toast, kr, num, esc, storage, navigate, openModal, updateBalanceUI,
   avatarLetter, renderRoute, confirmModal
 } from './core.js';
+import { avatarHTML, roomHTML } from './look.js';
 import {
   CONTINENTS, CONTINENT_KEYS, CONTINENT_NAMES, ALL_COUNTRIES, ALL_CITIES, continentName
 } from './geo-data.js';
@@ -643,6 +644,25 @@ function renderHome(root) {
       </section>
 
       <section class="section" style="padding-top:0">
+        <div class="home-look">
+          <div class="home-look__me">
+            ${avatarHTML(state.player?.look, { size: 'lg' })}
+            <div>
+              <span class="home-look__eyebrow">Din hörna</span>
+              <h2 class="home-look__title">${esc(state.player?.name || 'Gäst')}</h2>
+              <p class="home-look__text">Byt figur, färg och accessoar – eller möblera rummet med mynt du tjänat.</p>
+              <button class="btn btn--sm btn--primary" data-go="/atelje">🎨 Öppna ateljén</button>
+            </div>
+          </div>
+          <div class="home-look__room">${roomHTML(state.player?.look, { className: 'home-look__room-inner' })}</div>
+          <div class="home-look__stats">
+            <div class="stat-tile"><div class="stat-tile__value">${kr(state.player?.balance ?? 0)}</div><div class="stat-tile__label">Spelmynt</div></div>
+            <div class="stat-tile"><div class="stat-tile__value">${stats.totalCorrect}</div><div class="stat-tile__label">Rätt svar</div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" style="padding-top:0">
         <div class="grid grid--4">
           <div class="stat-tile"><div class="stat-tile__value">${stats.totalCorrect}</div><div class="stat-tile__label">Rätt svar totalt</div></div>
           <div class="stat-tile"><div class="stat-tile__value">${accuracy} %</div><div class="stat-tile__label">Träffsäkerhet</div></div>
@@ -824,7 +844,7 @@ function renderKonto(root) {
         <div class="grid grid--2">
           <div class="panel" style="padding:24px">
             <div class="row" style="gap:14px;margin-bottom:18px">
-              <div class="avatar" style="width:54px;height:54px;font-size:21px">${esc(avatarLetter(p.name))}</div>
+              <div class="avatar" style="width:54px;height:54px;font-size:21px;padding:0;background:none">${avatarHTML(p.look, { size: 'lg' })}</div>
               <div>
                 <h3 style="font-size:18px">${esc(p.name || 'Gäst')}</h3>
                 <div class="wrap-gap" style="margin-top:6px">
