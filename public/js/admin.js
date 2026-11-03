@@ -77,6 +77,21 @@ const TABS = [
   { key: 'meddelande', label: 'Meddelande' }
 ];
 
+/** Dagens datum i svensk tid, samma format som servern sparar. */
+const kToday = () => new Date().toLocaleDateString('sv-SE', { timeZone: 'Europe/Stockholm' });
+
+/** Skärmtid i läsbar form: 45 sek → "under 1 min", 3 780 → "1 t 3 min". */
+function tidText(seconds) {
+  const total = Math.max(0, Math.round(Number(seconds) || 0));
+  if (total < 1) return '–';
+  if (total < 60) return 'under 1 min';
+  const minutes = Math.round(total / 60);
+  if (minutes < 60) return minutes + ' min';
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return hours + ' t' + (rest ? ' ' + rest + ' min' : '');
+}
+
 function timeText(t) {
   if (!t) return '–';
   const d = new Date(t);
@@ -249,6 +264,8 @@ async function renderAdmin(root) {
         <div class="admin-stat"><div class="admin-stat__value">${totals.active24h}</div><div class="admin-stat__label">Aktiva 24 h</div></div>
         <div class="admin-stat"><div class="admin-stat__value">${kr(totals.wagered)}</div><div class="admin-stat__label">Omsatt (mynt)</div></div>
         <div class="admin-stat"><div class="admin-stat__value">${kr(totals.won)}</div><div class="admin-stat__label">Utbetalt (mynt)</div></div>
+        <div class="admin-stat"><div class="admin-stat__value">${tidText(totals.screenToday)}</div><div class="admin-stat__label">Skärmtid i dag</div></div>
+        <div class="admin-stat"><div class="admin-stat__value">${tidText(totals.screenTime)}</div><div class="admin-stat__label">Skärmtid totalt</div></div>
       </div>
 
       <div class="tabs">
@@ -488,7 +505,7 @@ function renderSpelare(content, root, data) {
       <table class="data-table">
         <thead>
           <tr>
-            <th>Spelare</th><th>Saldo</th><th>Omsatt</th><th>Vunnet</th><th>Netto</th><th>Rundor</th><th>Senast</th><th>Status</th><th></th>
+            <th>Spelare</th><th>Saldo</th><th>Skärmtid</th><th>Omsatt</th><th>Vunnet</th><th>Netto</th><th>Rundor</th><th>Senast</th><th>Status</th><th></th>
           </tr>
         </thead>
         <tbody>
@@ -496,6 +513,7 @@ function renderSpelare(content, root, data) {
             <tr>
               <td><div class="row" style="gap:9px"><span class="avatar">${esc((p.name || '?')[0])}</span><div><div style="font-weight:700">${esc(p.name)}${state.player && p.id === state.player.id ? ' <span class="chip chip--mint">du</span>' : ''}</div><div class="tiny muted">#${esc(p.id)}</div></div></div></td>
               <td class="num">${kr(p.balance)}</td>
+              <td class="num"><button class="btn btn--sm btn--ghost" data-screen="${p.id}" title="Visa skärmtid per dag">${tidText(p.screenTime)}<div class="tiny muted" style="font-weight:400">i dag ${tidText(p.screenToday)}</div></button></td>
               <td class="num">${kr(p.wagered)}</td>
               <td class="num">${kr(p.won)}</td>
               <td class="num" style="color:${(p.won - p.wagered) >= 0 ? '#6ff0b8' : '#ff8a9b'}">${(p.won - p.wagered) >= 0 ? '+' : ''}${kr(p.won - p.wagered)}</td>
@@ -507,11 +525,16 @@ function renderSpelare(content, root, data) {
                 <button class="btn btn--sm btn--ghost" data-ban="${p.id}">${p.banned ? 'Släpp' : 'Stäng'}</button>
                 <button class="btn btn--sm btn--ghost" data-reset="${p.id}">Noll</button>
               </td>
-            </tr>`).join('') || '<tr><td colspan="8" class="muted">Inga spelare ännu.</td></tr>'}
+            </tr>`).join('') || '<tr><td colspan="10" class="muted">Inga spelare ännu.</td></tr>'}
         </tbody>
       </table>
     </div>
-    <p class="tiny muted" style="margin-top:12px">Spelare skapas automatiskt när någon öppnar appen. Saldon är spelmynt utan värde.</p>`;
+    <p class="tiny muted" style="margin-top:12px">
+      Skärmtid räknas bara när fliken är synlig och rapporteras varje minut.
+      I dag: <strong>${tidText((data.totals || {}).screenToday)}</strong> ·
+      sju dagar: <strong>${tidText((data.totals || {}).screen7d)}</strong> ·
+      totalt: <strong>${tidText((data.totals || {}).screenTime)}</strong>.
+      Spelare skapas automatiskt när någon öppnar appen. Saldon är spelmynt utan värde.</p>`;
 
   content.querySelectorAll('[data-balance]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -552,6 +575,43 @@ function renderSpelare(content, root, data) {
             });
           });
         }
+      });
+    });
+  });
+
+  content.querySelectorAll('[data-screen]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const player = data.players.find((p) => p.id === btn.dataset.screen);
+      const days = player.screenDays || {};
+      const keys = Object.keys(days).sort().reverse().slice(0, 7);
+      const rows = keys.length
+        ? keys.map((k) => {
+          const label = k === kToday() ? 'i dag' : k;
+          return `<div class="log-row"><span class="log-row__time">${esc(label)}</span><span></span><span class="log-row__amount">${tidText(days[k])}</span></div>`;
+        }).join('')
+        : '<p class="muted small">Ingen skärmtid registrerad än.</p>';
+      openModal({
+        title: 'Skärmtid',
+        sub: `${player.name} · totalt ${tidText(player.screenTime)} · sju dagar ${tidText(player.screen7d)} · ${player.screenVisits || 0} omgångar`,
+        body: `<div class="log-list">${rows}</div>
+          <p class="tiny muted" style="margin-top:10px">Räknas bara när fliken är synlig, rapporteras varje minut och sparas i 30 dagar.</p>`,
+        actions: [
+          {
+            label: 'Nollställ skärmtid',
+            kind: 'danger',
+            onClick: async (close) => {
+              try {
+                await playerAction(player.id, 'resetScreen');
+                close();
+                toast('Skärmtiden nollställd', 'ok');
+                renderAdmin(root);
+              } catch (err) {
+                toast(err.message, 'bad');
+              }
+            }
+          },
+          { label: 'Stäng', kind: 'primary' }
+        ]
       });
     });
   });

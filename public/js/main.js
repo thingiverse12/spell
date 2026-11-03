@@ -4,7 +4,8 @@
 
 import {
   state, hooks, storage, renderRoute, navigate, ensureSession, api, unlockCasino,
-  sfx, toast, kr, esc, openModal, updateBalanceUI, avatarLetter, toggleMute, watchSettings
+  sfx, toast, kr, esc, openModal, updateBalanceUI, avatarLetter, toggleMute, watchSettings,
+  startScreenTime
 } from './core.js';
 
 import './learn.js';
@@ -213,6 +214,9 @@ async function boot() {
 
   // Ladda om sidan när admin ändrar inställningarna.
   watchSettings();
+
+  // Rapportera skärmtid till adminpanelen (bara när fliken är synlig).
+  startScreenTime();
 
   // Uppdatera saldo med jämna mellanrum om fliken ligger öppen
   setInterval(async () => {

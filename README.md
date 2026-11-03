@@ -259,7 +259,20 @@ I panelen kan admin:
 - se **spel-ekonomin** i fliken **Ekonomi**: vad spelen faktiskt betalar tillbaka (RTP) och husets
   marginal vid varje tur-nivå och varje saldo, var brytpunkten för jämnt spel ligger, och en
   knapp som snurrar 20 000 gånger med de inställningar som gäller just nu,
+- se **skärmtid** per spelare: hur länge varje spelare faktiskt har tittat på skärmen –
+  i dag, de senaste sju dagarna och totalt, både som siffror i översikten och som kolumn i
+  spelartabellen. Klickar man på tiden får man dag för dag och kan nollställa den,
 - läsa hela transaktionsloggen och skicka meddelande till studiestartsidan.
+
+### Skärmtid – hur länge spelas det?
+Klienten räknar bara tid när fliken är **synlig** (`document.visibilityState === 'visible'`), så
+en bakgrundsflik eller en sovande dator ger ingen tid. Tiden skickas till `POST /api/screen`
+varje minut och när fliken lämnas, och servern klämmer varje rapport till 0–600 sekunder.
+Per spelare sparas total tid, tid per dag (svensk dag, 30 dagar kvar), antal omgångar (en ny
+omgång efter 30 minuters paus) och senaste rapport. Admin ser siffrorna i **Översikt**
+(*Skärmtid i dag* / *Skärmtid totalt*) och i kolumnen **Skärmtid** under **Spelare** – klicka på
+tiden för dag-för-dag och **Nollställ skärmtid**. Går servern inte att nå sparas tiden lokalt
+och skickas nästa gång.
 
 ### Ändringar slår igenom direkt
 Klienten frågar servern var femte sekund (bara när fliken är synlig) om inställningarna har

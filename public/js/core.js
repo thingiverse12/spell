@@ -251,13 +251,14 @@ const headers = (extra = {}) => {
   return h;
 };
 
-async function request(path, { method = 'GET', body } = {}) {
+async function request(path, { method = 'GET', body, keepalive = false } = {}) {
   let res;
   try {
     res = await fetch(path, {
       method,
       headers: headers(),
-      body: body ? JSON.stringify(body) : undefined
+      body: body ? JSON.stringify(body) : undefined,
+      ...(keepalive ? { keepalive: true } : {})
     });
   } catch (err) {
     const offlineError = new Error('offline');
@@ -291,6 +292,31 @@ async function request(path, { method = 'GET', body } = {}) {
 
 /* -------- lokal fallback om servern inte svarar -------- */
 
+/** Svenskt datum, t.ex. 2026-11-03 – används för lokal skärmtid. */
+export function localDayKey(ts = Date.now()) {
+  try {
+    return new Date(ts).toLocaleDateString('sv-SE', { timeZone: 'Europe/Stockholm' });
+  } catch (e) {
+    return new Date(ts).toISOString().slice(0, 10);
+  }
+}
+
+/** Skärmtid ur en lokal spelare (samma form som serverns svar). */
+export function screenStatsOf(player) {
+  const days = (player && player.screenDays) || {};
+  const today = days[localDayKey()] || 0;
+  let week = 0;
+  for (let i = 0; i < 7; i += 1) week += days[localDayKey(Date.now() - i * 86400000)] || 0;
+  return {
+    screenTime: Math.round((player && player.screenTime) || 0),
+    screenToday: Math.round(today),
+    screen7d: Math.round(week),
+    screenVisits: (player && player.screenVisits) || 0,
+    screenLast: (player && player.screenLast) || 0,
+    screenDays: days
+  };
+}
+
 function localPlayer() {
   let p = store.get(K.local);
   if (!p) {
@@ -306,7 +332,11 @@ function localPlayer() {
       lastSeen: Date.now(),
       hasPin: false,
       banned: false,
-      lastBonus: 0
+      lastBonus: 0,
+      screenTime: 0,
+      screenDays: {},
+      screenVisits: 0,
+      screenLast: 0
     };
     store.set(K.local, p);
   }
@@ -460,6 +490,25 @@ export const api = {
       state.settings = localSettings();
       state.broadcast = store.get('ph.broadcast', '') || '';
       return state.player;
+    }
+  },
+
+  /** Rapporterar skärmtid till servern (eller lokalt om servern inte svarar). */
+  async screen(seconds, keepalive = false) {
+    const secs = Math.max(0, Math.round(Number(seconds) || 0));
+    if (!secs) return;
+    try {
+      await request('/api/screen', { method: 'POST', body: { seconds: secs }, keepalive });
+    } catch (err) {
+      if (!localFail(err)) return;
+      const p = localPlayer();
+      p.screenTime = (p.screenTime || 0) + secs;
+      p.screenDays = p.screenDays && typeof p.screenDays === 'object' ? p.screenDays : {};
+      const key = localDayKey();
+      p.screenDays[key] = (p.screenDays[key] || 0) + secs;
+      p.screenLast = Date.now();
+      p.screenVisits = p.screenVisits || 1;
+      saveLocal(p);
     }
   },
 
@@ -743,7 +792,8 @@ export const localAdmin = {
         rounds: p.rounds || 0,
         quizCorrect: p.quizCorrect || 0,
         hasPin: !!p.hasPin,
-        banned: !!p.banned
+        banned: !!p.banned,
+        ...screenStatsOf(p)
       }
     ];
     const gameTotals = {};
@@ -763,7 +813,8 @@ export const localAdmin = {
         won: p.won || 0,
         balance: p.balance || 0,
         rounds: p.rounds || 0,
-        active24h: 1
+        active24h: 1,
+        ...screenStatsOf(p)
       },
       settings,
       transactions: store.get('ph.tx', []) || [],
@@ -777,6 +828,12 @@ export const localAdmin = {
     if (action === 'setBalance') p.balance = Math.max(0, Math.min(1e7, Math.round(Number(value) || 0)));
     else if (action === 'add') p.balance = Math.max(0, p.balance + Math.round(Number(value) || 0));
     else if (action === 'ban') p.banned = !!value;
+    else if (action === 'resetScreen') {
+      p.screenTime = 0;
+      p.screenDays = {};
+      p.screenVisits = 0;
+      p.screenLast = 0;
+    }
     else if (action === 'reset') {
       p.balance = localSettings().startBalance;
       p.wagered = 0;
@@ -1048,6 +1105,60 @@ export function setBalance(value) {
   if (state.player) state.player.balance = value;
   const el = document.getElementById('balance-value');
   if (el) el.textContent = kr(value);
+}
+
+/* ------------------------------ skärmtid ------------------------------ */
+
+/**
+ * Räknar bara den tid fliken faktiskt är synlig och rapporterar den till
+ * servern varje minut (och när fliken lämnas). Tiden hamnar i adminpanelens
+ * skärmtidskolumn – det är speltid, inte tid i studieläget.
+ */
+export function startScreenTime({ tickMs = 15000, sendMs = 60000 } = {}) {
+  if (typeof document === 'undefined') return;
+  if (startScreenTime.started) return;
+  startScreenTime.started = true;
+
+  let pending = 0;
+  let last = Date.now();
+  let lastVisible = !document.hidden && document.visibilityState === 'visible';
+
+  /* Lägger till tiden sedan förra ticket om fliken var synlig då – så att
+     tiden fram till att man lämnar fliken också räknas. */
+  const seconds = () => {
+    const t = Date.now();
+    const delta = Math.max(0, (t - last) / 1000);
+    last = t;
+    const visibleNow = !document.hidden && document.visibilityState === 'visible';
+    if (lastVisible && delta <= 120) pending += delta; // >120 s = datorn har vilat
+    lastVisible = visibleNow;
+  };
+
+  const flush = (keepalive = false) => {
+    const secs = Math.round(pending);
+    if (secs < 1) return;
+    pending = 0;
+    api.screen(secs, keepalive).catch(() => {});
+  };
+
+  document.addEventListener('visibilitychange', () => {
+    seconds();
+    if (document.hidden) flush(true);
+    else last = Date.now();
+  });
+  window.addEventListener('pagehide', () => {
+    seconds();
+    flush(true);
+  });
+  window.addEventListener('beforeunload', () => {
+    seconds();
+    flush(true);
+  });
+
+  setInterval(() => {
+    seconds();
+    if (pending >= sendMs / 1000) flush();
+  }, tickMs);
 }
 
 export function updateBalanceUI() {
