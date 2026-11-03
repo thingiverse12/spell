@@ -390,6 +390,10 @@ function paint() {
 
   if (ui.tableId && ui.view) {
     const view = ui.view;
+    /* Har draget redan gjorts försvinner valören ur handen – då ska inget
+       gammalt val ligga kvar och se ut som att det går att fråga på. */
+    if (ui.rank && view.you && !view.you.ranks.includes(ui.rank)) ui.rank = '';
+    if (ui.target >= 0 && view.you && !view.you.targets.includes(ui.target)) ui.target = -1;
     const sig = JSON.stringify({ ...view, secondsLeft: 0, serverNow: 0 });
     if (sig !== ui.sig) {
       ui.sig = sig;
