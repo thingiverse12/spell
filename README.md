@@ -180,6 +180,11 @@ aldrig går att missta insatsen för en vinst:
 | Skraplotter | lägst 1,5× lottpriset, högst 50× | 375 kr tillbaka på ett 250 kr-lott, netto +125 kr |
 | Live Sport | insats × odds | 500 kr tillbaka på odds 2,00, netto +250 kr |
 
+**Hela vinsten betalas alltid ut.** Det finns inget tak som klipper stora vinster – vinner man
+3 miljoner spelmynt sätts 3 miljoner in på kontot (servern har bara ett skyddsräcke på en
+miljard mot orimliga tal, och quizbelöningen är fortfarande fast per rätt svar). Om en vinst
+någon gång skulle klämmas visas det som en varning i spelet i stället för att tyst försvinna.
+
 Blackjack visar en kvittorad under bordet – *Insats · Utbetalning · Netto* – efter varje runda,
 även när handen förlorar. Slots visar "Netto +X kr" ovanför vinstraderna och videopoker skriver
 ut både utbetalning och vinst.

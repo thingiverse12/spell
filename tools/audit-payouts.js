@@ -363,6 +363,19 @@ const adminSrc2 = read('public/js/admin.js');
   ['fliken Ekonomi finns i adminpanelen', /key: 'ekonomi'/.test(adminSrc2) && /renderEkonomi\(content, root, data\)/.test(adminSrc2)]
 ].forEach(([label, ok2]) => (ok2 ? ok(label) : bad(label)));
 
+console.log('\nUtbetalning av stora vinster');
+
+const apiSrc3 = read('lib/api.js');
+const creditMax = Number(/const CREDIT_MAX = ([\d_]+);/.exec(apiSrc3)?.[1]?.replace(/_/g, '') || 0);
+[
+  ['inga vinster klipps vid 250 000 längre', !/250000/.test(apiSrc3)],
+  ['skyddsräcket ligger över miljonvinster', creditMax >= 10000000, true],
+  ['quizbelöningen har fortfarande ett eget tak', /game === 'quiz' \? 400 : CREDIT_MAX/.test(apiSrc3)],
+  ['klienten varnar om en vinst skulle klämmas', /data\.capped/.test(read('public/js/core.js'))]
+].forEach(([label, passed, showCap]) =>
+  passed ? ok(label, showCap ? 'tak ' + creditMax : '') : bad(label)
+);
+
 console.log('\nTur-märket i spelen');
 
 const luckSrc3 = read('public/js/luck.js');

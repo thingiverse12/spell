@@ -605,6 +605,7 @@ export const api = {
     try {
       const data = await request('/api/credit', { method: 'POST', body: { game, amount } });
       if (state.player) state.player.balance = data.balance;
+      if (data.capped) toast(`Vinsten var ${num(amount)} kr men betalades ut med ${num(data.credited)} kr`, 'bad', 4000);
       return data.balance;
     } catch (err) {
       if (!localFail(err)) throw err;
@@ -825,7 +826,7 @@ export const localAdmin = {
 
   player(id, action, value) {
     const p = localPlayer();
-    if (action === 'setBalance') p.balance = Math.max(0, Math.min(1e7, Math.round(Number(value) || 0)));
+    if (action === 'setBalance') p.balance = Math.max(0, Math.min(1e9, Math.round(Number(value) || 0)));
     else if (action === 'add') p.balance = Math.max(0, p.balance + Math.round(Number(value) || 0));
     else if (action === 'ban') p.banned = !!value;
     else if (action === 'resetScreen') {
