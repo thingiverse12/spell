@@ -591,6 +591,53 @@
 .admin-coins__input { max-width: 160px; }
 .admin-coins .btn { white-space: nowrap; }
 
+/* Admin: spel-ekonomi (RTP och marginal) */
+
+.economy { display: grid; gap: 0; }
+.economy__hero { margin-bottom: 14px; }
+.economy__note {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.economy__note strong { color: var(--text); }
+.economy__out { margin-top: 14px; }
+.economy__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.economy__grid > div {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-2);
+  display: grid;
+  gap: 3px;
+}
+.economy__value {
+  font-size: 19px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.economy__label {
+  font-size: 10.5px;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: var(--muted);
+}
+.economy .admin-stat__label + .admin-stat__label { margin-top: 2px; opacity: .8; }
+
+@media (max-width: 760px) {
+  .economy__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 760px) {
   .admin-coins__sep { display: none; }
   .admin-coins__input { max-width: none; width: 100%; }

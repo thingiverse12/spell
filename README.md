@@ -254,6 +254,9 @@ I panelen kan admin:
   direkt utan att man trycker på spara,
 - slå på/av gummibandet (dynamisk tur) med en kryssruta – sparas också direkt,
 - underhållsläge,
+- se **spel-ekonomin** i fliken **Ekonomi**: vad spelen faktiskt betalar tillbaka (RTP) och husets
+  marginal vid varje tur-nivå och varje saldo, var brytpunkten för jämnt spel ligger, och en
+  knapp som snurrar 20 000 gånger med de inställningar som gäller just nu,
 - läsa hela transaktionsloggen och skicka meddelande till studiestartsidan.
 
 ### Ändringar slår igenom direkt

@@ -21,6 +21,9 @@ const TIERS = [
 const NO_WIN_WEIGHT = 6332;
 const TOTAL_WEIGHT = TIERS.reduce((sum, tier) => sum + tier.weight, 0) + NO_WIN_WEIGHT;
 
+/** Vinsttrappan delas med adminpanelens spel-ekonomi (economy.js). */
+export const SCRATCH_MATH = { TIERS, NO_WIN_WEIGHT, TOTAL_WEIGHT };
+
 const CELLS = 9;
 const PRICES = [10, 20, 50, 100, 250, 500];
 const DECOY_STEPS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4, 5, 6, 8];

@@ -7,6 +7,7 @@ import {
   registerView, state, api, sfx, toast, kr, num, esc, navigate, openModal, confirmModal, storage, localAdmin, sleep,
   updateBalanceUI
 } from './core.js';
+import { renderEkonomi } from './economy.js';
 
 let tab = 'oversikt';
 
@@ -70,6 +71,7 @@ const TABS = [
   { key: 'spelare', label: 'Spelare' },
   { key: 'fotboll', label: 'Sport' },
   { key: 'installningar', label: 'Spelinställningar' },
+  { key: 'ekonomi', label: 'Ekonomi' },
   { key: 'logg', label: 'Logg' },
   { key: 'meddelande', label: 'Meddelande' }
 ];
@@ -278,6 +280,7 @@ async function renderAdmin(root) {
   if (tab === 'spelare') renderSpelare(content, root, data);
   if (tab === 'fotboll') renderFotboll(content, root);
   if (tab === 'installningar') renderInstallningar(content, root, data);
+  if (tab === 'ekonomi') renderEkonomi(content, root, data);
   if (tab === 'logg') renderLogg(content, data);
   if (tab === 'meddelande') renderMeddelande(content, root, data);
 }

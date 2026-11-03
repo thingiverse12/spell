@@ -314,6 +314,20 @@ else bad('sämsta vinstnivån ger inte plus', `${lousiestScratch} kr`);
 if (/scratchLuck/.test(read('lib/api.js'))) ok('skraplotternas tur kan ställas in i adminpanelen');
 else bad('skraplotternas tur saknas i admin-inställningarna');
 
+/* --------------------------- admin: spel-ekonomi --------------------------- */
+
+console.log('\nAdminpanel – spel-ekonomi');
+
+const economySrc = read('public/js/economy.js');
+const adminSrc2 = read('public/js/admin.js');
+[
+  ['slots.js delar vinsttabellen med panelen', /export const SLOT_MATH = \{ SYMBOLS, PAYTABLE, PAYLINES \};/.test(slotsSrc)],
+  ['scratch.js delar vinsttrappan med panelen', /export const SCRATCH_MATH = \{ TIERS, NO_WIN_WEIGHT, TOTAL_WEIGHT \};/.test(read('public/js/scratch.js'))],
+  ['panelen räknar med spelets egen utbetalningsformel', /import \{ luckFactor, luckPayout, LUCK_MIN, LUCK_MAX \} from '.\/luck.js';/.test(economySrc)],
+  ['panelen använder slotsens och skraplotternas tabeller', /SLOT_MATH/.test(economySrc) && /SCRATCH_MATH/.test(economySrc)],
+  ['fliken Ekonomi finns i adminpanelen', /key: 'ekonomi'/.test(adminSrc2) && /renderEkonomi\(content, root, data\)/.test(adminSrc2)]
+].forEach(([label, ok2]) => (ok2 ? ok(label) : bad(label)));
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

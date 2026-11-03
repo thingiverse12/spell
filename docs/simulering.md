@@ -252,6 +252,15 @@ Inget av detta är ändrat i spelet – det är bara mätvärden. Men de ger ett
 - **Gummibandet gör sitt jobb:** spelarens session hamnar på ~96 % RTP och 84 % av sessionerna
   har pengar kvar efter 1 000 snurr.
 
+## Samma siffror finns i adminpanelen
+
+Fliken **Ekonomi** i adminpanelen räknar samma sak direkt i webbläsaren, men med de
+inställningar som gäller just nu: RTP och marginal för slots och skraplotter per tur-nivå och
+saldo, brytpunkten för jämnt spel och en knapp som snurrar 20 000 gånger och visar träffchans,
+största vinst, längsta nit-svit och hur många som spelar slut på kontot. Panelen importerar
+vinsttabellerna från `slots.js` och `scratch.js`, så den kan aldrig visa en annan siffra än
+spelet använder.
+
 ## Köra om simuleringen
 
 ```bash

@@ -53,6 +53,9 @@ const PAYLINES = [
   [0, 2, 0, 2, 0]
 ];
 
+/** Vinsttabellerna delas med adminpanelens spel-ekonomi (economy.js). */
+export const SLOT_MATH = { SYMBOLS, PAYTABLE, PAYLINES };
+
 const WEIGHTED = Object.entries(SYMBOLS).flatMap(([key, s]) => Array(s.weight).fill(key));
 
 const REELS = 5;
