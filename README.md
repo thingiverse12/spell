@@ -194,6 +194,26 @@ aldrig går att missta insatsen för en vinst:
 miljard mot orimliga tal, och quizbelöningen är fortfarande fast per rätt svar). Om en vinst
 någon gång skulle klämmas visas det som en varning i spelet i stället för att tyst försvinna.
 
+### Utbetalning till spelarna – kompensation för klippta vinster
+
+Innan taket togs bort klippte servern varje vinst till 250 000 kr. Spelare som drabbades har
+fortfarande mindre på kontot än de skulle ha. Fliken **Utbetalning** i adminpanelen rättar till det:
+
+1. Servern letar upp alla vinster som ligger exakt på det gamla taket och som är gjorda **före**
+   den 3 november 2026 klockan 08:50 (då taket togs bort). Bara äldre vinster kan ha klippts,
+   så en ärlig vinst på 250 000 kr idag räknas aldrig som klippt.
+2. Panelen visar varje drabbad spelare: saldo nu, antal klippta vinster, vad de får och saldo efter.
+3. Admin ser summan, kan ändra beloppet per klippt vinst (standard 250 000 kr) och trycker på
+   **Betala ut**. En bekräftelsedialog visar exakt vad som händer innan pengarna delas ut.
+4. Varje klippt vinst betalas bara ut en gång – servern minns vilka som är betalda, och en
+   utbetalning kan därför inte köras dubbelt av misstag. Allt loggas som `utbetalning` och syns
+   både i adminpanelens logg och i utbetalningshistoriken.
+
+Servern sparade bara det klippta beloppet, så exakt hur stor den ursprungliga vinsten var går
+inte att räkna fram i efterhand. Därför betalas ett bestämt belopp per klippt vinst ut – höj
+siffran i panelen om du vill vara generösare. Spelarens saldo uppdateras automatiskt inom en
+minut när fliken ligger öppen.
+
 Blackjack visar en kvittorad under bordet – *Insats · Utbetalning · Netto* – efter varje runda,
 även när handen förlorar. Slots visar "Netto +X kr" ovanför vinstraderna och videopoker skriver
 ut både utbetalning och vinst.

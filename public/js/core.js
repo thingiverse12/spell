@@ -761,6 +761,15 @@ export const api = {
     return data;
   },
 
+  async adminCompensation(perWin) {
+    const qs = perWin ? '?perWin=' + encodeURIComponent(perWin) : '';
+    return request('/api/admin/compensation' + qs);
+  },
+
+  async adminCompensationPay(payload) {
+    return request('/api/admin/compensation', { method: 'POST', body: payload });
+  },
+
   async adminBroadcast(message) {
     return request('/api/admin/broadcast', { method: 'POST', body: { message } });
   },

@@ -73,6 +73,7 @@ const TABS = [
   { key: 'fotboll', label: 'Sport' },
   { key: 'installningar', label: 'Spelinställningar' },
   { key: 'ekonomi', label: 'Ekonomi' },
+  { key: 'utbetalning', label: 'Utbetalning' },
   { key: 'logg', label: 'Logg' },
   { key: 'meddelande', label: 'Meddelande' }
 ];
@@ -299,8 +300,160 @@ async function renderAdmin(root) {
   if (tab === 'fotboll') renderFotboll(content, root);
   if (tab === 'installningar') renderInstallningar(content, root, data);
   if (tab === 'ekonomi') renderEkonomi(content, root, data);
+  if (tab === 'utbetalning') renderUtbetalning(content, root);
   if (tab === 'logg') renderLogg(content, data);
   if (tab === 'meddelande') renderMeddelande(content, root, data);
+}
+
+/* ---------------------------------------------------------------------------
+   Utbetalning – kompensation för vinster som klipptes av det gamla taket.
+   Servern sparade bara det klippta beloppet, så exakt hur stor vinsten var
+   går inte att räkna fram i efterhand. Därför betalar vi ett bestämt belopp
+   per klippt vinst, och admin ser hela listan innan hen trycker på knappen.
+   ------------------------------------------------------------------------- */
+
+let compensationPerWin = null;
+
+async function renderUtbetalning(content, root) {
+  if (state.adminLocal) {
+    content.innerHTML = `
+      <div class="panel" style="padding:22px">
+        <h3 style="font-size:15px">Utbetalning</h3>
+        <p class="small muted" style="margin-top:8px">
+          Utbetalningen kräver att panelen är inloggad mot servern – i lokalt läge
+          finns ingen gemensam spelardatabas att betala ut ifrån.
+        </p>
+      </div>`;
+    return;
+  }
+
+  content.innerHTML = '<div class="panel" style="padding:22px"><p class="small muted">Räknar ut vad spelarna har till godo …</p></div>';
+
+  let data;
+  try {
+    data = await api.adminCompensation(compensationPerWin);
+  } catch (err) {
+    content.innerHTML = `
+      <div class="panel" style="padding:22px">
+        <h3 style="font-size:15px">Utbetalning</h3>
+        <p class="small muted" style="margin-top:8px">Kunde inte hämta underlaget: ${esc(err.message)}</p>
+        <button class="btn btn--sm btn--ghost" id="comp-retry" style="margin-top:12px">Försök igen</button>
+      </div>`;
+    const retry = content.querySelector('#comp-retry');
+    if (retry) retry.addEventListener('click', () => renderUtbetalning(content, root));
+    return;
+  }
+
+  const perWin = Number(data.perWin) || 250000;
+  compensationPerWin = perWin;
+  const rows = data.players.length
+    ? data.players
+        .map(
+          (p) => `<tr>
+            <td>${esc(p.name)}</td>
+            <td>${kr(p.balance)}</td>
+            <td>${p.winCount} <span class="tiny muted">(${p.wins.map((w) => esc(w.game)).join(', ')})</span></td>
+            <td><strong>+${kr(p.owed)}</strong></td>
+            <td>${kr(p.after)}</td>
+          </tr>`
+        )
+        .join('')
+    : '<tr><td colspan="5" class="muted small" style="padding:16px">Inga klippta vinster kvar att betala ut.</td></tr>';
+
+  const runs = (data.runs || []).length
+    ? data.runs
+        .map(
+          (r) => `<div class="log-row">
+            <span class="log-row__time">${r.at ? new Date(r.at).toLocaleString('sv-SE') : '–'}</span>
+            <span>${r.players} spelare · ${r.winCount} klippta vinster</span>
+            <span class="log-row__amount">${kr(r.total)}</span>
+          </div>`
+        )
+        .join('')
+    : '<p class="muted small">Ingen utbetalning gjord än.</p>';
+
+  content.innerHTML = `
+    <div class="panel" style="padding:22px">
+      <div class="row row--between" style="flex-wrap:wrap;gap:10px;align-items:center">
+        <div>
+          <h3 style="font-size:15px">Dela ut det spelarna har tjänat</h3>
+          <p class="small muted" style="margin-top:4px">
+            Före fixen klippte servern varje vinst till ${kr(data.legacyCap)}. Här ser du vilka
+            spelare som drabbades och vad de får tillbaka.
+          </p>
+        </div>
+        <span class="chip ${data.playerCount ? 'chip--amber' : 'chip--mint'}">
+          ${data.playerCount} spelare · ${data.winCount} klippta vinster · ${kr(data.total)}
+        </span>
+      </div>
+
+      <div class="settings-grid" style="margin-top:18px">
+        <label class="field"><span>Belopp per klippt vinst (kr)</span>
+          <input class="input" id="comp-per-win" type="number" min="0" step="1000" value="${perWin}" /></label>
+        <label class="field" style="justify-content:flex-end"><span>&nbsp;</span>
+          <button class="btn btn--ghost" id="comp-recalc">Räkna om</button></label>
+      </div>
+
+      <div style="overflow:auto;margin-top:16px">
+        <table class="data-table">
+          <thead><tr><th>Spelare</th><th>Saldo nu</th><th>Klippta vinster</th><th>Får</th><th>Saldo efter</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+
+      <div class="row" style="gap:10px;margin-top:18px;flex-wrap:wrap">
+        <button class="btn btn--primary" id="comp-pay" ${data.playerCount ? '' : 'disabled'}>
+          Betala ut ${kr(data.total)} till ${data.playerCount} spelare
+        </button>
+        <span class="tiny muted" style="align-self:center">
+          Varje klippt vinst betalas bara ut en gång. Allt loggas som en utbetalning.
+        </span>
+      </div>
+
+      <p class="tiny muted" style="margin-top:14px">
+        Servern sparade bara det klippta beloppet, så exakt hur stor den ursprungliga vinsten var
+        går inte att räkna fram. Därför betalar vi ett bestämt belopp per klippt vinst – ändra
+        siffran ovan om du vill vara generösare.
+      </p>
+
+      <h3 style="font-size:14px;margin:26px 0 10px">Tidigare utbetalningar</h3>
+      <div class="log-list">${runs}</div>
+    </div>`;
+
+  const recalc = () => {
+    const value = Number(content.querySelector('#comp-per-win').value);
+    compensationPerWin = Number.isFinite(value) && value >= 0 ? value : null;
+    renderUtbetalning(content, root);
+  };
+  content.querySelector('#comp-recalc').addEventListener('click', recalc);
+  content.querySelector('#comp-per-win').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      recalc();
+    }
+  });
+
+  content.querySelector('#comp-pay').addEventListener('click', async () => {
+    const ok = await confirmModal({
+      title: 'Betala ut ' + kr(data.total) + '?',
+      text: `${data.playerCount} spelare får ${kr(perWin)} per klippt vinst (${data.winCount} vinster). Utbetalningen kan inte göras om.`,
+      confirmLabel: 'Betala ut',
+      danger: false
+    });
+    if (!ok) return;
+    try {
+      const res = await api.adminCompensationPay({ perWin, confirm: true });
+      if (!res.ok) {
+        toast(res.reason || 'Inget att betala ut', 'gold');
+      } else {
+        sfx.bigWin ? sfx.bigWin() : sfx.win();
+        toast(`Utbetalt: ${kr(res.run.total)} till ${res.run.players} spelare`, 'gold', 4200);
+      }
+      renderUtbetalning(content, root);
+    } catch (err) {
+      toast(err.message, 'bad');
+    }
+  });
 }
 
 /* Admin får fylla på sitt eget konto – mynten är påhittade och loggas. */

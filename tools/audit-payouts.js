@@ -381,7 +381,8 @@ console.log('\nUtbetalning av stora vinster');
 const apiSrc3 = read('lib/api.js');
 const creditMax = Number(/const CREDIT_MAX = ([\d_]+);/.exec(apiSrc3)?.[1]?.replace(/_/g, '') || 0);
 [
-  ['inga vinster klipps vid 250 000 längre', !/250000/.test(apiSrc3)],
+  // 250 000 får bara finnas kvar som igenkänning av gamla vinster – aldrig som tak.
+  ['inga vinster klipps vid 250 000 längre', !/:\s*250000;/.test(apiSrc3) && !/Math\.min\([^)]*250000\)/.test(apiSrc3)],
   ['skyddsräcket ligger över miljonvinster', creditMax >= 10000000, true],
   ['quizbelöningen har fortfarande ett eget tak', /game === 'quiz' \? 400 : CREDIT_MAX/.test(apiSrc3)],
   ['klienten varnar om en vinst skulle klämmas', /data\.capped/.test(read('public/js/core.js'))]
@@ -429,6 +430,22 @@ const machines = ['slots', 'videopoker', 'scratch'];
     ? ok(label)
     : bad(label, 'saknas i ' + (label.includes('märket') ? 'luck.js/spelen' : 'källkoden'))
 );
+
+console.log('\nUtbetalning till spelarna');
+
+const adminSrc = read('public/js/admin.js');
+const coreSrc4 = read('public/js/core.js');
+[
+  ['gamla taket finns kvar som igenkänning', /const LEGACY_WIN_CAP = 250000;/.test(apiSrc3)],
+  ['bara vinster före brytdatumet räknas som klippta', /LEGACY_CAP_REMOVED_AT/.test(apiSrc3) && /entry\.t\) >= LEGACY_CAP_REMOVED_AT/.test(apiSrc3)],
+  ['varje klippt vinst betalas bara ut en gång', /db\.payouts\.keys\.push\(win\.key\)/.test(apiSrc3) && /const paid = new Set\(db\.payouts\.keys\)/.test(apiSrc3)],
+  ['utbetalningen kräver bekräftelse', /body\.confirm !== true/.test(apiSrc3)],
+  ['utbetalningen loggas som utbetalning', /logTransaction\(player, 'utbetalning', 'kompensation'/.test(apiSrc3)],
+  ['panelen har fliken Utbetalning', /key: 'utbetalning'/.test(adminSrc) && /renderUtbetalning/.test(adminSrc)],
+  ['panelen frågar innan pengarna delas ut', /confirmModal\(\{\s*\n?\s*title: 'Betala ut '/.test(adminSrc)],
+  ['klienten kan hämta och betala ut', /adminCompensation\(/.test(coreSrc4) && /adminCompensationPay\(/.test(coreSrc4)],
+  ['saldo uppdateras automatiskt hos spelaren', /setInterval\(async \(\) => \{[\s\S]{0,120}await api\.me\(\)/.test(read('public/js/main.js'))]
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'saknas i källkoden')));
 
 console.log('\nUnderhållsläget och sportspelen');
 
