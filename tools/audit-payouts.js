@@ -316,6 +316,37 @@ else bad('skraplotternas tur saknas i admin-inställningarna');
 
 /* --------------------------- admin: spel-ekonomi --------------------------- */
 
+console.log('\nTur-inställningarnas spann');
+
+const luckSrc2 = read('public/js/luck.js');
+const settingMin = Number(/export const LUCK_SETTING_MIN = ([\d.]+);/.exec(luckSrc2)?.[1]);
+const settingMax = Number(/export const LUCK_SETTING_MAX = ([\d.]+);/.exec(luckSrc2)?.[1]);
+if (settingMin > 0 && settingMax > settingMin && settingMin <= 0.25 && settingMax >= 3) {
+  ok('spannet tillåter mycket låg och mycket hög tur', `${settingMin}–${settingMax}`);
+} else bad('spannet för tur-inställningarna är för snävt', `${settingMin}–${settingMax}`);
+
+const apiSrc2 = read('lib/api.js');
+const serverClamps = ['slotLuck', 'videoPokerLuck', 'scratchLuck'].every((key) =>
+  new RegExp(`num\\('${key}', ${settingMin}, ${settingMax}\\);`).test(apiSrc2)
+);
+if (serverClamps) ok('servern godtar samma spann som klienten');
+else bad('servern klämmer tur-inställningarna till ett annat spann');
+
+const levelValues = [...read('public/js/admin.js').matchAll(/\{ value: ([\d.]+), label: '([^']+)' \}/g)].map(
+  (m) => Number(m[1])
+);
+if (levelValues.length >= 5 && levelValues[0] <= 0.25 && levelValues[levelValues.length - 1] >= 3) {
+  ok('adminpanelen har nivåer från mycket låg till extrem', levelValues.join(', '));
+} else bad('adminpanelen saknar nivåer i kanterna', levelValues.join(', '));
+
+const hasCustom = /data-chance-input/.test(read('public/js/admin.js'));
+if (hasCustom) ok('eget värde kan skrivas in för varje spel');
+else bad('det går inte att skriva in ett eget värde');
+
+const economyLevels = /0\.25/.test(read('public/js/economy.js')) && /3,/.test(read('public/js/economy.js'));
+if (economyLevels) ok('ekonomi-panelen visar hela spannet');
+else bad('ekonomi-panelen visar inte hela spannet');
+
 console.log('\nAdminpanel – spel-ekonomi');
 
 const economySrc = read('public/js/economy.js');
@@ -323,7 +354,11 @@ const adminSrc2 = read('public/js/admin.js');
 [
   ['slots.js delar vinsttabellen med panelen', /export const SLOT_MATH = \{ SYMBOLS, PAYTABLE, PAYLINES \};/.test(slotsSrc)],
   ['scratch.js delar vinsttrappan med panelen', /export const SCRATCH_MATH = \{ TIERS, NO_WIN_WEIGHT, TOTAL_WEIGHT \};/.test(read('public/js/scratch.js'))],
-  ['panelen räknar med spelets egen utbetalningsformel', /import \{ luckFactor, luckPayout, LUCK_MIN, LUCK_MAX \} from '.\/luck.js';/.test(economySrc)],
+  [
+    'panelen räknar med spelets egen utbetalningsformel',
+    /import \{[^}]*luckPayout[^}]*\} from '\.\/luck\.js';/.test(economySrc) &&
+      /luckPayout\(bet, /.test(economySrc)
+  ],
   ['panelen använder slotsens och skraplotternas tabeller', /SLOT_MATH/.test(economySrc) && /SCRATCH_MATH/.test(economySrc)],
   ['fliken Ekonomi finns i adminpanelen', /key: 'ekonomi'/.test(adminSrc2) && /renderEkonomi\(content, root, data\)/.test(adminSrc2)]
 ].forEach(([label, ok2]) => (ok2 ? ok(label) : bad(label)));

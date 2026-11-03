@@ -6,7 +6,7 @@
    ===================================================================== */
 
 import { registerView, state, api, sfx, toast, kr, navigate, openModal, updateBalanceUI, guardRound } from './core.js';
-import { currentLuck, luckPayout, luckPill } from './luck.js';
+import { currentLuck, clampLuckSetting, luckPayout, luckPill } from './luck.js';
 
 /* Vinsttrappan: multiplar av lottpriset och hur många av 10 000 lott
    som ger respektive nivå. Resten är nitlott. */
@@ -51,8 +51,7 @@ guardRound(
 /* ------------------------------ Lottet ------------------------------ */
 
 function luck() {
-  const l = Number(state.settings.scratchLuck) || 1;
-  return Math.min(1.5, Math.max(0.5, l));
+  return clampLuckSetting(state.settings.scratchLuck);
 }
 
 function drawTier() {

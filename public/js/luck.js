@@ -12,6 +12,18 @@ import { state } from './core.js';
 export const LUCK_MIN = 0.7;
 export const LUCK_MAX = 1.35;
 
+/* Spannet för tur-inställningarna i adminpanelen (slotLuck, videoPokerLuck,
+   scratchLuck). ×1,00 är neutralt: under 1 betalar spelen sämre, över 1 bättre.
+   Nivåerna räknas fram i economy.js och kontrolleras av npm run audit. */
+export const LUCK_SETTING_MIN = 0.1;
+export const LUCK_SETTING_MAX = 3;
+
+export function clampLuckSetting(value) {
+  const v = Number(value);
+  if (!Number.isFinite(v) || v <= 0) return 1;
+  return Math.min(LUCK_SETTING_MAX, Math.max(LUCK_SETTING_MIN, v));
+}
+
 /** Faktor utifrån saldo jämfört med start-/jämviktsläget. */
 export function luckFactor(balance, startBalance = 2500) {
   const start = Number(startBalance);

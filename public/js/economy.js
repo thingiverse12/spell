@@ -8,11 +8,11 @@
    ===================================================================== */
 
 import { state, kr, num } from './core.js';
-import { luckFactor, luckPayout, LUCK_MIN, LUCK_MAX } from './luck.js';
+import { luckFactor, luckPayout, clampLuckSetting, LUCK_MIN, LUCK_MAX, LUCK_SETTING_MIN, LUCK_SETTING_MAX } from './luck.js';
 import { SLOT_MATH } from './slots.js';
 import { SCRATCH_MATH } from './scratch.js';
 
-const clampLuck = (value) => Math.min(1.5, Math.max(0.5, Number(value) || 1));
+const clampLuck = (value) => clampLuckSetting(value);
 const pct = (value, digits = 1) =>
   `${Number(value).toFixed(digits).replace('.', ',').replace('-', '−')} %`;
 const luckText = (factor) => '×' + Number(factor).toFixed(2).replace('.', ',');
@@ -202,9 +202,18 @@ export function renderEkonomi(content, root, data) {
   const bandSlot = band ? slotRtp(slotsLuck, LUCK_MAX) : slotRtpNow;
   const bandSlotLow = band ? slotRtp(slotsLuck, LUCK_MIN) : slotRtpNow;
 
-  const levels = [...new Set([0.7, 1, 1.4, Number(slotsLuck.toFixed(2)), Number(scratchLuck.toFixed(2))])].sort(
-    (a, b) => a - b
-  );
+  const levels = [
+    ...new Set([
+      0.25,
+      0.7,
+      1,
+      1.4,
+      2,
+      3,
+      Number(slotsLuck.toFixed(2)),
+      Number(scratchLuck.toFixed(2))
+    ])
+  ].sort((a, b) => a - b);
 
   const levelRows = levels
     .map((level) => {

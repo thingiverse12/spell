@@ -3,7 +3,7 @@
    ===================================================================== */
 
 import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI, guardRound } from './core.js';
-import { currentLuck, luckPayout, luckPill } from './luck.js';
+import { currentLuck, clampLuckSetting, luckPayout, luckPill } from './luck.js';
 
 const SYMBOLS = {
   wild: { glyph: '★', cls: 'sym--star', weight: 2, name: 'Stjärna (joker)' },
@@ -83,8 +83,7 @@ function randomGrid() {
 }
 
 function luck() {
-  const l = Number(state.settings.slotLuck) || 1;
-  return Math.min(1.5, Math.max(0.5, l));
+  return clampLuckSetting(state.settings.slotLuck);
 }
 
 export function evaluate(grid, bet, factor = 1) {

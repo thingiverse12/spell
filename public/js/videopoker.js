@@ -3,7 +3,7 @@
    ===================================================================== */
 
 import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI, guardRound } from './core.js';
-import { currentLuck, luckPayout, luckPill } from './luck.js';
+import { currentLuck, clampLuckSetting, luckPayout, luckPill } from './luck.js';
 import { cardHTML, newDeck, rankValue } from './cards.js';
 
 /* Utbetalning i multiplar av insatsen. Lägsta vinsten ger 1,2× insatsen,
@@ -68,7 +68,7 @@ export function evaluateHand(cards) {
 }
 
 function luck() {
-  return Math.min(1.5, Math.max(0.5, Number(state.settings.videoPokerLuck) || 1));
+  return clampLuckSetting(state.settings.videoPokerLuck);
 }
 
 function render(root) {

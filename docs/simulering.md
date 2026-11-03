@@ -16,6 +16,7 @@ videopokerhänder och 400 000 blackjackrundor.
 | Hur mycket svänger gummibandet? | RTP **74,6 % → 113,7 %**, alltså marginal **+25,4 % → −13,7 %**. |
 | Var går brytpunkten för jämnt spel? | Vid **slotLuck ×1,08**. |
 | Vad händer på "Hög tur" (×1,40)? | RTP **129,6 %** – spelaren har 29,6 % övertag. |
+| Hur långt går spannet? | Tur-nivån kan sättas **×0,10–×3,00** (RTP 1,0 %–277,7 %). |
 | Hur ofta vinner man något? | **20,2 %** av snurren (1,6 vinstrader i snitt när det blir vinst). |
 | Hur ofta blir det STORVINST-toast (≥15×)? | **0,72 %** av snurren vid normal tur. |
 | Spelar insatsens storlek roll? | Nej – skillnaden är under 0,6 procentenheter. |
@@ -29,14 +30,22 @@ per linje i stället för att gissa med slumptal.
 
 | Tur-nivå | RTP neutral | Marginal | RTP lågt saldo (×1,35) | RTP högt saldo (×0,70) |
 | --- | --- | --- | --- | --- |
-| ×0,50 | 32,8 % | 67,2 % | 38,7 % | 27,9 % |
+| ×0,10 (lägsta möjliga) | 1,0 % | 99,0 % | 1,2 % | 0,9 % |
+| ×0,25 (Mycket låg) | 9,3 % | 90,7 % | 10,9 % | 8,0 % |
 | ×0,70 (Låg) | 64,7 % | 35,3 % | 76,1 % | 55,2 % |
 | **×1,00 (Normal)** | **92,6 %** | **7,4 %** | 113,7 % | 74,6 % |
 | ×1,40 (Hög) | 129,6 % | −29,6 % | 163,6 % | 100,5 % |
-| ×1,50 (max) | 138,9 % | −38,9 % | 176,1 % | 107,0 % |
+| ×2,00 (Mycket hög) | 185,2 % | −85,2 % | 238,6 % | 139,4 % |
+| ×3,00 (Extrem, max) | 277,7 % | −177,7 % | 363,6 % | 204,1 % |
 
 **Läs det så här:** vid normal tur behåller huset 7,4 öre av varje satsad krona. Med "Hög tur"
 betalar slotsen ut 1,30 kr per satsad krona – då är det spelaren som har övertaget, inte huset.
+På "Extrem" (×3,00) betalas 2,78 kr ut per satsad krona, och på "Mycket låg" (×0,25) behåller
+huset 91 öre.
+
+Tur-nivån kan sättas var som helst mellan **×0,10 och ×3,00** – antingen med snabbknapparna
+Mycket låg / Låg / Normal / Hög / Mycket hög / Extrem, eller genom att skriva in ett eget värde
+i fältet under knapparna.
 
 ### Brytpunkter
 
@@ -49,9 +58,9 @@ betalar slotsen ut 1,30 kr per satsad krona – då är det spelaren som har öv
 | 90 % | ×0,97 |
 | 80 % | ×0,86 |
 
-Adminpanelens tre nivåer (×0,70 / ×1,00 / ×1,40) ligger alltså **på var sin sida** om brytpunkten:
-Låg är hård mot spelaren, Normal ger huset en liten marginal och Hög ger spelaren ett stort
-övertag.
+Snabbknapparna ligger på var sin sida om brytpunkten: Låg (×0,70) är hård mot spelaren, Normal
+(×1,00) ger huset en liten marginal och Hög (×1,40), Mycket hög (×2,00) och Extrem (×3,00) ger
+spelaren ett allt större övertag.
 
 ## 2. Gummibandet – marginalen följer saldot
 
@@ -143,24 +152,29 @@ jämnt i stället för att stå still och plötsligt explodera.
 
 | Tur-nivå | RTP | Träffchans | Snitt per snurr | Std.avvikelse | Största vinst |
 | --- | --- | --- | --- | --- | --- |
-| ×0,50 | 32,7 % | 11,3 % | 7 kr (0,33×) | 26 kr | 1 143 kr |
-| ×0,70 | 64,9 % | 20,2 % | 13 kr (0,65×) | 40 kr | 1 937 kr |
-| **×1,00** | **93,4 %** | **20,2 %** | **19 kr (0,93×)** | **58 kr** | **2 078 kr** |
-| ×1,40 | 129,4 % | 20,2 % | 26 kr (1,29×) | 80 kr | 3 066 kr |
-| ×1,50 | 138,7 % | 20,1 % | 28 kr (1,39×) | 86 kr | 4 173 kr |
+| ×0,10 | 1,0 % | 0,5 % | 0 kr (0,01×) | 3 kr | 336 kr |
+| ×0,25 | 9,5 % | 4,0 % | 2 kr (0,09×) | 12 kr | 1 152 kr |
+| ×0,70 | 64,7 % | 20,1 % | 13 kr (0,65×) | 40 kr | 1 478 kr |
+| **×1,00** | **91,8 %** | **20,2 %** | **18 kr (0,92×)** | **57 kr** | **3 067 kr** |
+| ×1,40 | 128,9 % | 20,1 % | 26 kr (1,29×) | 80 kr | 3 918 kr |
+| ×2,00 | 184,8 % | 20,3 % | 37 kr (1,85×) | 114 kr | 7 060 kr |
+| ×3,00 | 278,4 % | 20,2 % | 56 kr (2,78×) | 171 kr | 7 560 kr |
 
 Monte Carlo-siffrorna hamnar inom ±1 procentenhet från de exakta – bra kvitto på att
 formlerna hänger ihop.
 
 | Tur-nivå | Vinst ≥10× | Vinst ≥15× (STORVINST) | Vinst ≥50× | Längsta nit-svit | Vinstrader vid vinst |
 | --- | --- | --- | --- | --- | --- |
-| ×0,50 | 0,30 % | 0,09 % | 0,000 % | 89 snurr | 1,42 |
-| ×0,70 | 0,71 % | 0,28 % | 0,007 % | 49 snurr | 1,62 |
-| ×1,00 | 1,81 % | 0,72 % | 0,022 % | 47 snurr | 1,62 |
-| ×1,40 | 3,04 % | 1,46 % | 0,076 % | 54 snurr | 1,61 |
-| ×1,50 | 3,99 % | 1,77 % | 0,082 % | 46 snurr | 1,62 |
+| ×0,10 | 0,00 % | 0,00 % | 0,000 % | 1 431 snurr | 1,12 |
+| ×0,25 | 0,06 % | 0,01 % | 0,000 % | 238 snurr | 1,23 |
+| ×0,70 | 0,72 % | 0,28 % | 0,005 % | 48 snurr | 1,61 |
+| ×1,00 | 1,74 % | 0,68 % | 0,018 % | 49 snurr | 1,61 |
+| ×1,40 | 3,02 % | 1,45 % | 0,072 % | 53 snurr | 1,62 |
+| ×2,00 | 6,13 % | 2,88 % | 0,170 % | 50 snurr | 1,61 |
+| ×3,00 | 8,68 % | 6,14 % | 0,538 % | 57 snurr | 1,62 |
 
-Runt 45–55 snurr utan vinst i rad händer alltså någon gång under 400 000 snurr. Spelar man 20 kr
+På normal tur händer 45–55 snurr utan vinst i rad någon gång under 400 000 snurr – på de lägsta
+nivåerna är motsvarande svit över 200 snurr (och över 1 400 på ×0,10). Spelar man 20 kr
 per snurr är det ungefär 1 000 kr utan att något händer – det är därför gummibandet och
 dagliga bonusar behövs.
 
@@ -191,9 +205,13 @@ RTP är exakt densamma för alla priser (89,60 % vid normal tur).
 
 | Tur-nivå | RTP neutral | Marginal | Lågt saldo | Högt saldo |
 | --- | --- | --- | --- | --- |
+| ×0,10 | 1,2 % | 98,8 % | 1,5 % | 1,0 % |
+| ×0,25 | 5,4 % | 94,6 % | 6,7 % | 4,3 % |
 | ×0,70 | 62,7 % | 37,3 % | 71,9 % | 54,8 % |
 | **×1,00** | **89,6 %** | **10,4 %** | 108,3 % | 73,7 % |
 | ×1,40 | 125,4 % | −25,4 % | 156,4 % | 98,8 % |
+| ×2,00 | 179,2 % | −79,2 % | 229,1 % | 136,4 % |
+| ×3,00 | 268,8 % | −168,8 % | 350,2 % | 199,2 % |
 
 Brytpunkter: 100 % RTP vid **×1,12**, 95 % vid ×1,06, 90 % vid ×1,00.
 
@@ -204,12 +222,16 @@ färdiga händer, fyra till färg/stege, lågt par, höga kort).
 
 | Tur-nivå | RTP | Marginal | Träffchans |
 | --- | --- | --- | --- |
-| ×0,70 | 48,7 % | 51,3 % | 23,6 % |
-| **×1,00** | **93,6 %** | **6,4 %** | 44,3 % |
-| ×1,40 | 131,9 % | −31,9 % | 44,3 % |
+| ×0,10 | 0,7 % | 99,3 % | 0,3 % |
+| ×0,25 | 5,2 % | 94,8 % | 2,5 % |
+| ×0,70 | 48,6 % | 51,4 % | 23,7 % |
+| **×1,00** | **94,3 %** | **5,7 %** | 44,4 % |
+| ×1,40 | 131,5 % | −31,5 % | 44,3 % |
+| ×2,00 | 187,8 % | −87,8 % | 44,3 % |
+| ×3,00 | 282,4 % | −182,4 % | 44,3 % |
 
-Byter man bort alla fem korten varje gång blir RTP bara 34,5 % – strategin är alltså värd
-ungefär 59 procentenheter. En skicklig spelare kan pressa siffran några procent högre än 93,6 %.
+Byter man bort alla fem korten varje gång blir RTP bara 34,3 % – strategin är alltså värd
+ungefär 60 procentenheter. En skicklig spelare kan pressa siffran några procent högre än 94,3 %.
 
 ### Blackjack
 
@@ -233,8 +255,8 @@ Blackjack är det spel där gummibandet märks mest: en vinst betalar 2× bara v
 | Slots ×1,40 | 129,6 % | −29,6 % | 100,5 % – 163,6 % |
 | Skraplotter ×1,00 | 89,6 % | 10,4 % | 73,7 % – 108,3 % |
 | Skraplotter ×1,40 | 125,4 % | −25,4 % | 98,8 % – 156,4 % |
-| Videopoker ×1,00 | 93,6 % | 6,4 % | 44–132 % över tur-nivåerna |
-| Blackjack ×1,00 | 98,0 % | 2,0 % | 84,7 % – 113,3 % |
+| Videopoker ×1,00 | 94,3 % | 5,7 % | 0,7–282 % över tur-nivåerna |
+| Blackjack ×1,00 | 97,9 % | 2,1 % | 84,7 % – 113,2 % |
 
 ## Vad siffrorna betyder för inställningarna
 
@@ -242,11 +264,13 @@ Inget av detta är ändrat i spelet – det är bara mätvärden. Men de ger ett
 
 - **Normal tur (×1,00) är den enda nivån där huset har en rimlig marginal** i slots
   (7,4 %) och skraplotter (10,4 %). Det är en bra standard.
-- **"Hög tur" (×1,40) ger spelaren ett övertag på 25–32 %** i slots, skraplotter och videopoker.
-  Det fungerar som en generös "fest-inställning" men tömmer i praktiken spel-ekonomin.
+- **Allt över ×1,08 ger spelaren övertag.** "Hög" (×1,40) ger 25–32 %, "Mycket hög" (×2,00)
+  ger 79–88 % och "Extrem" (×3,00) ger 168–182 % i slots, skraplotter och videopoker. De två
+  sista är rena festlägen – de skapar mynt ur tomma luften och tömmer spel-ekonomin.
   Vill man ha hög tur men ändå ett litet spelaröverskott ligger **×1,05–×1,08** nära jämnt spel.
-- **"Låg tur" (×0,70) är hård** – 35–51 % marginal. Som kortvarig "svårt läge" går den bra,
-  men som permanent inställning tar den slut på kontot snabbt.
+- **"Låg" (×0,70) är hård** – 35–51 % marginal. "Mycket låg" (×0,25) och ×0,10 är ännu
+  hårdare (90 %+ marginal): då betalar bara de riktigt stora raderna, och på ×0,10 vinner man
+  knappt något alls (0,5 % träffchans, längsta nit-svit 1 431 snurr i testet).
 - **Insatsen spelar ingen roll** – 10 kr och 5 000 kr ger samma RTP, så gränserna för min/max
   kan sättas efter spelglädje i stället för matematik.
 - **Gummibandet gör sitt jobb:** spelarens session hamnar på ~96 % RTP och 84 % av sessionerna

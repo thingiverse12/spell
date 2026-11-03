@@ -112,9 +112,9 @@ const SYM_P = WEIGHTS.map((w) => w / WEIGHT_SUM);
 /** Tur-nivån som adminpanelen erbjuder (public/js/admin.js CHANCE_LEVELS). */
 const adminSrc = read('public/js/admin.js');
 const CHANCE_LEVELS = literal(adminSrc, 'const CHANCE_LEVELS = [').map((l) => l.value);
-/** slots.js klämmer slotLuck till 0,5–1,5. */
-const LUCK_SETTING_MIN = 0.5;
-const LUCK_SETTING_MAX = 1.5;
+/** Tur-inställningarna kläms till LUCK_SETTING_MIN–MAX (luck.js). */
+const LUCK_SETTING_MIN = Number(/export const LUCK_SETTING_MIN = ([\d.]+);/.exec(read('public/js/luck.js'))[1]);
+const LUCK_SETTING_MAX = Number(/export const LUCK_SETTING_MAX = ([\d.]+);/.exec(read('public/js/luck.js'))[1]);
 const clampSetting = (v) => Math.min(LUCK_SETTING_MAX, Math.max(LUCK_SETTING_MIN, v));
 
 /** Multiplikator för en vinstrad, precis som evaluate() i slots.js. */
@@ -203,7 +203,8 @@ print(
   ).join(', ')} (summa ${WEIGHT_SUM}).`
 );
 print(
-  `Tur-nivåer i adminpanelen: ${CHANCE_LEVELS.map((v) => '×' + sv(v, 2)).join(', ')} · ` +
+  `Tur-nivåer i adminpanelen: ${CHANCE_LEVELS.map((v) => '×' + sv(v, 2)).join(', ')} ` +
+    `(egna värden ${sv(LUCK_SETTING_MIN, 2)}–${sv(LUCK_SETTING_MAX, 2)}) · ` +
     `gummibandet klämmer faktorn till ${sv(LUCK_MIN, 2)}–${sv(LUCK_MAX, 2)}.`
 );
 
@@ -211,7 +212,7 @@ print(
 
 h2('1. Husets marginal – exakt uträknat (insats 100 kr)');
 
-const LUCK_TABLE = [0.5, ...CHANCE_LEVELS.filter((v) => v > 0.5 && v < 1.5), 1.5].sort((a, b) => a - b);
+const LUCK_TABLE = [...new Set([...CHANCE_LEVELS, LUCK_SETTING_MIN, LUCK_SETTING_MAX])].sort((a, b) => a - b);
 
 const exactRows = LUCK_TABLE.map((luck) => {
   const neutral = slotRtp(luck, 1, 100);
@@ -249,7 +250,7 @@ print(
 );
 print(
   `\nBrytpunkten för jämnt spel ligger på ×${sv(solveLuck((l) => slotRtp(l, 1, 100), 100), 2)}. ` +
-    `Adminpanelen erbjuder ×0,70 / ×1,00 / ×1,40 – den högsta nivån ger alltså spelaren ett rejält övertag.`
+    `Allt över den nivån ger spelaren övertag – ×1,40 ger 129,6 % och ×3,00 hela 277,7 %.`
 );
 
 /* ---- 1b. Gummibandets kurva ---- */
@@ -377,7 +378,7 @@ h2('5. Monte Carlo – träffchans, storvinster och svit (400 000 snurr per niv�
 
 const SPINS = 400000;
 const BET = 20;
-const mcLevels = [...new Set([...CHANCE_LEVELS, 0.5, 1.5])].sort((a, b) => a - b);
+const mcLevels = [...new Set([...CHANCE_LEVELS, LUCK_SETTING_MIN, LUCK_SETTING_MAX])].sort((a, b) => a - b);
 const mc = new Map();
 
 for (const luck of mcLevels) {
@@ -720,7 +721,7 @@ h1('VIDEOPOKER – JACKS OR BETTER');
 
 const VP_HANDS = 400000;
 const vpRows = [];
-const vpLevels = [...new Set([...CHANCE_LEVELS, 0.5, 1.5])].sort((a, b) => a - b);
+const vpLevels = [...new Set([...CHANCE_LEVELS, LUCK_SETTING_MIN, LUCK_SETTING_MAX])].sort((a, b) => a - b);
 
 // Nedre gräns: spelaren byter bort alla fem korten varje gång.
 let drawAllSum = 0;
@@ -1024,15 +1025,16 @@ fs.writeFileSync(
   })
 );
 
+const luckCurve = [0.1, 0.25, 0.5, 0.7, 1, 1.4, 2, 2.5, 3];
 fs.writeFileSync(
   path.join(fsOut, 'rtp-tur.svg'),
   lineChart({
-    xs: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5],
+    xs: luckCurve,
     series: [
-      { label: 'Slots', color: '#2f6f4f', values: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5].map((l) => slotRtp(l, 1, 100)) },
-      { label: 'Skraplotter', color: '#8e5aa8', values: [0.5, 0.6, 0.7, 0.8, 0.9, 1, 1.1, 1.2, 1.3, 1.4, 1.5].map((l) => scratchRtp(l, 1, 100)) }
+      { label: 'Slots', color: '#2f6f4f', values: luckCurve.map((l) => slotRtp(l, 1, 100)) },
+      { label: 'Skraplotter', color: '#8e5aa8', values: luckCurve.map((l) => scratchRtp(l, 1, 100)) }
     ],
-    xLabel: 'Tur-nivå i adminpanelen (×0,70 = Låg, ×1,00 = Normal, ×1,40 = Hög)',
+    xLabel: 'Tur-nivå i adminpanelen (×0,10–×3,00) – ×0,70 Låg, ×1,00 Normal, ×1,40 Hög',
     yLabel: 'RTP'
   })
 );

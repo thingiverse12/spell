@@ -8,6 +8,7 @@ import {
   updateBalanceUI
 } from './core.js';
 import { renderEkonomi } from './economy.js';
+import { clampLuckSetting, LUCK_SETTING_MIN, LUCK_SETTING_MAX } from './luck.js';
 
 let tab = 'oversikt';
 
@@ -590,9 +591,12 @@ function renderSpelare(content, root, data) {
 }
 
 const CHANCE_LEVELS = [
+  { value: 0.25, label: 'Mycket låg' },
   { value: 0.7, label: 'Låg' },
   { value: 1, label: 'Normal' },
-  { value: 1.4, label: 'Hög' }
+  { value: 1.4, label: 'Hög' },
+  { value: 2, label: 'Mycket hög' },
+  { value: 3, label: 'Extrem' }
 ];
 
 const chanceFmt = (v) => '×' + Number(v).toFixed(2).replace('.', ',');
@@ -620,6 +624,13 @@ function chanceBox(key, title, value) {
           </label>`
           )
           .join('')}
+      </div>
+      <div class="chance__custom">
+        <input class="input chance__input" type="text" inputmode="decimal" autocomplete="off"
+               value="${Number(current.toFixed(2))}" data-good="${Number(current.toFixed(2))}"
+               data-chance-input aria-label="Egen tur-nivå" />
+        <button class="btn btn--sm btn--ghost" data-chance-save>Sätt egen nivå</button>
+        <span class="tiny muted">${chanceFmt(LUCK_SETTING_MIN)}–${chanceFmt(LUCK_SETTING_MAX)}</span>
       </div>
     </div>`;
 }
@@ -704,6 +715,12 @@ function renderInstallningar(content, root, data) {
     });
     const out = group.querySelector('[data-chance-val]');
     if (out) out.textContent = chanceFmt(value);
+    const field = group.querySelector('[data-chance-input]');
+    if (field) {
+      const text = Number(value.toFixed(2));
+      field.dataset.good = text;
+      if (document.activeElement !== field) field.value = text;
+    }
     const name = key === 'slotLuck' ? 'Slots' : key === 'scratchLuck' ? 'Skraplotter' : 'Videopoker';
     try {
       await saveSettings({ [key]: value });
@@ -725,6 +742,42 @@ function renderInstallningar(content, root, data) {
         saveChance(group, Number(box.value));
       });
     });
+
+    // Egen nivå: skriv exakt vilken tur som helst inom spannet.
+    const input = group.querySelector('[data-chance-input]');
+    const save = group.querySelector('[data-chance-save]');
+    const restore = () => {
+      input.value = input.dataset.good || '1';
+    };
+    const applyCustom = () => {
+      const raw = Number(String(input.value).trim().replace(',', '.'));
+      if (!Number.isFinite(raw)) {
+        toast('Ange en tur-nivå, t.ex. 1,25', 'bad');
+        restore();
+        return;
+      }
+      if (raw <= 0) {
+        toast('Tur-nivån måste vara större än 0', 'bad');
+        restore();
+        return;
+      }
+      const value = clampLuckSetting(raw);
+      if (Math.abs(value - raw) > 0.001) {
+        toast(`Nivån ligger mellan ${chanceFmt(LUCK_SETTING_MIN)} och ${chanceFmt(LUCK_SETTING_MAX)}`, 'gold');
+      }
+      input.value = Number(value.toFixed(2));
+      input.dataset.good = input.value;
+      saveChance(group, value);
+    };
+    if (save) save.addEventListener('click', applyCustom);
+    if (input) {
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          applyCustom();
+        }
+      });
+    }
   });
 
   content.querySelector('#save-settings').addEventListener('click', async () => {

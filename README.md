@@ -189,7 +189,7 @@ att blackjack betalar 2×/2,5×/1×, att vinsttabellerna är sorterade, att slot
 mellan 88 och 97 procent och att skraplotternas RTP ligger mellan 85 och 93 procent.
 
 `npm run simulera` räknar ut marginalen på riktigt: exakt RTP för slots och skraplotter i varje
-tur-nivå (×0,70 / ×1,00 / ×1,40), marginalen för alla saldon genom gummibandet, träffchans,
+tur-nivå (×0,10–×3,00), marginalen för alla saldon genom gummibandet, träffchans,
 storvinster, längsta nit-svit, hur ofta en hel spelkväll slutar med tomt konto – plus videopoker
 och blackjack. Resultatet finns i [docs/simulering.md](docs/simulering.md).
 
@@ -218,8 +218,9 @@ Sport**:
 - Alla spel visar ett litet märke – *"Tur ×1,18 · du har lite kvar"* – så det går att se vad som
   gäller. Spelkvittot i blackjack och sport visar också vilken tur som användes.
 - Gummibandet slås på/av med en kryssruta i adminpanelen → **Spelinställningar → Gummiband
-  (dynamisk tur)**. Även tur-nivåerna för slots och videopoker väljs med kryssrutor
-  (Låg ×0,70 / Normal ×1,00 / Hög ×1,40) och sparas i samma sekund som man kryssar i.
+  (dynamisk tur)**. Tur-nivåerna för slots, videopoker och skraplotter väljs med kryssrutor –
+  Mycket låg ×0,25 / Låg ×0,70 / Normal ×1,00 / Hög ×1,40 / Mycket hög ×2,00 / Extrem ×3,00 –
+  eller med ett eget värde mellan ×0,10 och ×3,00. Det sparas i samma sekund som man ändrar det.
 
 Med gummibandet varierar slotsens RTP mellan ungefär 75 % (stor hög) och 114 % (nästan tomt
 konto); mitt på skalan, vid startsaldot, ligger den på 92,6 %. Det är uträknat i
@@ -250,8 +251,9 @@ I panelen kan admin:
   eller valfritt eget belopp. Saldot uppdateras direkt i panelen och i toppraden, påfyllningen
   loggas som `admin` i transaktionsloggen, och din egen rad i spelarlistan märks med **du**,
 - ändra min-/maxinsats, startsaldo, bonus, quizbelöning, blackjack-utbetalning,
-- ändra "tur" för slots och videopoker genom att **kryssa i Låg / Normal / Hög** – det sparas
-  direkt utan att man trycker på spara,
+- ändra **tur (chans)** för slots, videopoker och skraplotter genom att kryssa i **Mycket låg,
+  Låg, Normal, Hög, Mycket hög eller Extrem** – eller skriva in ett **eget värde mellan ×0,10 och
+  ×3,00**. Ändringen sparas direkt utan att man trycker på spara,
 - slå på/av gummibandet (dynamisk tur) med en kryssruta – sparas också direkt,
 - underhållsläge,
 - se **spel-ekonomin** i fliken **Ekonomi**: vad spelen faktiskt betalar tillbaka (RTP) och husets
