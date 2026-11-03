@@ -77,7 +77,7 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 
 ### 🎰 Spelhallen
 - **Blackjack** – sex kortlekar, hit/stanna/dubbel/splitta, blackjack 3:2.
-- **Star Fortune (slots)** – 5 hjul, 3 rader, 20 vinstlinjer, autospel (RTP ≈ 93 %).
+- **Star Fortune (slots)** – 5 hjul, 3 rader och tre raka vinstlinjer. Du vinner när minst **fyra lika symboler står i rad** från vänster på samma rad (jokern ★ ersätter alla), så varje vinst är minst 8× insatsen. Autospel ingår (RTP ≈ 91 %).
 - **Videopoker** – Jacks or Better med håll-kort.
 - **Skraplotter** – köp ett lott (10–500 kr), skrapa de nio rutorna med musen eller
   fingret och få vinst på tre lika belopp. Vinsttrappan går från 1,5× till 50× lottpriset

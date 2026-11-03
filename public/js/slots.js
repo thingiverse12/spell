@@ -1,5 +1,8 @@
 /* =====================================================================
-   Star Fortune – 5 hjul, 3 rader, 20 vinstlinjer.
+   Star Fortune – 5 hjul, 3 rader, 3 vinstlinjer.
+
+   Vinst kräver minst fyra lika symboler i rad från vänster på samma rad.
+   Bara de tre raka, vågräta raderna räknas – inga zickzack-linjer.
    ===================================================================== */
 
 import { registerView, state, api, sfx, toast, kr, num, sleep, navigate, openModal, updateBalanceUI, guardRound } from './core.js';
@@ -18,45 +21,31 @@ const SYMBOLS = {
   cherry: { glyph: '🍒', cls: '', weight: 10, name: 'Körsbär' }
 };
 
-/* Vinsttabell: multiplar av total insats för 3 / 4 / 5 i rad från vänster.
-   Varje vinst ger minst 1,4× insatsen – en vinst ska alltid ge plus.
-   Låga symboler kräver fyra i rad, annars blir de för små vinster. */
+/* Vinsttabell: multiplar av insatsen för 4 / 5 lika i rad från vänster.
+   Kravet är minst fyra i rad, så varje vinst är stor – minst 8× insatsen. */
 const PAYTABLE = {
-  wild: { 3: 4.5, 4: 21, 5: 85 },
-  seven: { 3: 2.3, 4: 8.5, 5: 42 },
-  diamond: { 3: 1.9, 4: 5.2, 5: 23 },
-  bell: { 3: 1.45, 4: 3.7, 5: 14 },
-  bar: { 4: 3.2, 5: 12.5 },
-  melon: { 4: 2.5, 5: 8.5 },
-  plum: { 4: 2.1, 5: 6.8 },
-  cherry: { 4: 1.65, 5: 5.2 }
+  wild: { 5: 2500 },
+  seven: { 4: 42, 5: 420 },
+  diamond: { 4: 26, 5: 270 },
+  bell: { 4: 18, 5: 185 },
+  bar: { 4: 16, 5: 160 },
+  melon: { 4: 12, 5: 120 },
+  plum: { 4: 10, 5: 100 },
+  cherry: { 4: 8, 5: 80 }
 };
 
+/* Minsta antal lika symboler i rad som ger vinst. */
+const MIN_COUNT = 4;
+
 const PAYLINES = [
+  /* Bara raka rader: mitten, översta och nedersta. */
   [1, 1, 1, 1, 1],
   [0, 0, 0, 0, 0],
-  [2, 2, 2, 2, 2],
-  [0, 1, 2, 1, 0],
-  [2, 1, 0, 1, 2],
-  [0, 0, 1, 0, 0],
-  [2, 2, 1, 2, 2],
-  [1, 0, 0, 0, 1],
-  [1, 2, 2, 2, 1],
-  [0, 1, 1, 1, 0],
-  [2, 1, 1, 1, 2],
-  [1, 0, 1, 0, 1],
-  [1, 2, 1, 2, 1],
-  [0, 1, 0, 1, 0],
-  [2, 1, 2, 1, 2],
-  [1, 1, 0, 0, 0],
-  [1, 1, 2, 2, 2],
-  [0, 0, 1, 2, 2],
-  [2, 2, 1, 0, 0],
-  [0, 2, 0, 2, 0]
+  [2, 2, 2, 2, 2]
 ];
 
 /** Vinsttabellerna delas med adminpanelens spel-ekonomi (economy.js). */
-export const SLOT_MATH = { SYMBOLS, PAYTABLE, PAYLINES };
+export const SLOT_MATH = { SYMBOLS, PAYTABLE, PAYLINES, MIN_COUNT };
 
 const WEIGHTED = Object.entries(SYMBOLS).flatMap(([key, s]) => Array(s.weight).fill(key));
 
@@ -109,7 +98,7 @@ export function evaluate(grid, bet, factor = 1) {
       if (symbols[i] === base || symbols[i] === 'wild') count++;
       else break;
     }
-    if (count < 3) return;
+    if (count < MIN_COUNT) return;
     const mult = PAYTABLE[base]?.[count];
     if (!mult) return;
     const win = luckPayout(bet, mult * luck(), factor);
@@ -150,7 +139,7 @@ function renderMachine(root) {
       <div class="casino-top">
         <div class="casino-top__title">
           <h1>Spelhallen</h1>
-          <p>Star Fortune · 5 hjul · 20 vinstlinjer</p>
+          <p>Star Fortune · 5 hjul · 3 rader</p>
         </div>
         <div style="flex:1"></div>
         <button class="btn btn--sm btn--ghost" id="sl-home">← Spelhallen</button>
@@ -158,7 +147,7 @@ function renderMachine(root) {
 
       <div class="slot-machine">
         <div class="slot-title">Star Fortune</div>
-        <div class="slot-sub">20 vinstlinjer · jokern ersätter alla symboler</div>
+        <div class="slot-sub">Minst 4 lika i rad · jokern ersätter alla symboler</div>
         <div class="luck-row" id="sl-luck" data-luck-cell="slotLuck">${machineLuckPill('slotLuck')}</div>
 
         <div class="reels" id="reels"></div>
@@ -409,17 +398,16 @@ function showInfo(root) {
         <td style="font-size:20px">${symbolHTML(key)}</td>
         <td class="num">${cell(5)}</td>
         <td class="num">${cell(4)}</td>
-        <td class="num">${cell(3)}</td>
       </tr>`;
     })
     .join('');
 
   openModal({
     title: 'Star Fortune – vinsttabell',
-    sub: 'Vinsterna räknas från vänster till höger på 20 fasta linjer. Summorna är multiplar av insatsen.',
+    sub: 'Du vinner när minst fyra lika symboler står i rad från vänster på samma rad – mitten, översta eller nedersta raden. Summorna är multiplar av insatsen.',
     wide: true,
     body: `<div class="table-scroll"><table class="data-table">
-        <thead><tr><th>Symbol</th><th>5 i rad</th><th>4 i rad</th><th>3 i rad</th></tr></thead>
+        <thead><tr><th>Symbol</th><th>5 i rad</th><th>4 i rad</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
       <p class="tiny muted" style="margin-top:14px">★ Stjärnan är joker och ersätter alla symboler. Allt spelas med spelmynt – aldrig riktiga pengar.</p>

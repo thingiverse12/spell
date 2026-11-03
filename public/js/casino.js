@@ -7,7 +7,7 @@ import { openAdminCode } from './admin.js';
 
 const GAMES = [
   { key: 'blackjack', icon: '♠', title: 'Blackjack', text: 'Slå dealern utan att gå över 21.', badge: 'Bord', tile: 'blackjack' },
-  { key: 'slots', icon: '🎰', title: 'Star Fortune', text: '5 hjul och 20 vinstlinjer.', badge: 'Högst vinst', tile: 'slots' },
+  { key: 'slots', icon: '🎰', title: 'Star Fortune', text: '5 hjul – minst 4 lika i rad ger vinst.', badge: 'Högst vinst', tile: 'slots' },
   { key: 'scratch', icon: '🎟️', title: 'Skraplotter', text: 'Köp ett lott och skrapa fram tre lika.', badge: 'Ny', tile: 'scratch' },
   { key: 'videopoker', icon: '🃏', title: 'Videopoker', text: 'Jacks or Better med held kort.', badge: 'Skicklighet', tile: 'poker' },
   { key: 'roulette', icon: '🎡', title: 'Roulette', text: '37 nummer, rött eller svart – snurra hjulet.', badge: 'Ny', tile: 'roulette' },

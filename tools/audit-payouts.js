@@ -120,45 +120,55 @@ Object.entries(paytable).forEach(([symbol, entry]) => {
   });
 });
 
-const SYMBOL_WEIGHT = { wild: 2, seven: 4, diamond: 5, bell: 6, bar: 6, melon: 8, plum: 9, cherry: 10 };
-const weighted = Object.entries(SYMBOL_WEIGHT).flatMap(([key, weight]) => Array(weight).fill(key));
-const spin = () => {
-  const grid = Array.from({ length: 5 }, () =>
-    Array.from({ length: 3 }, () => weighted[Math.floor(Math.random() * weighted.length)])
-  );
-  let total = 0;
-  paylines.forEach((line) => {
-    const symbols = line.map((row, reel) => grid[reel][row]);
-    let base = symbols[0];
-    if (base === 'wild') base = symbols.find((sym) => sym !== 'wild') || 'wild';
-    let count = 0;
-    for (let i = 0; i < 5; i += 1) {
-      if (symbols[i] === base || symbols[i] === 'wild') count += 1;
-      else break;
-    }
-    const mult = count >= 3 && paytable[base] ? paytable[base][count] : 0;
-    if (mult) total += mult;
-  });
-  return total;
-};
+/* Exakt uträkning i stället för simulering: alla 8^5 = 32 768 symbolrader
+   räknas upp en gång med sina sannolikheter, så RTP-siffran aldrig brusar. */
+const SYMBOL_WEIGHT = Object.fromEntries(
+  Object.entries(literal(slotsSrc, 'const SYMBOLS = {')).map(([key, sym]) => [key, sym.weight])
+);
+const SYM_KEYS = Object.keys(SYMBOL_WEIGHT);
+const WEIGHT_SUM = SYM_KEYS.reduce((sum, key) => sum + SYMBOL_WEIGHT[key], 0);
+const SYM_P = SYM_KEYS.map((key) => SYMBOL_WEIGHT[key] / WEIGHT_SUM);
 
-const SLOT_SPINS = 120000;
-const slotSpins = [];
-let multSum = 0;
-for (let i = 0; i < SLOT_SPINS; i += 1) {
-  const mult = spin();
-  multSum += mult;
-  slotSpins.push(mult);
-}
+const lineDist = (() => {
+  const out = [];
+  const symbols = [];
+  const walk = (depth, prob) => {
+    if (depth === 5) {
+      let base = symbols[0];
+      if (base === 'wild') base = symbols.find((sym) => sym !== 'wild') || 'wild';
+      let count = 0;
+      for (let i = 0; i < 5; i += 1) {
+        if (symbols[i] === base || symbols[i] === 'wild') count += 1;
+        else break;
+      }
+      const mult = count >= 4 && paytable[base] ? paytable[base][count] : 0;
+      if (mult) out.push({ mult, prob });
+      return;
+    }
+    for (let i = 0; i < SYM_KEYS.length; i += 1) {
+      symbols.push(SYM_KEYS[i]);
+      walk(depth + 1, prob * SYM_P[i]);
+      symbols.pop();
+    }
+  };
+  walk(0, 1);
+  return out;
+})();
+
+const hitChance = lineDist.reduce((sum, line) => sum + line.prob, 0);
 
 const RTP_BET = 100; // rimlig insats – undviker avrundningsbrus
 const rtpAt = (factor) => {
-  const sum = slotSpins.reduce(
-    (acc, mult) => acc + (mult > 0 ? luckPayout(RTP_BET, mult, factor) : 0),
+  const perLine = lineDist.reduce(
+    (sum, line) => sum + line.prob * luckPayout(RTP_BET, line.mult, factor),
     0
   );
-  return (sum / (SLOT_SPINS * RTP_BET)) * 100;
+  return ((perLine * paylines.length) / RTP_BET) * 100;
 };
+
+if (hitChance * paylines.length * 100 > 1) {
+  ok('vinstchansen är rimlig för en snurr', `${(hitChance * paylines.length * 100).toFixed(1)} %`);
+} else bad('vinstchansen är för låg', `${(hitChance * paylines.length * 100).toFixed(1)} %`);
 
 const baseRtp = rtpAt(1);
 if (baseRtp > 88 && baseRtp < 97) ok('RTP ligger i intervallet vid neutral tur', `${baseRtp.toFixed(1)} %`);
@@ -178,6 +188,22 @@ if (sadRtp > 60 && happyRtp < 130) {
 const lousiestSlotWin = luckPayout(100, minSlotMult, LUCK_MIN);
 if (lousiestSlotWin > 100) ok('sämsta tänkbara vinstrad ger ändå plus', `100 kr → ${lousiestSlotWin} kr`);
 else bad('sämsta vinstraden ger inte plus', `${lousiestSlotWin} kr`);
+
+/* Bara raka rader räknas – ingen zickzack mellan hjulen. */
+const straightLines = paylines.length > 0 && paylines.every((line) => line.every((row) => row === line[0]));
+if (straightLines) ok('bara raka rader ger vinst', `${paylines.length} raka rader`);
+else bad('vinstlinjerna går inte rakt över hjulen', `${paylines.length} linjer`);
+
+/* Minst fyra lika i rad krävs. */
+const minCount = Number(/const MIN_COUNT = (\d+);/.exec(slotsSrc)?.[1] || 0);
+const fourRule = /if \(count < MIN_COUNT\) return;/.test(slotsSrc);
+if (minCount >= 4 && fourRule) ok('minst fyra lika i rad krävs', `${minCount} i rad`);
+else bad('vinst kan ges för färre än fyra i rad', `MIN_COUNT ${minCount}`);
+
+/* Vinsttabellen ska inte betala för tre i rad längre. */
+const hasThree = Object.values(paytable).some((entry) => entry[3] !== undefined);
+if (!hasThree) ok('tre i rad ger ingen vinst längre');
+else bad('tre i rad betalar fortfarande');
 
 /* ----------------------------- videopoker ----------------------------- */
 
@@ -352,7 +378,7 @@ console.log('\nAdminpanel – spel-ekonomi');
 const economySrc = read('public/js/economy.js');
 const adminSrc2 = read('public/js/admin.js');
 [
-  ['slots.js delar vinsttabellen med panelen', /export const SLOT_MATH = \{ SYMBOLS, PAYTABLE, PAYLINES \};/.test(slotsSrc)],
+  ['slots.js delar vinsttabellen med panelen', /export const SLOT_MATH = \{ SYMBOLS, PAYTABLE, PAYLINES(, MIN_COUNT)? \};/.test(slotsSrc)],
   ['scratch.js delar vinsttrappan med panelen', /export const SCRATCH_MATH = \{ TIERS, NO_WIN_WEIGHT, TOTAL_WEIGHT \};/.test(read('public/js/scratch.js'))],
   [
     'panelen räknar med spelets egen utbetalningsformel',

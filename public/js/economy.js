@@ -33,7 +33,7 @@ function lineMultiplier(symbols) {
     if (symbols[i] === base || symbols[i] === 'wild') count += 1;
     else break;
   }
-  if (count < 3) return 0;
+  if (count < (SLOT_MATH.MIN_COUNT || 3)) return 0;
   return SLOT_MATH.PAYTABLE[base]?.[count] || 0;
 }
 
