@@ -682,6 +682,49 @@ function historySrcPause() {
   return read('public/js/history.js');
 }
 
+console.log('\nRikast – topplistan');
+
+const rankSrc = read('public/js/rank.js');
+const casinoSrcRank = read('public/js/casino.js');
+const apiSrcRank = read('lib/api.js');
+[
+  [
+    'servern rankar alla på mest pengar',
+    /'GET \/api\/leaderboard'/.test(apiSrcRank) &&
+      /\['balance', 'won', 'biggestWin'\]\.includes\(wanted\)/.test(apiSrcRank) &&
+      /score\(b\) - score\(a\)/.test(apiSrcRank) &&
+      /rows\.slice\(0, 50\)/.test(apiSrcRank)
+  ],
+  [
+    'topplistan visar bara namn och siffror',
+    /name: p\.name/.test(apiSrcRank) &&
+      /balance: round2\(p\.balance \|\| 0\)/.test(apiSrcRank) &&
+      !/publicPlayer\(p\)/.test(apiSrcRank.slice(apiSrcRank.indexOf("'GET /api/leaderboard'"), apiSrcRank.indexOf("'GET /api/sport/debug'")))
+  ],
+  [
+    'spelaren ser sin egen plats',
+    /me: p\.id === player\.id/.test(apiSrcRank) &&
+      /const myIndex = rows\.findIndex\(\(r\) => r\.me\)/.test(apiSrcRank) &&
+      /rank-row is-me/.test(rankSrc) &&
+      /Din plats/.test(rankSrc)
+  ],
+  [
+    'topplistan har en egen sida i spelhallen',
+    /registerView\('rikast', renderRikast\)/.test(rankSrc) &&
+      /key: 'rikast'/.test(casinoSrcRank) &&
+      /import '\.\/rank\.js'/.test(mainSrc) &&
+      /path: '\/kasino\/rikast', label: 'Rikast'/.test(mainSrc)
+  ],
+  [
+    'man kan sortera på vunnet och största vinst',
+    /key: 'won'/.test(rankSrc) && /key: 'biggestWin'/.test(rankSrc) && /data-sort=/.test(rankSrc)
+  ],
+  [
+    'selftestet provar topplistan',
+    /topplistan sorterar på mest pengar/.test(apiSrcRank)
+  ]
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'topplistan')));
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

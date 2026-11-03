@@ -17,6 +17,7 @@ import './scratch.js';
 import './videopoker.js';
 import './roulette.js';
 import './history.js';
+import './rank.js';
 import './sport.js';
 import './admin.js';
 import { syncAccountGate } from './gate.js';
@@ -44,6 +45,7 @@ const CASINO_NAV = [
   { path: '/kasino/roulette', label: 'Roulette' },
   { path: '/kasino/sport', label: 'Live Sport' },
   { path: '/kasino/kortleken', label: 'Kortleken' },
+  { path: '/kasino/rikast', label: 'Rikast' },
   { path: '/kasino/historik', label: 'Logg' }
 ];
 

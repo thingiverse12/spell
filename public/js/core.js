@@ -705,6 +705,37 @@ export const api = {
     }
   },
 
+  /** Topplistan: vem som har mest spelmynt. */
+  async leaderboard(by = 'balance') {
+    try {
+      return await request('/api/leaderboard?by=' + encodeURIComponent(by));
+    } catch (err) {
+      if (!localFail(err)) throw err;
+      const p = localPlayer();
+      const row = {
+        id: p.id,
+        name: p.name,
+        balance: p.balance || 0,
+        won: p.won || 0,
+        wagered: p.wagered || 0,
+        rounds: p.rounds || 0,
+        biggestWin: p.biggestWin || 0,
+        quizCorrect: p.quizCorrect || 0,
+        isGuest: !p.hasPin,
+        me: true,
+        rank: 1
+      };
+      return {
+        by,
+        total: 1,
+        pool: row.balance,
+        players: [row],
+        me: { ...row, inTop: true },
+        local: true
+      };
+    }
+  },
+
   /** Roulettens kontrollpanel – kräver den hemliga roulettekoden. */
   async rouletteControl(payload, code) {
     const codeHeader = { 'x-roulette-code': String(code || '') };

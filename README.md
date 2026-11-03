@@ -138,6 +138,21 @@ Pausen sparas på spelaren (`paused`, `pausedUntil`) och styrs via
 `POST /api/admin/player` med `action: "pause"` och `value` = minuter (`0` = släpp,
 `-1` = tills vidare). Selftestet provar pausa, neka spel, plugga vidare och släppa.
 
+### 🏆 Rikast – topplistan
+Spelhallen har en egen topplista (`/kasino/rikast`, menyval **Rikast** och rutan
+**Rikast** i lobbyn) som svarar på frågan *vem har mest pengar?*
+
+- Alla konton rankas på **saldo**. Chipen byter sortering till **Vunnit mest**
+  eller **Största vinsten**.
+- Överst står prispallen med 🥇🥈🥉, korten *Har mest pengar*, *Spelmynt i omlopp*
+  och *Din plats · N spelare*.
+- Listan visar de 50 främsta med plats, namn, rundor och belopp. Din egen rad är
+  markerad med **du**; ligger du utanför topp 50 visas din plats ändå längst ned.
+- Servern skickar bara namn, saldo, vunnet, satsat, rundor och största vinst –
+  aldrig PIN, token eller andra kontouppgifter (`GET /api/leaderboard?by=balance`).
+- Topplistan kräver inloggning, precis som resten av appen, och fungerar även för
+  en pausad spelare (pausen stänger bara spelen).
+
 ### 💸 Egna insatser
 Alla tre spelen har ett fält för **egen insats** (utöver marker och snabbknappar):
 
