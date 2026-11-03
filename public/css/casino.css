@@ -1630,3 +1630,258 @@
   .ru-ctl__row { flex-wrap: wrap; }
   .ru-ctl__row .btn { width: 100%; }
 }
+
+/* ------------------------------ Rysk roulette ------------------------------ */
+
+.tile--revolver { --tile-bg: radial-gradient(120% 120% at 30% 0%, #5b6470 0%, #2a2f36 46%, #0a0c0f 100%); }
+
+.revolver {
+  position: relative;
+  margin: 6px auto;
+  max-width: 860px;
+  padding: 20px 18px 26px;
+  border-radius: 24px;
+  background: radial-gradient(120% 90% at 50% 0%, #1b2027 0%, #0c0f14 55%, #06080b 100%);
+  border: 1px solid rgba(255, 255, 255, .07);
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, .6), 0 30px 70px -45px #000;
+  overflow: hidden;
+}
+
+.revolver__stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 0 4px;
+  min-height: 300px;
+}
+
+.revolver__gun {
+  position: relative;
+  width: 240px;
+  height: 210px;
+  display: grid;
+  place-items: center;
+}
+
+/* Trumman med sex kammare */
+.revolver__cylinder {
+  position: relative;
+  width: 178px;
+  height: 178px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 28%, #79818c, #3d434b 58%, #22262b 100%);
+  border: 3px solid #11151a;
+  box-shadow: 0 18px 44px -20px #000, inset 0 0 34px rgba(0, 0, 0, .8), inset 0 2px 0 rgba(255, 255, 255, .2);
+  display: grid;
+  place-items: center;
+  transition: transform .62s cubic-bezier(.22, .9, .24, 1);
+  z-index: 2;
+}
+.revolver__cylinder.is-spinning { animation: revSpin .7s cubic-bezier(.3, .1, .2, 1) both; }
+@keyframes revSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(720deg); }
+}
+
+.revolver__pin {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #a3acb6, #4a5058);
+  border: 2px solid #1b1f24;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, .4);
+  z-index: 3;
+}
+
+.revolver__chamber {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #151a20, #05070a 78%);
+  border: 2px solid rgba(255, 255, 255, .13);
+  display: grid;
+  place-items: center;
+  transition: box-shadow .25s var(--ease), border-color .25s var(--ease), opacity .25s var(--ease);
+}
+.revolver__hole { width: 14px; height: 14px; border-radius: 50%; background: #000; box-shadow: inset 0 0 6px #000; }
+.revolver__chamber.is-fired { opacity: .4; }
+.revolver__chamber.is-next {
+  border-color: rgba(240, 195, 82, .9);
+  box-shadow: 0 0 0 3px rgba(240, 195, 82, .16), 0 0 20px rgba(240, 195, 82, .45);
+}
+.revolver__chamber.is-bullet {
+  border-color: #e33a52;
+  box-shadow: 0 0 0 3px rgba(227, 58, 82, .22), 0 0 24px rgba(227, 58, 82, .6);
+}
+.revolver__chamber.is-bullet .revolver__hole {
+  width: 18px;
+  height: 18px;
+  background: radial-gradient(circle at 35% 30%, #ffe6a3, #c9921a 62%, #7d5606 100%);
+}
+
+/* Pipan pekar uppåt, hanen sitter till höger */
+.revolver__barrel {
+  position: absolute;
+  top: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46px;
+  height: 62px;
+  border-radius: 9px 9px 4px 4px;
+  background: linear-gradient(90deg, #262b31, #59616b 32%, #8b949e 50%, #4a5058 72%, #20242a);
+  box-shadow: 0 10px 22px -12px #000, inset 0 2px 0 rgba(255, 255, 255, .22);
+  z-index: 1;
+}
+.revolver__muzzle {
+  position: absolute;
+  left: 7px;
+  right: 7px;
+  top: 5px;
+  height: 9px;
+  border-radius: 99px;
+  background: #0a0c0f;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, .15);
+}
+
+.revolver__hammer {
+  position: absolute;
+  right: 14px;
+  top: 34px;
+  width: 20px;
+  height: 42px;
+  border-radius: 7px 7px 3px 3px;
+  background: linear-gradient(90deg, #343a42, #6b737d);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3);
+  transform-origin: bottom center;
+  transition: transform .18s var(--ease);
+  z-index: 3;
+}
+.revolver__hammer.is-cocked { transform: rotate(-26deg); }
+.revolver__hammer.is-falling { transform: rotate(8deg); }
+
+.revolver__trigger {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  border: 2px solid rgba(240, 195, 82, .6);
+  background: radial-gradient(circle at 40% 30%, #f7d981, #e0b23f 55%, #9d7513 100%);
+  color: #2a1e02;
+  font-weight: 900;
+  font-size: 12px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 14px 30px -16px #000, inset 0 2px 0 rgba(255, 255, 255, .45);
+  transition: transform .15s var(--ease), filter .15s var(--ease);
+}
+.revolver__trigger:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.07); }
+.revolver__trigger:active:not(:disabled) { transform: translateY(1px) scale(.98); }
+.revolver__trigger:disabled { opacity: .35; cursor: not-allowed; }
+
+.revolver__grip {
+  position: absolute;
+  right: 22px;
+  bottom: 12px;
+  width: 54px;
+  height: 96px;
+  border-radius: 12px 12px 26px 26px;
+  background: linear-gradient(120deg, #4a2f18, #7b4a22 45%, #3a2412 100%);
+  border: 2px solid #1b1207;
+  transform: rotate(18deg);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .12), 0 12px 24px -14px #000;
+  z-index: 1;
+}
+.revolver__grip::after {
+  content: '';
+  position: absolute;
+  inset: 14px 10px 22px;
+  border-radius: 8px;
+  background: repeating-linear-gradient(90deg, rgba(0, 0, 0, .35) 0 2px, transparent 2px 8px);
+}
+
+.revolver.is-armed .revolver__cylinder {
+  box-shadow: 0 18px 44px -20px #000, inset 0 0 34px rgba(0, 0, 0, .8),
+    inset 0 2px 0 rgba(255, 255, 255, .2), 0 0 0 3px rgba(240, 195, 82, .14);
+}
+
+.revolver__trigger span {
+  font-size: 9.5px;
+  line-height: 1.05;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  max-width: 52px;
+}
+
+.revolver__flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 22%, rgba(255, 214, 92, .95), rgba(255, 96, 40, .45) 38%, transparent 66%);
+  z-index: 4;
+}
+.revolver.is-shot .revolver__flash { animation: revFlash .55s ease-out both; }
+@keyframes revFlash {
+  0% { opacity: 0; }
+  14% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+.revolver__caption {
+  font-size: 12.5px;
+  letter-spacing: .04em;
+  color: rgba(255, 255, 255, .62);
+  text-align: center;
+  min-height: 18px;
+}
+.revolver__caption strong { color: var(--accent); }
+
+/* Vinsttrappan */
+.revolver__ladder {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  max-width: 720px;
+  margin: 4px auto 16px;
+}
+.revolver__step {
+  display: grid;
+  gap: 2px;
+  padding: 8px 6px;
+  text-align: center;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, .03);
+  transition: border-color .2s var(--ease), background .2s var(--ease);
+}
+.revolver__step-klick {
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 800;
+}
+.revolver__step-mult { font-weight: 800; font-size: 15px; color: var(--accent); }
+.revolver__step-sum { font-size: 11px; color: var(--text-soft); font-variant-numeric: tabular-nums; }
+.revolver__step.is-done { border-color: rgba(26, 156, 107, .5); background: rgba(26, 156, 107, .12); }
+.revolver__step.is-current {
+  border-color: rgba(240, 195, 82, .6);
+  background: rgba(240, 195, 82, .1);
+  box-shadow: 0 0 0 1px rgba(240, 195, 82, .22);
+}
+
+@media (max-width: 620px) {
+  .revolver { padding: 16px 12px 20px; }
+  .revolver__cylinder { width: 150px; height: 150px; }
+  .revolver__chamber { --rev-radius: 56px; margin: -15px 0 0 -15px; width: 30px; height: 30px; }
+  .revolver__ladder { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .revolver__trigger { width: 68px; height: 68px; font-size: 11px; }
+}

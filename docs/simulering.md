@@ -253,6 +253,24 @@ förlorad innan spelaren hunnit trycka på en knapp.
 Blackjack är det spel där gummibandet märks mest: en vinst betalar 2× bara vid tur ×1,00 –
 20 kr satsat ger 40 kr vid neutral tur, men 34 kr vid lägsta och 47 kr vid högsta turen.
 
+### Rysk roulette
+
+Sex kammare och en kula. Trumman snurras en gång per runda, så kulan ligger i en jämnt slumpad
+kammare; efter *k* tomma klick är chansen att klara sig (6 − k)/6. Vinsttrappan är vald så att
+RTP hamnar mellan 92 % och 96 % oavsett när spelaren väljer att ta vinsten – den som stannar
+tidigt får högst RTP.
+
+| Klick | Chans att klara sig | Utbetalning | RTP | Marginal |
+| --- | --- | --- | --- | --- |
+| 1 | 83,3 % | ×1,15 | 95,8 % | 4,2 % |
+| 2 | 66,7 % | ×1,40 | 93,3 % | 6,7 % |
+| 3 | 50,0 % | ×1,85 | 92,5 % | 7,5 % |
+| 4 | 33,3 % | ×2,80 | 93,3 % | 6,7 % |
+| 5 | 16,7 % | ×5,60 | 93,3 % | 6,7 % |
+
+Marginalen räknas utan gummibandet (tur ×1,00). Med gummibandet på skalar vinsten på samma
+sätt som i blackjack, eftersom vinsten räknas med `luckPayout`.
+
 ## 9. Allt i en tabell
 
 | Spel | RTP vid normal tur | Marginal | Spann över hela gummibandet |
@@ -263,6 +281,7 @@ Blackjack är det spel där gummibandet märks mest: en vinst betalar 2× bara v
 | Skraplotter ×1,40 | 125,4 % | −25,4 % | 98,8 % – 156,4 % |
 | Videopoker ×1,00 | 94,3 % | 5,7 % | 0,7–282 % över tur-nivåerna |
 | Blackjack ×1,00 (snäll dealer) | 115,1 % | −15,1 % | 98,8 % – 133,9 % |
+| Rysk roulette (valfritt antal klick) | 92,5 % – 95,8 % | 4,2 % – 7,5 % | följer gummibandet |
 
 ## Vad siffrorna betyder för inställningarna
 

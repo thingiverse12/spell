@@ -82,6 +82,8 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 - **Skraplotter** – köp ett lott (10–500 kr), skrapa de nio rutorna med musen eller
   fingret och få vinst på tre lika belopp. Vinsttrappan går från 1,5× till 50× lottpriset
   (RTP ≈ 90 %), och ett lott visar alltid "Netto +X kr" när det ger vinst.
+- **Rysk roulette** – en revolver med sex kammare och en kula. Varje tomt klick höjer vinsten
+  (1,15× → 5,6×), kulan tar insatsen och efter fem klick tar du vinsten automatiskt (RTP ≈ 93 %).
 - **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett nummer (36×),
   dussin eller kolumn (3×), röd/svart, jämn/udda eller låg/hög (2×) och tryck **SNURRA**.
   Hjulet stannar exakt på det dragna numret, historiken visar de senaste snurren och
@@ -107,6 +109,31 @@ vilket läge som gäller – både i listen ovanför bordet och i reglerna.
 
 Med reglerna på ligger RTP på cirka **115 %** vid neutral tur (cirka 98 % utan), så en spelare
 förlorar sällan i början av en giv. Siffrorna finns i [docs/simulering.md](docs/simulering.md).
+
+### 🔫 Rysk roulette – en kula i sex kammare
+
+Spelet går ut på att våga trycka av en gång mer än man borde:
+
+- Lägg en insats och **ladda trumman**. Trumman snurrar och kulan hamnar i en slumpad kammare
+  (lika sannolikt över alla sex, via `crypto.getRandomValues` när webbläsaren har det).
+- **Tryck av**: är kammaren tom får du en högre vinst, och du väljer själv om du vill **ta vinsten**
+  eller trycka av igen. Kulan tar hela insatsen för rundan.
+- Efter **fem** klick tar du vinsten automatiskt – den sjätte kammaren är ju alltid laddad.
+
+Vinsttrappan räknas med insatsen inbakad, och gummibandet multipliceras in i vinsten precis som i
+de andra spelen:
+
+| Klick | Chans att klara sig | Utbetalning | RTP |
+| --- | --- | --- | --- |
+| 1 | 83,3 % | ×1,15 | 95,8 % |
+| 2 | 66,7 % | ×1,40 | 93,3 % |
+| 3 | 50,0 % | ×1,85 | 92,5 % |
+| 4 | 33,3 % | ×2,80 | 93,3 % |
+| 5 | 16,7 % | ×5,60 | 93,3 % |
+
+Revolvern är en låtsasrevolver: bara spelmynt, ingen ammunition och ingenting händer på riktigt.
+Utfallet räknas i webbläsaren, och insats och vinst går genom serverns `/api/bet` och `/api/credit`
+så att allt hamnar i loggen och i statistiken (som **Rysk roulette**).
 
 ### 👤 Konton – alla måste ha ett
 - **Alla måste skapa ett konto** med namn + fyrsiffrig PIN innan de kommer in i appen.
@@ -282,6 +309,7 @@ aldrig går att missta insatsen för en vinst:
 | Slots | lägst 1,45× insatsen, högst 85× | alla vinster ger plus |
 | Videopoker | lägst 1,2× insatsen (par i knekt), högst 250× (royal flush) | 300 kr tillbaka, netto +50 kr |
 | Skraplotter | lägst 1,5× lottpriset, högst 50× | 375 kr tillbaka på ett 250 kr-lott, netto +125 kr |
+| Rysk roulette | 1,15× – 5,6× insatsen (efter 1–5 tomma kammare) | 250 kr insats → 288 kr efter ett klick, 1 400 kr efter fem |
 | Live Sport | insats × odds | 500 kr tillbaka på odds 2,00, netto +250 kr |
 
 **Hela vinsten betalas alltid ut.** Det finns inget tak som klipper stora vinster – vinner man

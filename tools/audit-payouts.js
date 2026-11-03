@@ -306,6 +306,66 @@ const simSrcBj = read('tools/simulera.js');
   ]
 ].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'snäll dealer')));
 
+/* --------------------------- rysk roulette --------------------------- */
+
+console.log('\nRysk roulette – en kula i sex kammare');
+
+const rvSrc = read('public/js/revolver.js');
+const rvMath = (() => {
+  const start = rvSrc.indexOf('export const REVOLVER_MATH');
+  if (start < 0) return null;
+  const from = rvSrc.indexOf('{', start);
+  let depth = 0;
+  for (let i = from; i < rvSrc.length; i += 1) {
+    if (rvSrc[i] === '{') depth += 1;
+    else if (rvSrc[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return new Function('return ' + rvSrc.slice(from, i + 1))();
+    }
+  }
+  return null;
+})();
+
+if (rvMath && rvMath.CHAMBERS === 6 && rvMath.BULLETS === 1) {
+  ok('trumman har sex kammare och en kula');
+} else bad('trumman har inte sex kammare med en kula', rvMath);
+
+const rvPayouts = (rvMath && rvMath.PAYOUTS) || [];
+const rvProb = (pulls) => (rvMath.CHAMBERS - pulls) / rvMath.CHAMBERS;
+const rvRtp = (pulls) => rvProb(pulls) * rvPayouts[pulls - 1] * 100;
+
+if (rvPayouts.length === 5) ok('vinsttrappan har fem steg (fler klick än så går inte)');
+else bad('vinsttrappan ska ha fem steg', rvPayouts.length);
+
+if (rvPayouts.every((mult, i) => i === 0 || mult > rvPayouts[i - 1])) ok('varje klick ger högre multipel');
+else bad('vinsttrappan är inte stigande', rvPayouts.join(' < '));
+
+if (rvPayouts.every((mult) => mult > 1)) ok('en vinst ger alltid mer än insatsen tillbaka');
+else bad('något steg kan ge mindre än insatsen', rvPayouts.join(', '));
+
+[1, 2, 3, 4, 5].forEach((pulls) => {
+  const rtp = rvRtp(pulls);
+  const label = `${pulls} klick: chans ${(rvProb(pulls) * 100).toFixed(1)} % × ${String(rvPayouts[pulls - 1]).replace('.', ',')}`;
+  if (rtp > 85 && rtp < 100) ok(`${label} → RTP ${rtp.toFixed(1).replace('.', ',')} %`);
+  else bad(`${label} → RTP ${rtp.toFixed(1)} % (ska ligga mellan 85 och 100)`);
+});
+
+const rvChecks = [
+  ['insatsen dras innan trumman laddas', /await api\.bet\('revolver', bet\)/.test(rvSrc) && /game\.bullet = randomChamber\(\)/.test(rvSrc)],
+  ['vinsten betalas via servern', /await api\.credit\('revolver', win\)/.test(rvSrc)],
+  ['kulan ligger i en jämnt slumpad kammare', /function randomChamber\(\)/.test(rvSrc) && /crypto\.getRandomValues/.test(rvSrc)],
+  ['spelaren kan ta vinsten mellan klicken', /id="rv-cash"/.test(rvSrc) && /async function cashOut\(root\)/.test(rvSrc)],
+  ['vinsten räknas med gummibandet', /luckPayout\(game\.bet, REVOLVER_MATH\.PAYOUTS/.test(rvSrc)],
+  ['efter fem klick tas vinsten automatiskt', /game\.pulls >= MAX_PULLS/.test(rvSrc) && /Den sjätte kammaren är alltid laddad/.test(rvSrc)],
+  ['en laddad runda får inte tappas bort', /guardRound\(/.test(rvSrc) && /game\.phase === 'armed'/.test(rvSrc)],
+  ['vyn är registrerad och nås från spelhallen', /registerView\('revolver'/.test(rvSrc) && /key: 'revolver'/.test(read('public/js/casino.js')) && /'\/kasino\/revolver'/.test(read('public/js/main.js'))],
+  ['loggen visar rysk roulette', /revolver: 'Rysk roulette'/.test(read('public/js/history.js')) && /revolver: '🔫'/.test(read('public/js/history.js'))],
+  ['adminpanelen visar spelet i statistiken', /revolver: 'Rysk roulette'/.test(read('public/js/admin.js'))],
+  ['selftestet spelar en runda', /rysk roulette: insats, vinst och statistik/.test(apiSrcBj)],
+  ['README beskriver spelet', /Rysk roulette/.test(readmeBj) && /sex kammare/.test(readmeBj)]
+];
+rvChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'rysk roulette')));
+
 /* -------------------------------- sport -------------------------------- */
 
 console.log('\nSport – spel till fasta odds');

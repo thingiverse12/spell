@@ -175,6 +175,15 @@ export const sfx = {
   lose: () => {
     [330, 262, 196].forEach((f, i) => blip(f, 0.18, 'sine', 0.045, i * 0.09));
   },
+  /* Revolvern: tomt klick i trumman respektive skottet. */
+  klik: () => {
+    blip(210, 0.04, 'square', 0.03);
+    blip(120, 0.05, 'triangle', 0.02, 0.05);
+  },
+  bang: () => {
+    blip(90, 0.32, 'sawtooth', 0.085);
+    blip(55, 0.42, 'square', 0.06, 0.02);
+  },
   correct: () => {
     [659, 880].forEach((f, i) => blip(f, 0.12, 'sine', 0.045, i * 0.08));
   },
