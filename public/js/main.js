@@ -38,6 +38,7 @@ const CASINO_NAV = [
   { path: '/kasino/slots', label: 'Star Fortune' },
   { path: '/kasino/scratch', label: 'Skraplotter' },
   { path: '/kasino/videopoker', label: 'Videopoker' },
+  { path: '/kasino/roulette', label: 'Roulette' },
   { path: '/kasino/sport', label: 'Live Sport' },
   { path: '/kasino/kortleken', label: 'Kortleken' }
 ];
