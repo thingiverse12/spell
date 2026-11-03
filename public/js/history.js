@@ -63,6 +63,7 @@ function entryLabel(entry) {
   const kind = String(entry.kind || '');
   if (kind === 'insats') return game + ' – insats';
   if (kind === 'vinst') return game + ' – vinst';
+  if (kind === 'gåva') return '🎁 Gåva från personalen';
   if (kind === 'bonus') return 'Bonus';
   if (kind === 'utbetalning') return 'Utbetalning';
   if (kind === 'admin' && entry.game === 'pausad') return '⏸ Pausad av personalen';

@@ -52,6 +52,9 @@ const saveSettings = (settings) =>
 const sendBroadcast = (message) =>
   state.adminLocal ? Promise.resolve(localAdmin.broadcast(message)) : api.adminBroadcast(message);
 
+const sendGift = (amount, message, confirm) =>
+  state.adminLocal ? Promise.resolve(localAdmin.gift(amount, message, confirm)) : api.adminGift(amount, message, confirm);
+
 const GAME_LABELS = {
   blackjack: 'Blackjack',
   slots: 'Star Fortune',
@@ -663,7 +666,29 @@ function renderVinster(content, data) {
 }
 
 function renderSpelare(content, root, data) {
+  const lastGift = (data.gifts || [])[0];
   content.innerHTML = `
+    <div class="panel" style="padding:20px;margin-bottom:16px">
+      <h3 style="font-size:15px;margin-bottom:6px">🎁 Gåva till alla</h3>
+      <p class="small muted" style="margin-bottom:12px">
+        Alla ${data.players.length} konton får samma summa på en gång. Meddelandet läggs som
+        notis i studieläget och varje spelare får en rad i sin egen logg.
+      </p>
+      <div class="row" style="gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <label class="field" style="max-width:180px"><span>Belopp per spelare</span>
+          <input class="input" id="gift-amount" type="number" min="1" step="100" value="20000" /></label>
+        <label class="field" style="flex:1;min-width:240px"><span>Meddelande (valfritt)</span>
+          <input class="input" id="gift-message" maxlength="240" placeholder="T.ex. Stort! Här har ni pengar" /></label>
+        <button class="btn btn--primary" id="gift-send">Skicka gåvan</button>
+      </div>
+      ${
+        lastGift
+          ? `<p class="tiny muted" style="margin-top:10px">Senaste gåvan: ${kr(lastGift.amount)} × ${
+              lastGift.players
+            } konton (${timeText(lastGift.at)})${lastGift.message ? ' · "' + esc(lastGift.message) + '"' : ''}</p>`
+          : ''
+      }
+    </div>
     <div class="table-scroll">
       <table class="data-table">
         <thead>
@@ -861,6 +886,36 @@ function renderSpelare(content, root, data) {
       }
     });
   });
+
+  const giftBtn = content.querySelector('#gift-send');
+  if (giftBtn) {
+    giftBtn.addEventListener('click', async () => {
+      const amount = Math.round(Number(content.querySelector('#gift-amount').value) || 0);
+      const message = content.querySelector('#gift-message').value.trim();
+      if (!(amount > 0)) {
+        toast('Ange ett belopp', 'bad');
+        return;
+      }
+      const total = amount * data.players.length;
+      const ok = await confirmModal({
+        title: 'Dela ut gåvan?',
+        text: `${data.players.length} konton får ${kr(amount)} var – totalt ${kr(total)}.${
+          message ? ` Meddelandet "${message}" visas i studieläget.` : ''
+        }`,
+        confirmLabel: 'Dela ut'
+      });
+      if (!ok) return;
+      try {
+        const res = await sendGift(amount, message, true);
+        const gift = (res && res.gift) || { players: data.players.length, total };
+        toast(`🎁 ${kr(gift.total)} delat till ${gift.players} konton`, 'gold', 3600);
+        sfx.win();
+        renderAdmin(root);
+      } catch (err) {
+        toast(err.message, 'bad');
+      }
+    });
+  }
 }
 
 const CHANCE_LEVELS = [

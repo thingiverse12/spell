@@ -751,6 +751,50 @@ const apiSrcRank = read('lib/api.js');
   ]
 ].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'topplistan')));
 
+console.log('\nGåva till alla');
+
+const adminSrcGift = read('public/js/admin.js');
+const coreSrcGift = read('public/js/core.js');
+const apiSrcGift = read('lib/api.js');
+const historySrcGift = read('public/js/history.js');
+const giftRoute = apiSrcGift.slice(
+  apiSrcGift.indexOf("'POST /api/admin/gift'"),
+  apiSrcGift.indexOf("'GET /api/roulette/control'")
+);
+[
+  ['gåvan kräver admin', /'POST \/api\/admin\/gift'/.test(apiSrcGift) && /if \(!adminFromRequest\(req\)\)/.test(giftRoute)],
+  [
+    'inget delas ut utan bekräftelse',
+    /if \(!body\.confirm\)/.test(giftRoute) && /preview: true/.test(giftRoute) && /players: players\.length/.test(giftRoute)
+  ],
+  [
+    'gåvan går till alla konton och loggas',
+    /players\.forEach\(\(player\) => \{/.test(giftRoute) &&
+      /player\.balance = round2\(\(Number\(player\.balance\) \|\| 0\) \+ amount\)/.test(giftRoute) &&
+      /logTransaction\(player, 'gåva', 'gåva till alla', amount, player\.balance\)/.test(giftRoute)
+  ],
+  ['meddelandet blir en notis', /if \(message\) db\.broadcast = message;/.test(giftRoute)],
+  [
+    'adminpanelen har gåvekortet',
+    /Gåva till alla/.test(adminSrcGift) &&
+      /id="gift-amount"/.test(adminSrcGift) &&
+      /id="gift-message"/.test(adminSrcGift) &&
+      /await sendGift\(amount, message, true\)/.test(adminSrcGift)
+  ],
+  [
+    'gåvan syns i spelarens logg',
+    /Gåva från personalen/.test(historySrcGift) && /kind === 'gåva'/.test(historySrcGift)
+  ],
+  [
+    'panelen fungerar även lokalt',
+    /gift\(amount, message, confirm\)/.test(coreSrcGift) && /async adminGift\(amount, message, confirm\)/.test(coreSrcGift)
+  ],
+  [
+    'selftestet provar gåvan utan att dela ut',
+    /gåvan kräver admin och ett belopp/.test(apiSrcGift)
+  ]
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'gåvan')));
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

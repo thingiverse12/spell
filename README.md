@@ -118,6 +118,21 @@ Plugget och spelhallen har var sin logg – de blandas aldrig.
   filtreras på insatser, vinster och bonus/övrigt.
 - Båda loggarna kräver ett eget konto, precis som resten av appen.
 
+### 🎁 Gåva till alla
+I adminpanelen, fliken **Spelare**, står kortet **Gåva till alla** överst:
+
+- Skriv **belopp per spelare** (standard 20 000 kr) och ett **meddelande**.
+- Klicka **Skicka gåvan** – en bekräftelseruta visar hur många konton som får gåvan
+  och vad det blir totalt innan något delas ut.
+- Varje konto får summan på en gång, får raden **🎁 Gåva från personalen** i sin egen
+  logg, och meddelandet läggs som notis i studieläget.
+- Kortet visar den senaste gåvan (belopp, antal konton och meddelande), och
+  adminöversikten sparar de tio senaste.
+
+Servern gör inget förrän `confirm: true` skickas – `POST /api/admin/gift` utan confirm
+svarar bara med en förhandsvisning (`players`, `amount`, `total`). Selftestet provar
+bara att rutten kräver admin och ett belopp, så inga saldon rörs av testet.
+
 ### ⏸ Pausa spelare
 I adminpanelen, fliken **Spelare**, har varje spelare knappen **Pausa**. Pausen stänger
 av spelandet men inte plugget:

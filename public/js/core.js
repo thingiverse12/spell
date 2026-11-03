@@ -884,6 +884,11 @@ export const api = {
     return request('/api/admin/broadcast', { method: 'POST', body: { message } });
   },
 
+  /** Gåva till alla: utan confirm svarar servern bara med en förhandsvisning. */
+  async adminGift(amount, message, confirm) {
+    return request('/api/admin/gift', { method: 'POST', body: { amount, message, confirm } });
+  },
+
   adminLogout() {
     state.adminToken = null;
     store.del(K.admin);
@@ -1003,6 +1008,23 @@ export const localAdmin = {
     store.set('ph.broadcast', message);
     state.broadcast = message;
     return { broadcast: message };
+  },
+
+  gift(amount, message, confirm) {
+    const value = Math.round(Number(amount) || 0);
+    if (!(value > 0)) throw new Error('Ange ett belopp');
+    const text = String(message || '').trim().slice(0, 240);
+    if (!confirm) return { preview: true, players: 1, amount: value, total: value, message: text };
+    const p = localPlayer();
+    p.balance = Math.round((p.balance || 0) + value);
+    localTx('gåva', 'gåva till alla', value, p.balance);
+    saveLocal(p);
+    state.player = p;
+    if (text) {
+      store.set('ph.broadcast', text);
+      state.broadcast = text;
+    }
+    return { ok: true, gift: { at: Date.now(), amount: value, players: 1, total: value, message: text } };
   }
 };
 
