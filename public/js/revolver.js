@@ -16,6 +16,7 @@ import {
   registerView, state, api, sfx, toast, kr, esc, sleep, navigate, openModal, updateBalanceUI, guardRound
 } from './core.js';
 import { currentLuck, luckPayout, luckPill } from './luck.js';
+import { renderBord, stopBord } from './revolverbord.js';
 
 /* Trumman och vinsttrappan delas med npm run audit, så oddsen kan
    kontrolleras utanför webbläsaren. PAYOUTS[n] gäller efter n + 1 klick. */
@@ -456,6 +457,14 @@ async function settle(root, message) {
 /* ------------------------------ Vyn ------------------------------ */
 
 function renderView(root) {
+  /* Samma adress rymmer båda lägena: #/kasino/revolver är ensamläget och
+     #/kasino/revolver/bord är borden där man spelar mot varandra. */
+  if ((state.route.parts || [])[2] === 'bord') {
+    renderBord(root, state.route);
+    return;
+  }
+  stopBord();
+
   game.bet = Math.min(game.bet || 0, state.player?.balance ?? 0);
 
   root.innerHTML = `
@@ -466,6 +475,7 @@ function renderView(root) {
           <p>En kula · sex kammare · bara spelmynt – ingenting händer på riktigt</p>
         </div>
         <div style="flex:1"></div>
+        <button class="btn btn--sm btn--primary" id="rv-bord">👥 Mot varandra</button>
         <button class="btn btn--sm btn--ghost" id="rv-home">← Spelhallen</button>
       </div>
 
@@ -485,6 +495,10 @@ function renderView(root) {
     </div>`;
 
   root.querySelector('#rv-home').addEventListener('click', () => navigate('/kasino'));
+  root.querySelector('#rv-bord').addEventListener('click', () => {
+    sfx.click();
+    navigate('/kasino/revolver/bord');
+  });
   root.querySelector('#rv-rules').addEventListener('click', () => {
     sfx.click();
     openModal({
@@ -497,6 +511,7 @@ function renderView(root) {
         <li>Vinsttrappan: ${REVOLVER_MATH.PAYOUTS.map((m, i) => `${i + 1} klick ×${String(m).replace('.', ',')}`).join(' · ')}.</li>
         <li>Efter <b>fem</b> klick tar du vinsten automatiskt – den sjätte kammaren är alltid laddad.</li>
         <li>Kulan tar hela insatsen för rundan.</li>
+        <li>Vill du spela mot andra? Tryck <b>Mot varandra</b> – då lägger alla vid bordet samma insats i en kassa och den som står kvar tar allt.</li>
       </ul>
       <p class="tiny muted" style="margin-top:14px">Bara spelmynt och en låtsasrevolver. Ingen ammunition, inga riktiga pengar.</p>`,
       actions: [{ label: 'Uppfattat' }]

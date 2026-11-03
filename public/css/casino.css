@@ -1885,3 +1885,302 @@
   .revolver__ladder { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .revolver__trigger { width: 68px; height: 68px; font-size: 11px; }
 }
+
+/* ------------------------------ Rysk roulette mot varandra ------------------------------ */
+
+.rvb {
+  margin: 14px auto 40px;
+  max-width: 980px;
+  padding: 18px 18px 22px;
+  border-radius: 24px;
+  background: radial-gradient(120% 100% at 50% 0%, #14202a 0%, #0d151c 46%, #080c10 100%);
+  border: 1px solid rgba(255, 255, 255, .08);
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, .55), 0 30px 70px -45px #000;
+  color: #f2e8d0;
+}
+
+.rvb__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+.rvb__pot {
+  display: grid;
+  gap: 1px;
+  padding: 8px 14px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(240, 195, 82, .18), rgba(240, 195, 82, .04));
+  border: 1px solid rgba(240, 195, 82, .35);
+}
+.rvb__pot-label {
+  font-size: 9.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  font-weight: 800;
+  color: rgba(240, 195, 82, .85);
+}
+.rvb__pot-sum {
+  font-size: 20px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #f7e6b0;
+}
+
+.rvb__meta { display: flex; gap: 6px; flex-wrap: wrap; }
+.rvb__meta .mini-pill { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .12); color: #e8dcc0; }
+.rvb__meta .mini-pill strong { color: var(--accent); }
+
+.rvb__status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0 4px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .09);
+  font-weight: 700;
+  font-size: 14px;
+}
+.rvb__status.is-you {
+  background: rgba(240, 195, 82, .14);
+  border-color: rgba(240, 195, 82, .5);
+  box-shadow: 0 0 0 1px rgba(240, 195, 82, .18), 0 0 30px -12px rgba(240, 195, 82, .8);
+  color: #ffeeb8;
+}
+.rvb__status.is-done { background: rgba(61, 220, 151, .1); border-color: rgba(61, 220, 151, .35); color: #c8f6e2; }
+
+.rvb__status-text { flex: 1 1 auto; }
+
+.rvb__clock {
+  flex: 0 0 120px;
+  height: 7px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, .5);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .6);
+}
+.rvb__clock i {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #3ddc97, #e7c46a);
+  transition: width .2s linear, background .3s var(--ease);
+}
+.rvb__clock i.is-low { background: linear-gradient(90deg, #e7c46a, #ff5566); }
+
+/* Spelarna runt bordet */
+.rvb__seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+
+.rvb__seat {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .045);
+  border: 1px solid rgba(255, 255, 255, .1);
+  transition: border-color .2s var(--ease), background .2s var(--ease), transform .2s var(--ease);
+}
+.rvb__seat.is-you { background: rgba(120, 200, 160, .1); border-color: rgba(61, 220, 151, .4); }
+.rvb__seat.is-turn {
+  border-color: rgba(240, 195, 82, .8);
+  background: rgba(240, 195, 82, .13);
+  box-shadow: 0 0 0 1px rgba(240, 195, 82, .25), 0 10px 24px -16px rgba(240, 195, 82, .9);
+  transform: translateY(-1px);
+}
+.rvb__seat.is-out { opacity: .45; filter: grayscale(.6); }
+.rvb__seat.is-empty { border-style: dashed; opacity: .5; background: transparent; }
+
+.rvb__avatar {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  font-size: 14px;
+  background: linear-gradient(160deg, #2c3a44, #16202a);
+  border: 1px solid rgba(255, 255, 255, .16);
+  color: #f7e6b0;
+}
+.rvb__seat.is-turn .rvb__avatar { background: linear-gradient(160deg, #f3dd9a, #c8a24a); color: #241a03; border-color: transparent; }
+
+.rvb__who { display: grid; min-width: 0; line-height: 1.15; }
+.rvb__who b {
+  font-size: 12.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rvb__who small {
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .5);
+  font-weight: 700;
+}
+.rvb__host {
+  font-size: 8.5px;
+  letter-spacing: .1em;
+  padding: 1px 5px;
+  border-radius: 99px;
+  background: rgba(240, 195, 82, .18);
+  border: 1px solid rgba(240, 195, 82, .4);
+  color: #f2d78a;
+  vertical-align: 1px;
+}
+
+/* Revolvern i mitten – samma pjäs, utan extra kort runt sig */
+.rvb .revolver {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 4px 0 10px;
+  max-width: none;
+}
+.rvb .revolver__stage { min-height: 250px; }
+
+.rvb__actions { margin: 6px 0 2px; justify-content: center; flex-wrap: wrap; gap: 10px; }
+.rvb__hint { font-size: 12.5px; color: rgba(255, 255, 255, .58); align-self: center; }
+.rvb__hint b { color: #f7e6b0; }
+
+/* Vinsten */
+.rvb__result {
+  margin: 12px auto 0;
+  max-width: 460px;
+  text-align: center;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .05);
+  border: 1px solid rgba(255, 255, 255, .12);
+}
+.rvb__result.is-you {
+  background: linear-gradient(160deg, rgba(240, 195, 82, .2), rgba(240, 195, 82, .04));
+  border-color: rgba(240, 195, 82, .55);
+  box-shadow: 0 0 40px -18px rgba(240, 195, 82, .9);
+}
+.rvb__result-title { font-size: 15px; font-weight: 800; }
+.rvb__result-sum { font-size: 30px; font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; }
+.rvb__result-sub { font-size: 11.5px; color: rgba(255, 255, 255, .55); letter-spacing: .04em; }
+
+/* Händelserna vid bordet */
+.rvb__feed-wrap { margin-top: 16px; }
+.rvb__feed-wrap h3 {
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, .45);
+  margin-bottom: 8px;
+  font-weight: 800;
+}
+.rvb__feed { list-style: none; display: grid; gap: 6px; margin: 0; padding: 0; }
+.rvb__event {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12.5px;
+  padding: 7px 11px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid rgba(255, 255, 255, .07);
+  color: rgba(255, 255, 255, .78);
+}
+.rvb__event-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .35);
+  flex: 0 0 6px;
+}
+.rvb__event.is-klick { border-color: rgba(61, 220, 151, .3); background: rgba(61, 220, 151, .08); }
+.rvb__event.is-klick .rvb__event-dot { background: var(--mint); }
+.rvb__event.is-bang { border-color: rgba(255, 85, 102, .45); background: rgba(255, 85, 102, .12); color: #ffd6da; font-weight: 700; }
+.rvb__event.is-bang .rvb__event-dot { background: #ff5566; box-shadow: 0 0 10px #ff5566; }
+.rvb__event.is-vinst { border-color: rgba(240, 195, 82, .5); background: rgba(240, 195, 82, .12); color: #ffeeb8; font-weight: 700; }
+.rvb__event.is-vinst .rvb__event-dot { background: var(--accent); }
+.rvb__event.is-auto { border-style: dashed; opacity: .8; }
+
+/* Lobbyn */
+.rvb--board { padding: 20px; }
+.rvb__panels { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.rvb__panel {
+  padding: 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .09);
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+.rvb__panel h2 { font-size: 16px; font-weight: 800; }
+.rvb__panel-text { font-size: 12.5px; color: rgba(255, 255, 255, .62); line-height: 1.55; }
+.rvb__panel-text b { color: #f7e6b0; }
+.rvb__panel-foot { grid-column: 1 / -1; }
+.rvb__panel .bet-field__label { color: rgba(255, 255, 255, .55); }
+.rvb__panel .bet-field__input {
+  background: rgba(0, 0, 0, .35);
+  border-color: rgba(255, 255, 255, .16);
+  color: #f7e6b0;
+}
+.rvb__panel .bet-field__unit { color: rgba(255, 255, 255, .5); }
+.rvb__panel .mini-pill { background: rgba(255, 255, 255, .05); border-color: rgba(255, 255, 255, .12); color: #e8dcc0; }
+.rvb__panel .mini-pill strong { color: var(--accent); }
+.rvb__panel .chip-mini { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .16); color: #f2e8d0; }
+
+.rvb__list { display: grid; gap: 8px; }
+.rvb__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(255, 255, 255, .09);
+  font-size: 12.5px;
+}
+.rvb__row.is-mine { border-color: rgba(61, 220, 151, .4); background: rgba(61, 220, 151, .08); }
+.rvb__row-ante { font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; }
+.rvb__row-host { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rvb__row-seats, .rvb__row-phase { font-size: 11px; color: rgba(255, 255, 255, .55); letter-spacing: .04em; }
+.rvb__row-locked { font-size: 11px; color: rgba(255, 255, 255, .4); }
+.rvb__empty {
+  padding: 18px;
+  text-align: center;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, .45);
+  border: 1px dashed rgba(255, 255, 255, .16);
+  border-radius: 12px;
+}
+.rvb__invite code {
+  display: block;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .35);
+  border: 1px solid var(--line);
+  font-size: 12px;
+  word-break: break-all;
+}
+
+@media (max-width: 720px) {
+  .rvb { padding: 14px 12px 18px; border-radius: 18px; }
+  .rvb__panels { grid-template-columns: 1fr; }
+  .rvb__seats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rvb__row { grid-template-columns: auto 1fr; row-gap: 6px; }
+  .rvb__row-seats, .rvb__row-phase, .rvb__row button, .rvb__row-locked { grid-column: 1 / -1; justify-self: start; }
+  .rvb__clock { flex: 0 0 70px; }
+  .rvb .revolver__stage { min-height: 210px; }
+}

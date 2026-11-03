@@ -62,6 +62,7 @@ const GAME_LABELS = {
   scratch: 'Skraplotter',
   roulette: 'Roulette',
   revolver: 'Rysk roulette',
+  revolverbord: 'Rysk roulette (bord)',
   kortleken: 'Kortleken',
   sport: 'Sport (Live Sport)',
   quiz: 'Quiz',

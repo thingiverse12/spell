@@ -366,6 +366,71 @@ const rvChecks = [
 ];
 rvChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'rysk roulette')));
 
+/* --------------------- rysk roulette mot varandra --------------------- */
+
+console.log('\nRysk roulette mot varandra – ett bord, en kassa');
+
+const rvbSrc = read('public/js/revolverbord.js');
+const rvbServer = read('lib/api.js');
+const rvbMath = literal(rvbSrc, 'export const REVOLVER_BORD_MATH');
+const rvbChambers = Number(rvbMath.CHAMBERS) || 0;
+const rvbMaxSeats = Number(rvbMath.MAX_SEATS) || 0;
+const rvbMinSeats = Number(rvbMath.MIN_SEATS) || 0;
+
+if (rvbChambers === 6 && rvbMinSeats === 2 && rvbMaxSeats === 6) {
+  ok('bordet har sex kammare och plats för 2–6 spelare', `${rvbMinSeats}–${rvbMaxSeats} spelare`);
+} else bad('bordets spelregler är fel', `${rvbChambers} kammare, ${rvbMinSeats}–${rvbMaxSeats} spelare`);
+
+if (rvbMath.HOUSE_CUT === 0) ok('huset tar ingenting av kassan');
+else bad('huset tar en andel av kassan', rvbMath.HOUSE_CUT);
+
+/* Varje spelare vinner med 1/n och får hela kassan n × insats → RTP 100 %. */
+[2, 3, 4, 5, 6].forEach((players) => {
+  const ante = 100;
+  const pot = players * ante;
+  const ev = pot / players;
+  const rtp = (ev / ante) * 100;
+  if (Math.abs(rtp - 100) < 0.001) ok(`${players} spelare: kassan ${pot} kr, chans 1/${players} → RTP ${rtp.toFixed(1)} %`);
+  else bad(`${players} spelare ger RTP ${rtp.toFixed(1)} % (ska vara 100)`);
+});
+
+const perPull = (1 / rvbChambers) * 100;
+if (Math.abs(perPull - 16.666) < 0.01) ok('varje klick har 16,7 % risk (en kammare av sex)', perPull.toFixed(1) + ' %');
+else bad('risken per klick stämmer inte', perPull.toFixed(1) + ' %');
+
+const rvbChecks = [
+  ['servern lägger kulan, aldrig klienten', /function rvbChamber\(\)/.test(rvbServer) && /crypto\.randomInt\(0, RVB\.CHAMBERS\)/.test(rvbServer)],
+  [
+    'bordsläget skickar aldrig ut kulan',
+    (() => {
+      const start = rvbServer.indexOf('function rvbPublic(');
+      const end = rvbServer.indexOf('function rvbPlayerOrError(');
+      if (start < 0 || end < 0) return false;
+      return !/bullet/i.test(rvbServer.slice(start, end));
+    })()
+  ],
+  ['alla som går med betalar samma insats', /function rvbTakeAnte\(player, amount, table\)/.test(rvbServer) && /rvbTakeAnte\(player, table\.ante, table\)/.test(rvbServer)],
+  ['insatsen dras när man går med – inte när matchen startar', /rvbTakeAnte\(player, ante, table\)/.test(rvbServer) && /rvbTakeAnte\(player, table\.ante, table\)/.test(rvbServer)],
+  ['kassan betalas ut i sin helhet till vinnaren', /function rvbFinish\(table, winnerSeat\)/.test(rvbServer) && /rvbPayWin\(winner, prize\)/.test(rvbServer)],
+  ['man kan bara sitta vid ett bord i taget', /function rvbActiveTableOf\(player\)/.test(rvbServer) && /Du sitter redan vid ett bord/.test(rvbServer)],
+  ['lämnat väntrum betalar tillbaka insatsen', /rvbRefund\(player, table\.ante\)/.test(rvbServer) && /lämnade bordet och fick tillbaka sin insats/.test(rvbServer)],
+  ['bara den vars tur det är kan trycka av', /if \(Number\(table\.turn\) !== seatIndex\)/.test(rvbServer) && /Det är inte din tur/.test(rvbServer)],
+  ['bara värden kan starta matchen', /if \(table\.hostId !== player\.id\) return json\(res, 403/.test(rvbServer)],
+  ['minst två spelare krävs för att starta', /seats\.length < RVB\.MIN_SEATS/.test(rvbServer)],
+  ['turen går vidare till nästa levande spelare', /function rvbNextAlive\(table, from\)/.test(rvbServer)],
+  ['tiden rinner ut och bordet trycker av åt spelaren', /function rvbAutoAdvance\(table\)/.test(rvbServer) && /lät tiden gå/.test(rvbServer)],
+  ['stilla bord stängs och betalar tillbaka', /function rvbSweep\(\)/.test(rvbServer) && /IDLE_MS/.test(rvbServer)],
+  ['gäst utan konto nekas bordsläget', /function rvbPlayerOrError\(req, res\)/.test(rvbServer) && /ACCOUNT_REQUIRED/.test(rvbServer)],
+  ['bordsvyn pollar bordet och stoppar när man lämnar', /POLL_MS/.test(rvbSrc) && /function onBordRoute\(\)/.test(rvbSrc)],
+  ['vyn nås från rysk roulette och spelhallen', /key: 'revolver\/bord'/.test(read('public/js/casino.js')) && /revolver\/bord/.test(read('public/js/main.js'))],
+  ['loggen visar bordet', /revolverbord: 'Rysk roulette – bord'/.test(read('public/js/history.js'))],
+  ['adminpanelen visar bordet', /revolverbord: 'Rysk roulette \(bord\)'/.test(read('public/js/admin.js'))],
+  ['selftestet spelar en hel bordsmatch', /rysk roulette mot varandra: en vinner hela kassan/.test(rvbServer)],
+  ['README beskriver bordsläget', /Rysk roulette mot varandra/.test(readmeBj) && /tar hela kassan/.test(readmeBj)],
+  ['simuleringen räknar på bordsläget', /Rysk roulette mot varandra – bordet/.test(read('docs/simulering.md'))]
+];
+rvbChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'rysk roulette mot varandra')));
+
 /* -------------------------------- sport -------------------------------- */
 
 console.log('\nSport – spel till fasta odds');

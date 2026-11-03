@@ -271,6 +271,25 @@ tidigt får högst RTP.
 Marginalen räknas utan gummibandet (tur ×1,00). Med gummibandet på skalar vinsten på samma
 sätt som i blackjack, eftersom vinsten räknas med `luckPayout`.
 
+### Rysk roulette mot varandra – bordet
+
+När man spelar mot varandra finns ingen husmarginal: kassan är `insats × antal spelare` och
+betalas ut i sin helhet till den som står kvar. Varje spelare vinner med sannolikheten `1/n`,
+så förväntad utbetalning är `n × insats × 1/n = insats` – **RTP 100 %** för varje spelare, och
+bordets netto är noll. Det är alltså ingen myntkälla; mynten bara byter ägare.
+
+| Spelare | Kassan (insats 100 kr) | Chans att vinna | Förväntat värde |
+| --- | --- | --- | --- |
+| 2 | 200 kr | 50 % | 100 kr |
+| 3 | 300 kr | 33,3 % | 100 kr |
+| 4 | 400 kr | 25 % | 100 kr |
+| 6 | 600 kr | 16,7 % | 100 kr |
+
+Varje enskilt klick är 1 kammare av 6, alltså **16,7 % risk**, och kammaren som ligger under
+hanen är densamma för alla – trumman laddas om efter varje pang. Positionen i turordningen
+påverkar därför inte oddsen över en hel match: den som börjar en laddning har lika stor chans
+att få kulan som den som står sist, och startspelaren avgörs slumpmässigt vid start.
+
 ## 9. Allt i en tabell
 
 | Spel | RTP vid normal tur | Marginal | Spann över hela gummibandet |
@@ -282,6 +301,7 @@ sätt som i blackjack, eftersom vinsten räknas med `luckPayout`.
 | Videopoker ×1,00 | 94,3 % | 5,7 % | 0,7–282 % över tur-nivåerna |
 | Blackjack ×1,00 (snäll dealer) | 115,1 % | −15,1 % | 98,8 % – 133,9 % |
 | Rysk roulette (valfritt antal klick) | 92,5 % – 95,8 % | 4,2 % – 7,5 % | följer gummibandet |
+| Rysk roulette mot varandra (bord) | 100 % | 0 % | ingen – kassan delas ut i sin helhet |
 
 ## Vad siffrorna betyder för inställningarna
 

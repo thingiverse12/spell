@@ -84,6 +84,8 @@ Inga beroenden behövs – servern är ren Node (>= 18).
   (RTP ≈ 90 %), och ett lott visar alltid "Netto +X kr" när det ger vinst.
 - **Rysk roulette** – en revolver med sex kammare och en kula. Varje tomt klick höjer vinsten
   (1,15× → 5,6×), kulan tar insatsen och efter fem klick tar du vinsten automatiskt (RTP ≈ 93 %).
+- **Rysk roulette – bord** – spela mot varandra: 2–6 spelare lägger samma insats i en gemensam
+  kassa och den som står kvar ensam tar allt (se nedan).
 - **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett nummer (36×),
   dussin eller kolumn (3×), röd/svart, jämn/udda eller låg/hög (2×) och tryck **SNURRA**.
   Hjulet stannar exakt på det dragna numret, historiken visar de senaste snurren och
@@ -134,6 +136,35 @@ de andra spelen:
 Revolvern är en låtsasrevolver: bara spelmynt, ingen ammunition och ingenting händer på riktigt.
 Utfallet räknas i webbläsaren, och insats och vinst går genom serverns `/api/bet` och `/api/credit`
 så att allt hamnar i loggen och i statistiken (som **Rysk roulette**).
+
+### 👥 Rysk roulette mot varandra – ett bord, en kassa
+
+Samma revolver, men nu mot riktiga klasskamrater i stället för mot huset. Vyn ligger på
+`#/kasino/revolver/bord` och nås med knappen **👥 Mot varandra** inne i Rysk roulette (den finns
+också som egen ruta i spelhallen).
+
+- **Alla som är med lägger samma insats.** Insatsen bestäms när bordet öppnas och dras direkt när
+  man går med, så kassan (`insats × antal spelare`) är låst innan matchen börjar.
+- **2–6 spelare per bord.** Värden trycker *Starta matchen* när minst två sitter vid bordet – fler
+  kan inte hoppa in mitt i en pågående match. Lämnar man väntrummet får man **tillbaka sin insats**.
+- **En revolver som vandrar runt bordet.** Servern laddar trumman med en kula i en av sex kammare
+  (hemlig för alla) och utser en slumpad startspelare. Sedan turas alla om att trycka av:
+  tom kammare = du lever och turen går vidare, kulan = du är ute. Efter varje pang laddas trumman
+  om och nästa levande spelare efter den som sköts börjar.
+- **Sista spelaren kvar tar hela kassan.** Huset tar **ingenting** – alla mynt som läggs i kassan
+  betalas ut igen, så ett bord är helt och hållet en överföring mellan spelarna (RTP 100 % för
+  bordet som helhet, 1/antal spelare chans för var och en).
+- **Tiden är din fiende.** Varje spelare har **45 sekunder** på sig att trycka av; annars trycker
+  bordet av åt hen och matchen går vidare. Överger alla bordet, eller står det still i en kvart,
+  avbryts matchen och alla får tillbaka sin insats.
+- Kulan dras **bara på servern** och skickas aldrig till klienten – alla ser samma trumma, och
+  ingen webbläsare kan räkna ut var kulan ligger. Insats och vinst går genom samma bokföring som
+  resten av spelhallen och hamnar i loggen som **Rysk roulette – bord**.
+
+Alla bordsanrop kräver ett eget konto (namn + PIN): `GET /api/revolver/tables` (listan över öppna
+bord), `POST /api/revolver/table` (öppna ett bord), `GET /api/revolver/table?id=` (bordets läge),
+`POST /api/revolver/join`, `POST /api/revolver/start`, `POST /api/revolver/pull` och
+`POST /api/revolver/leave`.
 
 ### 👤 Konton – alla måste ha ett
 - **Alla måste skapa ett konto** med namn + fyrsiffrig PIN innan de kommer in i appen.
@@ -534,7 +565,9 @@ snabbt kan växla tillbaka till studiematerialet.
   sparar; spelen anmäler pågående rundor med `guardRound()` så att omladdningen väntar.
 - API: `GET /api/settings` (med `version`), `POST /api/guest`, `GET /api/me`, `POST /api/bet`, `POST /api/credit`,
   `POST /api/bonus`, `POST /api/admin/login`, `GET /api/admin/overview`,
-  `POST /api/admin/player`, `POST /api/admin/settings`, `POST /api/admin/broadcast`.
+  `POST /api/admin/player`, `POST /api/admin/settings`, `POST /api/admin/broadcast`,
+  `GET /api/revolver/tables`, `GET /api/revolver/table`, `POST /api/revolver/table`,
+  `POST /api/revolver/join`, `POST /api/revolver/start`, `POST /api/revolver/pull`, `POST /api/revolver/leave`.
 
 ---
 

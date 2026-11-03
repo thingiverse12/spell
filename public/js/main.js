@@ -45,6 +45,7 @@ const CASINO_NAV = [
   { path: '/kasino/videopoker', label: 'Videopoker' },
   { path: '/kasino/roulette', label: 'Roulette' },
   { path: '/kasino/revolver', label: 'Rysk roulette' },
+  { path: '/kasino/revolver/bord', label: 'Rysk roulette – bord' },
   { path: '/kasino/sport', label: 'Live Sport' },
   { path: '/kasino/kortleken', label: 'Kortleken' },
   { path: '/kasino/rikast', label: 'Rikast' },

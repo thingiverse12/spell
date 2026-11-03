@@ -678,6 +678,27 @@ export const api = {
     }
   },
 
+  /* ---------- rysk roulette mot varandra ----------
+     Ett bord kräver att alla sitter på samma server. Går servern inte att nå
+     finns det inget lokalt bordsläge att falla tillbaka på – då säger vi det
+     i stället för att låtsas att matchen fortsätter. */
+  async revolverBord(path, body) {
+    try {
+      const data = body
+        ? await request('/api/revolver/' + path, { method: 'POST', body })
+        : await request('/api/revolver/' + path);
+      if (data && typeof data.balance === 'number' && state.player) state.player.balance = data.balance;
+      return data;
+    } catch (err) {
+      if (err.offline) {
+        const offline = new Error('Bordsläget kräver uppkoppling – prova igen när nätet är tillbaka');
+        offline.offline = true;
+        throw offline;
+      }
+      throw err;
+    }
+  },
+
   /** Loggar ett svar i studieloggen. Lokalt om servern inte svarar. */
   async studyEvent(event) {
     const entry = {
