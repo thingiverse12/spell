@@ -256,6 +256,11 @@ den spelaren snurrar landar hjulet på ett nummer där ingen av markerna ger vin
 snurret blir en förlust. Hjulet ritar och snurrar precis som vanligt, och utbetalningen
 går fortfarande genom servern.
 
+Panelen visar **bara spelare som är online** – de som varit inne i appen de senaste två
+minuterna (appen pingar `/api/me` varje minut, så en öppen roulettesida räknas). En spelare
+som hunnit lämna får `409` och syns inte i listan, förutom om hen redan har en tvingad
+förlust – då ligger raden kvar så du kan släppa igenom den.
+
 Kontrollen gäller **bara roulette**: inga andra spel, inga saldon och ingen statistik
 ändras, och en tvingad förlust som inte används släpps av sig själv efter 15 minuter.
 Koden finns i `ROULETTE_CODE` i `lib/api.js` och `CONTROL_CODE` i `public/js/roulette.js`

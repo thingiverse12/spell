@@ -1553,6 +1553,7 @@
   background: var(--surface-2);
   border: 1px solid var(--line);
 }
+.ru-ctl__row.is-offline { opacity: .6; }
 .ru-ctl__row.is-rigged {
   border-color: rgba(220, 47, 72, .55);
   background: rgba(220, 47, 72, .12);

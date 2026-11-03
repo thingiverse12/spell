@@ -503,6 +503,16 @@ const allSameRtp = [rtp(ruPay.straight, 1), rtp(ruPay.dozen, 12), rtp(ruPay.even
       /rigBet\.rig === 'lose' && cleanBet\.rig === null/.test(apiSrc3)
   ],
   [
+    'kontrollrummet visar bara spelare som är online',
+    /const ONLINE_MS = 2 \* 60 \* 1000;/.test(apiSrc3) &&
+      /\.filter\(\(p\) => p\.online \|\| p\.rig\)/.test(apiSrc3) &&
+      /onlineMinutes/.test(apiSrc3)
+  ],
+  [
+    'bara en spelare som är online kan tvingas förlora',
+    /now\(\) - player\.lastSeen > ONLINE_MS/.test(apiSrc3) && /offline: true/.test(apiSrc3) && /p\.online \? '' : ' is-offline'/.test(ruSrc)
+  ],
+  [
     'förlusten kan gälla en snurr eller tills admin släpper',
     /action !== 'lose' && action !== 'loseAlways'/.test(apiSrc3) &&
       /pending\.mode === 'loseAlways'/.test(apiSrc3) &&

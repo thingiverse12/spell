@@ -610,15 +610,19 @@ function timeAgo(ts) {
 function controlRows(players) {
   const term = controlTerm.trim().toLowerCase();
   const list = players.filter((p) => !term || String(p.name).toLowerCase().includes(term));
-  if (!list.length) return '<p class="small muted">Ingen spelare matchar.</p>';
+  if (!list.length) {
+    return players.length
+      ? '<p class="small muted">Ingen spelare matchar.</p>'
+      : '<p class="small muted">Ingen är online i roulette just nu. Öppna spelet på en enhet så dyker spelaren upp här inom några sekunder.</p>';
+  }
   return list
     .map((p) => {
       const forever = p.rig === 'loseAlways';
       return `
-      <div class="ru-ctl__row${p.rig ? ' is-rigged' : ''}">
+      <div class="ru-ctl__row${p.rig ? ' is-rigged' : ''}${p.online ? '' : ' is-offline'}">
         <div class="ru-ctl__who">
-          <strong>${esc(p.name)}</strong>
-          <span class="tiny muted">${kr(p.balance)} · ${num(p.rounds)} snurr · ${timeAgo(p.lastSeen)}${p.isGuest ? ' · gäst' : ''}</span>
+          <strong>${esc(p.name)}${p.online ? '' : ' <span class="tiny muted">· offline</span>'}</strong>
+          <span class="tiny muted">${kr(p.balance)} · ${num(p.rounds)} snurr · ${p.online ? 'online nu' : timeAgo(p.lastSeen)}${p.isGuest ? ' · gäst' : ''}</span>
         </div>
         ${p.rig ? `<span class="chip ru-ctl__flag">${forever ? 'Förlorar tills du släpper' : 'Förlorar nästa snurr'}</span>` : ''}
         <button class="btn ${p.rig ? 'btn--ghost' : 'btn--danger'} btn--sm" data-act="${p.rig ? 'off' : controlMode}" data-id="${esc(p.id)}">
@@ -643,18 +647,22 @@ async function refreshControl(backdrop) {
   }
   const players = data.players || [];
   const rigged = players.filter((p) => p.rig).length;
+  const online = players.filter((p) => p.online).length;
   const log = (data.log || []).slice(0, 3);
   box.innerHTML = `
     <div class="ru-ctl__head">
       <input class="input" id="ru-ctl-search" type="search" placeholder="Sök spelare…" value="${esc(controlTerm)}">
-      <span class="chip">${rigged ? rigged + ' spelare förlorar' : 'Ingen tvingas förlora'}</span>
+      <span class="chip">${online + ' online'}</span>
+      <span class="chip">${rigged ? rigged + ' förlorar' : 'Ingen tvingas förlora'}</span>
     </div>
     <div class="ru-ctl__modes">
       <button class="chip${controlMode === 'lose' ? ' is-on' : ''}" data-mode="lose">Nästa snurr</button>
       <button class="chip${controlMode === 'loseAlways' ? ' is-on' : ''}" data-mode="loseAlways">Tills jag släpper</button>
     </div>
-    <p class="tiny muted">Markera läget och tryck på spelaren. En tvingad förlust släpps av sig själv efter
-      ${num(data.ttlMinutes || 15)} min om spelaren inte snurrar.</p>
+    <p class="tiny muted">Bara spelare som varit inne de senaste ${num(
+      data.onlineMinutes || 2
+    )} minuterna syns här – alltså de som sitter vid rouletten nu. Markera läget och tryck på spelaren.
+      En tvingad förlust släpps av sig själv efter ${num(data.ttlMinutes || 15)} min om spelaren inte snurrar.</p>
     <div class="ru-ctl__list">${controlRows(players)}</div>
     ${
       log.length
@@ -689,8 +697,8 @@ async function refreshControl(backdrop) {
       sfx.click();
       await refreshControl(backdrop);
     } catch (err) {
-      btn.disabled = false;
       toast(err.message || 'Kunde inte ändra spelaren', 'bad');
+      await refreshControl(backdrop);
     }
   });
 }
