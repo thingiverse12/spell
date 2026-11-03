@@ -779,6 +779,7 @@ function buildShoe(decks) {
 }
 
 const cardValue = (c) => {
+  if (c.r === 'A') return 11;
   const v = rankValue(c.r);
   return v > 10 ? 10 : v;
 };
@@ -787,8 +788,7 @@ function handValue(cards) {
   let total = 0;
   let aces = 0;
   for (const c of cards) {
-    const v = cardValue(c);
-    total += v === 1 ? 11 : v;
+    total += cardValue(c);
     if (c.r === 'A') aces += 1;
   }
   while (total > 21 && aces > 0) {
@@ -838,14 +838,35 @@ function basicAction(cards, upValue) {
   return 'hit';
 }
 
-function dealerPlay(cards, shoe) {
+function dealerPlay(cards, shoe, merciful = true) {
   // dealerHitsSoft17 = false i standardinställningarna: dealern står på mjuk 17.
-  while (handValue(cards).total < 17) cards.push(shoe.pop());
+  // Snäll dealer: dealern stannar aldrig på 21 – den måste dra ett kort till.
+  let hits = 0;
+  while (hits < 20) {
+    const total = handValue(cards).total;
+    if (total < 17 || (merciful && total === 21)) {
+      cards.push(shoe.pop());
+      hits += 1;
+      continue;
+    }
+    break;
+  }
 }
 
 /** Spelar en runda; returnerar { stake, returned } i kronor. */
-function playBlackjackRound(shoe, factor) {
+function playBlackjackRound(shoe, factor, merciful = true) {
+  const firstCards = [shoe.pop(), shoe.pop()];
   const dealer = [shoe.pop(), shoe.pop()];
+  // Snäll dealer: dealerns två första kort får aldrig bli 21.
+  if (merciful && isBlackjack(dealer) && !isBlackjack(firstCards)) {
+    let guard = 0;
+    while (isBlackjack(dealer) && guard < 20) {
+      const out = dealer[1];
+      dealer[1] = shoe.pop();
+      shoe.unshift(out); // tillbaka underst i given
+      guard += 1;
+    }
+  }
   const dealerBJ = isBlackjack(dealer);
   const hands = [];
   let stake = BJ_BET;
@@ -884,13 +905,13 @@ function playBlackjackRound(shoe, factor) {
     hands.push({ cards, bet, fromSplit });
   };
 
-  playHand([shoe.pop(), shoe.pop()], BJ_BET, false);
+  playHand(firstCards, BJ_BET, false);
 
   // Dealern spelar först när alla spelarens händer är klara.
   const anyLive = hands.some(
     (h) => handValue(h.cards).total <= 21 && !(isBlackjack(h.cards) && !h.fromSplit)
   );
-  if (!dealerBJ && anyLive) dealerPlay(dealer, shoe);
+  if (!dealerBJ && anyLive) dealerPlay(dealer, shoe, merciful);
 
   const dealerTotal = handValue(dealer).total;
   let returned = 0;
@@ -934,6 +955,7 @@ for (const factor of bjLevels) {
 }
 print(table(['Tur-faktor', 'RTP', 'Marginal', 'Vinstchans', 'Lika'], bjRows, ['l']));
 print('\n6 kortlekar, dealern står på mjuk 17, blackjack 3:2, dubbel efter split tillåten, en splitt.');
+print('Snäll dealer är på: dealern får aldrig blackjack på given och aldrig stå på 21.');
 print('Marginalen svänger kraftigt med gummibandet eftersom en vinst betalar 2× bara vid tur ×1,00.');
 print(
   `Exempel: 20 kr satsat → ${kr(luckPayout(20, 2, 1))} vid neutral tur, ` +

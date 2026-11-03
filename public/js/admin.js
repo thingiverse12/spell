@@ -995,6 +995,13 @@ function renderInstallningar(content, root, data) {
         <div class="toggle ${s.dealerHitsSoft17 ? 'is-on' : ''}" data-toggle="dealerHitsSoft17"></div>
       </div>
       <div class="switch">
+        <div>
+          <div class="switch__label">Snäll dealer</div>
+          <div class="switch__hint">Dealern får aldrig blackjack på given och aldrig stå på 21</div>
+        </div>
+        <div class="toggle ${s.mercifulDealer !== false ? 'is-on' : ''}" data-toggle="mercifulDealer"></div>
+      </div>
+      <div class="switch">
         <div><div class="switch__label">Dubbelt efter split</div><div class="switch__hint">Tillåt dubbel på splittade händer</div></div>
         <div class="toggle ${s.doubleAfterSplit ? 'is-on' : ''}" data-toggle="doubleAfterSplit"></div>
       </div>
@@ -1015,6 +1022,7 @@ function renderInstallningar(content, root, data) {
 
   const state2 = {
     dealerHitsSoft17: s.dealerHitsSoft17,
+    mercifulDealer: s.mercifulDealer !== false,
     doubleAfterSplit: s.doubleAfterSplit,
     maintenance: s.maintenance,
     rubberBand: s.rubberBand !== false

@@ -76,7 +76,7 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 - Varje rätt svar ger spelmynt (`quizReward`, standard 25 kr).
 
 ### 🎰 Spelhallen
-- **Blackjack** – sex kortlekar, hit/stanna/dubbel/splitta, blackjack 3:2.
+- **Blackjack** – sex kortlekar, hit/stanna/dubbel/splitta, blackjack 3:2 och en snäll dealer som aldrig får 21 på given (se nedan).
 - **Star Fortune (slots)** – 5 hjul, 3 rader och tre raka vinstlinjer. Du vinner när minst **fyra lika symboler står i rad** från vänster på samma rad (jokern ★ ersätter alla), så varje vinst är minst 8× insatsen. Autospel ingår (RTP ≈ 91 %).
 - **Videopoker** – Jacks or Better med håll-kort.
 - **Skraplotter** – köp ett lott (10–500 kr), skrapa de nio rutorna med musen eller
@@ -89,6 +89,24 @@ Inga beroenden behövs – servern är ren Node (>= 18).
   huset på alla utsidor, och insatsen dras innan hjulet snurrar.
 - **Kortleken** – alla 52 kort + 2 jokrar med svenska och engelska namn.
 - Daglig bonus, saldo och insatsgränser.
+
+### 🂡 Snäll dealer – blackjack utan direkt 21
+
+Blackjack har två specialregler som bara gäller dealern, så att en giv aldrig är förlorad redan
+innan man hunnit spela:
+
+- **Ingen blackjack på given.** Blir dealerns två första kort 21 byts det andra kortet ut mot ett
+  nytt (det gamla läggs tillbaka underst i given). Dealern kan alltså aldrig vinna direkt på
+  given – bara spelaren kan få blackjack där.
+- **Dealern stannar aldrig på 21.** Kommer dealern upp i 21 måste den dra ett kort till, och då
+  spricker den. Den som själv har 21 vinner därför alltid handen.
+
+Reglerna styrs av reglaget **Snäll dealer** i adminpanelen (på som standard). Slås det av spelas
+blackjack som ett vanligt kasino, med 21 på given och dealer som stannar på 21. Bordet visar
+vilket läge som gäller – både i listen ovanför bordet och i reglerna.
+
+Med reglerna på ligger RTP på cirka **115 %** vid neutral tur (cirka 98 % utan), så en spelare
+förlorar sällan i början av en giv. Siffrorna finns i [docs/simulering.md](docs/simulering.md).
 
 ### 👤 Konton – alla måste ha ett
 - **Alla måste skapa ett konto** med namn + fyrsiffrig PIN innan de kommer in i appen.

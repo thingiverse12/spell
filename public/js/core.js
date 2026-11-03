@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS = {
   startBalance: 2500,
   blackjackPayout: 1.5,
   dealerHitsSoft17: false,
+  mercifulDealer: true,
   doubleAfterSplit: true,
   slotLuck: 1,
   videoPokerLuck: 1,

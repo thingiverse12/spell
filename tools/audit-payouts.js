@@ -263,6 +263,49 @@ const settle = (bet, kind, factor = 1) => {
   else bad(`${label}: insats ${bet} → ${payout} ut (ville ${wantPayout}), netto ${net}`);
 });
 
+/* --------------------------- snäll dealer (blackjack) --------------------------- */
+
+console.log('\nSnäll dealer – dealern får aldrig 21 direkt');
+
+const apiSrcBj = read('lib/api.js');
+const coreSrcBj = read('public/js/core.js');
+const adminSrcBj = read('public/js/admin.js');
+const readmeBj = read('README.md');
+const simSrcBj = read('tools/simulera.js');
+
+[
+  ['regeln läser inställningen (på som standard)', /function mercifulDealer\(\) \{\s*\n\s*return !\(state\.settings && state\.settings\.mercifulDealer === false\);/.test(bjSrc)],
+  [
+    'dealen byter ut dealerns 21 på given',
+    /function softenDealerOpening\(\)/.test(bjSrc) &&
+      /if \(!isBlackjack\(game\.dealer\)\) return false;/.test(bjSrc) &&
+      /game\.dealer\[1\] = \{ \.\.\.draw\(\), anim: true \};/.test(bjSrc) &&
+      /game\.shoe\.unshift\(out\)/.test(bjSrc) &&
+      /if \(softenDealerOpening\(\)\)/.test(bjSrc)
+  ],
+  [
+    'dealern får aldrig stå på 21',
+    /const greedy = kind && total === 21;/.test(bjSrc) && /if \(!mustHit && !greedy\) break;/.test(bjSrc)
+  ],
+  ['spelet berättar när dealern sprack på 21', /dealern drog 21 och sprack/.test(bjSrc)],
+  ['reglerna syns i spelarens regelruta', /Snäll dealer/.test(bjSrc) && /aldrig stå på 21/.test(bjSrc)],
+  ['inställningen finns i serverns standardvärden', /mercifulDealer: true/.test(apiSrcBj)],
+  ['inställningen finns i klientens standardvärden', /mercifulDealer: true/.test(coreSrcBj)],
+  ['admin kan spara inställningen', /incoming\.mercifulDealer !== undefined/.test(apiSrcBj)],
+  [
+    'adminpanelen har reglaget',
+    /data-toggle="mercifulDealer"/.test(adminSrcBj) && /mercifulDealer: s\.mercifulDealer !== false/.test(adminSrcBj)
+  ],
+  ['selftestet kollar reglaget', /snäll dealer är på som standard/.test(apiSrcBj)],
+  ['README beskriver regeln', /Snäll dealer/.test(readmeBj) && /Ingen blackjack på given/.test(readmeBj) && /stannar aldrig på 21/.test(readmeBj)],
+  [
+    'simuleringen räknar med samma regel',
+    /function dealerPlay\(cards, shoe, merciful = true\)/.test(simSrcBj) &&
+      /merciful && total === 21/.test(simSrcBj) &&
+      /if \(merciful && isBlackjack\(dealer\) && !isBlackjack\(firstCards\)\)/.test(simSrcBj)
+  ]
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'snäll dealer')));
+
 /* -------------------------------- sport -------------------------------- */
 
 console.log('\nSport – spel till fasta odds');

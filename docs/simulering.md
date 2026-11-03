@@ -236,13 +236,19 @@ ungefär 60 procentenheter. En skicklig spelare kan pressa siffran några procen
 ### Blackjack
 
 6 kortlekar, dealern står på mjuk 17, blackjack 3:2, dubbel efter split tillåten, en splitt,
-basic strategy.
+basic strategy och **snäll dealer på** (dealern får aldrig blackjack på given och aldrig stå
+på 21).
 
 | Tur | RTP | Marginal | Vinstchans | Lika |
 | --- | --- | --- | --- | --- |
-| ×0,70 | 84,7 % | 15,3 % | 42,7 % | 10,0 % |
-| **×1,00** | **98,0 %** | **2,0 %** | 42,7 % | 10,3 % |
-| ×1,35 | 113,3 % | −13,3 % | 42,9 % | 9,9 % |
+| ×0,70 | 98,8 % | 1,2 % | 50,9 % | 8,7 % |
+| **×1,00** | **115,1 %** | **−15,1 %** | 50,9 % | 9,1 % |
+| ×1,35 | 133,9 % | −33,9 % | 51,2 % | 8,7 % |
+
+Med **snäll dealer av** spelar bordet som ett vanligt kasino: då ligger RTP på cirka 98 % vid
+neutral tur, dealern får blackjack på given i ungefär 4,7 % av givarna och vinstchansen är
+omkring 43 %. Skillnaden är medveten – den snälla dealern finns för att en giv inte ska vara
+förlorad innan spelaren hunnit trycka på en knapp.
 
 Blackjack är det spel där gummibandet märks mest: en vinst betalar 2× bara vid tur ×1,00 –
 20 kr satsat ger 40 kr vid neutral tur, men 34 kr vid lägsta och 47 kr vid högsta turen.
@@ -256,7 +262,7 @@ Blackjack är det spel där gummibandet märks mest: en vinst betalar 2× bara v
 | Skraplotter ×1,00 | 89,6 % | 10,4 % | 73,7 % – 108,3 % |
 | Skraplotter ×1,40 | 125,4 % | −25,4 % | 98,8 % – 156,4 % |
 | Videopoker ×1,00 | 94,3 % | 5,7 % | 0,7–282 % över tur-nivåerna |
-| Blackjack ×1,00 | 97,9 % | 2,1 % | 84,7 % – 113,2 % |
+| Blackjack ×1,00 (snäll dealer) | 115,1 % | −15,1 % | 98,8 % – 133,9 % |
 
 ## Vad siffrorna betyder för inställningarna
 

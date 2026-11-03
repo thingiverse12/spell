@@ -23,8 +23,17 @@ const game = {
   showCards: 0,
   netLast: 0,
   payoutLast: 0,
-  luckFactor: 1
+  luckFactor: 1,
+  greedyBust: false
 };
+
+/* Snäll dealer (slås av/på i adminpanelen, på som standard):
+   1. Dealen får aldrig blackjack direkt på given – då byts kortet ut.
+   2. Dealern får aldrig stå på 21 – den måste dra ett kort till och spricker.
+   Reglerna gäller bara dealern; spelaren spelar vanlig blackjack. */
+function mercifulDealer() {
+  return !(state.settings && state.settings.mercifulDealer === false);
+}
 
 /* En pågående giv får inte avbrytas av en omladdning – insatsen är dragen
    och vinsten kanske inte utbetald än. */
@@ -72,6 +81,24 @@ function draw() {
   return game.shoe.pop();
 }
 
+/* Snäll dealer, regel 1: dealerns två första kort får inte bli 21.
+   Det andra kortet läggs tillbaka underst i given och ett nytt dras. */
+function softenDealerOpening() {
+  if (!mercifulDealer()) return false;
+  if (!isBlackjack(game.dealer)) return false;
+  const player = game.hands[0];
+  if (player && isBlackjack(player.cards)) return false; // båda blackjack → lika
+
+  let guard = 0;
+  while (isBlackjack(game.dealer) && guard < 20) {
+    const out = game.dealer[1];
+    game.dealer[1] = { ...draw(), anim: true };
+    game.shoe.unshift(out);
+    guard += 1;
+  }
+  return true;
+}
+
 function payoutRatio() {
   return Number(state.settings.blackjackPayout) || 1.5;
 }
@@ -114,11 +141,16 @@ function render(root) {
   const hand = currentHand();
   const dealerCards = game.dealer;
   const dealerScore = game.reveal ? handTotal(dealerCards).total : '';
+  const kind = mercifulDealer();
 
   table.innerHTML = `
     <div class="felt">
       <div>
-        <div class="felt__arc">Blackjack betalar 3 : 2 · Insurance betalar 2 : 1</div>
+        <div class="felt__arc">${
+          kind
+            ? 'Snäll dealer: aldrig 21 på given · blackjack betalar 3 : 2'
+            : 'Blackjack betalar 3 : 2 · Insurance betalar 2 : 1'
+        }</div>
         <div class="dealer-zone">
           <span class="hand-label">Dealer</span>
           <div style="display:flex;align-items:center;gap:14px">
@@ -371,6 +403,7 @@ async function startRound(root) {
   game.message = '';
   game.netLast = 0;
   game.payoutLast = 0;
+  game.greedyBust = false;
 
   const r = root || document;
   const animCard = (card) => ({ ...card, anim: true });
@@ -388,6 +421,15 @@ async function startRound(root) {
   sfx.deal();
   await sleep(320);
   clearAnimFlags();
+
+  /* Snäll dealer: dealern får aldrig 21 direkt på given. */
+  if (softenDealerOpening()) {
+    game.message = 'Snäll dealer: dealern fick 21 direkt – kortet byttes ut';
+    render(r);
+    sfx.deal();
+    await sleep(320);
+    clearAnimFlags();
+  }
 
   const playerBJ = isBlackjack(game.hands[0].cards);
   const dealerBJ = isBlackjack(game.dealer);
@@ -534,18 +576,23 @@ async function nextHandOrDealer(root) {
 
   const anyAlive = game.hands.some((h) => handTotal(h.cards).total <= 21);
   const dealerHitsSoft17 = !!state.settings.dealerHitsSoft17;
+  const kind = mercifulDealer();
+  let hits = 0;
 
-  while (anyAlive) {
+  while (anyAlive && hits < 20) {
     const { total, soft } = handTotal(game.dealer);
-    if (total < 17 || (total === 17 && soft && dealerHitsSoft17)) {
-      game.dealer.push({ ...draw(), anim: true });
-      sfx.deal();
-      render(root);
-      clearAnimFlags();
-      await sleep(460);
-    } else {
-      break;
-    }
+    const mustHit = total < 17 || (total === 17 && soft && dealerHitsSoft17);
+    /* Snäll dealer, regel 2: dealern stannar aldrig på 21. */
+    const greedy = kind && total === 21;
+    if (!mustHit && !greedy) break;
+
+    game.dealer.push({ ...draw(), anim: true });
+    hits += 1;
+    sfx.deal();
+    render(root);
+    clearAnimFlags();
+    await sleep(460);
+    if (greedy && handTotal(game.dealer).total > 21) game.greedyBust = true;
   }
 
   await settle(root);
@@ -601,6 +648,7 @@ async function settle(root) {
       net > 0
         ? `VINST · ${kr(totalWin)} tillbaka (+${kr(net)} i vinst)`
         : `Lika – ${kr(totalWin)} tillbaka`;
+    if (game.greedyBust) game.message += ' · dealern drog 21 och sprack';
   } else if (allLose) {
     sfx.lose();
     game.message = dealerBust ? 'Dealern sprack – men du var över 21' : 'Dealern vinner handen';
@@ -637,6 +685,9 @@ function renderView(root) {
           <h2>Blackjack</h2>
           <span class="mini-pill">Kort kvar i given <strong>${game.shoe.length}</strong></span>
           <span class="mini-pill">Blackjack <strong>${(payoutRatio() === 1.5 ? '3:2' : payoutRatio() === 1.2 ? '6:5' : payoutRatio() + ':1')}</strong></span>
+          <span class="mini-pill" id="bj-kind-pill">${
+            mercifulDealer() ? 'Snäll dealer <strong>på</strong>' : 'Snäll dealer <strong>av</strong>'
+          }</span>
           <div class="spacer"></div>
           <button class="btn btn--sm btn--ghost" id="bj-rules">Regler</button>
         </div>
@@ -657,6 +708,12 @@ function renderView(root) {
         <li>Ess räknas som 11 eller 1. Knekt, dam och kung är 10.</li>
         <li>Dealern måste ta kort till 17 och stannar där.</li>
         <li>Blackjack (ess + tio) betalar <b>3:2</b>.</li>
+        ${
+          mercifulDealer()
+            ? `<li><b>Snäll dealer</b>: dealern kan aldrig få blackjack direkt på given – då byts kortet ut.</li>
+               <li><b>Snäll dealer</b>: dealern får aldrig stå på 21. Kommer den upp i 21 måste den dra ett kort till och spricker.</li>`
+            : ''
+        }
         <li><b>Dubbel</b>: dubbla insatsen och få exakt ett kort till.</li>
         <li><b>Splitta</b>: två lika kort blir två händer (kostar en insats till).</li>
         <li>Lika poäng = insatsen tillbaka (push).</li>
