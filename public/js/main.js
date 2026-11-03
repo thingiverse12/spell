@@ -15,6 +15,7 @@ import './blackjack.js';
 import './slots.js';
 import './scratch.js';
 import './videopoker.js';
+import './roulette.js';
 import './sport.js';
 import './admin.js';
 import { initReklam } from './reklam.js';

@@ -56,6 +56,8 @@ const GAME_LABELS = {
   blackjack: 'Blackjack',
   slots: 'Star Fortune',
   videopoker: 'Videopoker',
+  scratch: 'Skraplotter',
+  roulette: 'Roulette',
   kortleken: 'Kortleken',
   sport: 'Sport (Live Sport)',
   quiz: 'Quiz',
@@ -873,6 +875,7 @@ function renderInstallningar(content, root, data) {
       ${chanceBox('slotLuck', 'Slots – tur', s.slotLuck)}
       ${chanceBox('videoPokerLuck', 'Videopoker – tur', s.videoPokerLuck)}
       ${chanceBox('scratchLuck', 'Skraplotter – tur', s.scratchLuck)}
+      ${chanceBox('rouletteLuck', 'Roulette – tur', s.rouletteLuck)}
 
       <div class="switch">
         <div><div class="switch__label">Dealer tar kort på mjuk 17</div><div class="switch__hint">Gör blackjack lite tuffare</div></div>

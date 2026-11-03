@@ -1315,3 +1315,212 @@
   box-shadow: inset 0 0 0 1px rgba(124,255,203,.25), 0 0 26px -10px #7cffcb;
 }
 .scratch-cell.is-win .scratch-cell__prize { color: #b8ffe4; }
+
+/* =====================================================================
+   Roulette – hjul, bord och marker.
+   ===================================================================== */
+
+.tile--roulette { --tile-bg: radial-gradient(120% 120% at 30% 0%, #b91c46 0%, #5c0f2b 46%, #170309 100%); }
+
+.roulette-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+  gap: 18px;
+  margin-top: 16px;
+  align-items: start;
+}
+
+.roulette-wheel-card {
+  padding: 18px 16px 16px;
+  border-radius: 24px;
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(185, 28, 70, .28), transparent 62%),
+    linear-gradient(180deg, #1b1220, #0b0710 72%);
+  border: 1px solid var(--line);
+  box-shadow: 0 24px 60px -30px #000;
+}
+
+.roulette-wheel {
+  --ru-radius: 118px;
+  position: relative;
+  width: min(340px, 76vw);
+  aspect-ratio: 1;
+  margin: 14px auto 6px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #c9a542, #6a4f10);
+  padding: 10px;
+  box-shadow: 0 22px 44px -20px #000, inset 0 0 0 2px rgba(255, 255, 255, .18);
+}
+
+.roulette-wheel__disc {
+  position: absolute;
+  inset: 10px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, .55), inset 0 0 34px rgba(0, 0, 0, .65);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.roulette-pocket-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: -8px 0 0 -9px;
+  width: 18px;
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .9);
+  transform-origin: center;
+  pointer-events: none;
+}
+
+.roulette-wheel__hub {
+  position: absolute;
+  inset: 34%;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 30px;
+  font-weight: 900;
+  color: #fff;
+  background: var(--pocket, #1c1f26);
+  border: 3px solid rgba(255, 246, 216, .65);
+  box-shadow: 0 10px 24px -10px #000, inset 0 -4px 12px rgba(0, 0, 0, .5);
+  font-variant-numeric: tabular-nums;
+}
+
+.roulette-wheel__pointer {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-top: 18px solid #f6e7b0;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, .6));
+  z-index: 2;
+}
+
+.roulette-result {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  transition: background .25s, border-color .25s;
+}
+.roulette-result__label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
+.roulette-result__value {
+  min-width: 46px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  text-align: center;
+  font-weight: 900;
+  font-size: 20px;
+  color: #fff;
+  background: var(--pocket, #2a2f3a);
+  font-variant-numeric: tabular-nums;
+}
+.roulette-result.is-win { background: rgba(74, 222, 128, .12); border-color: rgba(74, 222, 128, .38); }
+.roulette-result.is-lose { background: rgba(248, 113, 113, .1); border-color: rgba(248, 113, 113, .3); }
+
+.roulette-history { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; min-height: 24px; }
+.ru-history-dot {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 11.5px; font-weight: 800; color: #fff;
+  background: var(--pocket, #2a2f3a);
+  border: 1px solid rgba(255, 255, 255, .18);
+  font-variant-numeric: tabular-nums;
+}
+
+.roulette-side { min-width: 0; }
+.roulette-side .panel { background: linear-gradient(180deg, #14161c, #0b0d11 70%); border: 1px solid var(--line); }
+
+.roulette-table { margin-top: 12px; display: grid; gap: 6px; }
+
+.ru-grid { display: grid; grid-template-columns: 46px minmax(0, 1fr) 54px; gap: 6px; align-items: stretch; }
+.ru-zero { display: grid; }
+.ru-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.ru-columns { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.ru-dozens, .ru-outside { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.ru-outside { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+
+.ru-cell {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 9px;
+  background: var(--pocket, #262b36);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  padding: 7px 4px;
+  min-height: 34px;
+  cursor: pointer;
+  transition: transform .14s var(--ease), box-shadow .18s, filter .18s;
+  font-variant-numeric: tabular-nums;
+}
+.ru-cell:hover { transform: translateY(-2px); filter: brightness(1.12); }
+.ru-cell:active { transform: translateY(0) scale(.97); }
+.ru-cell.is-bet { box-shadow: 0 0 0 2px #f6e7b0, 0 0 18px -4px #f6e7b0; }
+.ru-zero__btn { height: 100%; min-height: 100%; }
+.ru-col { font-size: 11.5px; letter-spacing: .04em; }
+.ru-out { font-size: 11px; letter-spacing: .06em; padding: 9px 3px; }
+.ru-out.ru-red, .ru-out.ru-black { --ru-outline: rgba(255, 255, 255, .3); }
+
+.ru-chip {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 22px;
+  padding: 1px 5px;
+  border-radius: 99px;
+  background: #f6e7b0;
+  color: #35270a;
+  font-size: 10.5px;
+  font-weight: 900;
+  border: 1px solid rgba(0, 0, 0, .35);
+  font-variant-numeric: tabular-nums;
+}
+
+.roulette-chips { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 14px; }
+.ru-chip-btn { border: 0; background: none; padding: 2px; border-radius: 50%; cursor: pointer; transition: transform .16s var(--ease), opacity .16s; opacity: .78; }
+.ru-chip-btn:hover { transform: translateY(-3px); opacity: 1; }
+.ru-chip-btn.is-active { opacity: 1; box-shadow: 0 0 0 3px #f6e7b0; border-radius: 50%; }
+
+.roulette-controls { display: flex; gap: 8px; align-items: end; margin-top: 14px; flex-wrap: wrap; }
+.roulette-stake { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 120px; }
+.roulette-stake span { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 800; }
+
+.roulette-total {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 12px; padding: 9px 12px; border-radius: 12px;
+  background: rgba(255, 255, 255, .04); border: 1px solid var(--line);
+  font-size: 13px; color: var(--text-soft); font-weight: 700;
+}
+.roulette-total strong { color: #f6e7b0; font-size: 16px; font-variant-numeric: tabular-nums; }
+
+.roulette-spin { margin: 16px auto 0; display: grid; }
+.roulette-spin:disabled { opacity: .55; }
+
+@media (max-width: 980px) {
+  .roulette-layout { grid-template-columns: minmax(0, 1fr); }
+  .roulette-wheel { --ru-radius: 104px; }
+}
+@media (max-width: 560px) {
+  .roulette-wheel { --ru-radius: 88px; }
+  .ru-grid { grid-template-columns: 40px minmax(0, 1fr) 46px; }
+  .ru-outside { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ru-cell { font-size: 12px; }
+}
+
+/* Färgerna på hjulets fickor – samma variabel används av bord, hjul och historik. */
+.ru-red { --pocket: #c8232f; }
+.ru-black { --pocket: #16161c; }
+.ru-green { --pocket: #0f7a4f; }

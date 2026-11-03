@@ -431,6 +431,74 @@ const machines = ['slots', 'videopoker', 'scratch'];
     : bad(label, 'saknas i ' + (label.includes('märket') ? 'luck.js/spelen' : 'källkoden'))
 );
 
+console.log('\nRoulette');
+
+const ruSrc = read('public/js/roulette.js');
+const wheel = literal(ruSrc, 'const WHEEL = [');
+const reds = new Set(literal(ruSrc, 'const RED = new Set(['));
+const ruPay = literal(ruSrc, 'const PAYOUTS = {');
+const ruOutside = literal(ruSrc, 'const OUTSIDE = [');
+const ruDozens = literal(ruSrc, 'const DOZENS = [');
+const ruColumns = literal(ruSrc, 'const COLUMNS = [');
+
+const colors = { green: 0, red: 0, black: 0 };
+wheel.forEach((n) => {
+  colors[n === 0 ? 'green' : reds.has(n) ? 'red' : 'black'] += 1;
+});
+
+// Oberoende koll på vad varje utsida ska täcka (roulettens vanliga regler).
+const covers = {
+  red: (n) => reds.has(n),
+  black: (n) => n !== 0 && !reds.has(n),
+  odd: (n) => n !== 0 && n % 2 === 1,
+  even: (n) => n !== 0 && n % 2 === 0,
+  low: (n) => n >= 1 && n <= 18,
+  high: (n) => n >= 19 && n <= 36,
+  dozen1: (n) => n >= 1 && n <= 12,
+  dozen2: (n) => n >= 13 && n <= 24,
+  dozen3: (n) => n >= 25 && n <= 36,
+  col1: (n) => n !== 0 && n % 3 === 1,
+  col2: (n) => n !== 0 && n % 3 === 2,
+  col3: (n) => n !== 0 && n % 3 === 0
+};
+const hits = (key) => wheel.filter(covers[key]).length;
+const rtp = (mult, hitCount) => (mult * hitCount) / wheel.length;
+const allSameRtp = [rtp(ruPay.straight, 1), rtp(ruPay.dozen, 12), rtp(ruPay.even, 18)].every(
+  (v) => Math.abs(v - 36 / 37) < 0.0005
+);
+
+[
+  ['37 olika fickor, 0 till 36', wheel.length === 37 && new Set(wheel).size === 37 && Math.min(...wheel) === 0 && Math.max(...wheel) === 36],
+  ['rätt färger – 0 grön, 18 röda och 18 svarta', colors.green === 1 && colors.red === 18 && colors.black === 18],
+  [
+    'oddsen är roulettens egna: 36× nummer, 3× dussin/kolumn, 2× utsida',
+    ruPay.straight === 36 &&
+      ruPay.dozen === 3 &&
+      ruPay.column === 3 &&
+      ruPay.even === 2 &&
+      ruOutside.length === 6 &&
+      ruOutside.every((b) => b.mult === 2) &&
+      ruDozens.every((d) => d.mult === 3) &&
+      ruColumns.every((c) => c.mult === 3)
+  ],
+  [
+    'varje utsida täcker rätt antal fickor (18 eller 12)',
+    ruOutside.every((b) => hits(b.key) === 18) && [...ruDozens, ...ruColumns].every((b) => hits(b.key) === 12)
+  ],
+  ['nollan vinner åt huset på alla utsidor', ruOutside.every((b) => !covers[b.key](0))],
+  ['återbetalningen är 97,3 % på varje satsning', allSameRtp, (36 / 37 * 100).toFixed(1).replace('.', ',') + ' %'],
+  ['turen multipliceras in i varje vinst', /luckPayout\(amount, Math\.max\(1\.01, mult \* luck\), factor\)/.test(ruSrc) && /rouletteLuck/.test(ruSrc)],
+  ['en vinst ger alltid mer än insatsen, även vid lägsta tur', luckPayout(100, Math.max(1.01, 2 * 0.1), LUCK_MIN) > 100],
+  [
+    'roulette finns i spelhallen, menyn och adminpanelen',
+    /registerView\('roulette'/.test(ruSrc) &&
+      /key: 'roulette'/.test(read('public/js/casino.js')) &&
+      /import '\.\/roulette\.js'/.test(read('public/js/main.js')) &&
+      /rouletteLuck/.test(apiSrc3) &&
+      /chanceBox\('rouletteLuck'/.test(read('public/js/admin.js'))
+  ]
+].forEach(([label, passed, extra]) => (passed ? ok(label, extra || '') : bad(label, 'roulette.js')));
+
 console.log('\nUtbetalning till spelarna');
 
 const adminSrc = read('public/js/admin.js');

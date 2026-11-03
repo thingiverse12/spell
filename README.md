@@ -82,6 +82,11 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 - **Skraplotter** – köp ett lott (10–500 kr), skrapa de nio rutorna med musen eller
   fingret och få vinst på tre lika belopp. Vinsttrappan går från 1,5× till 50× lottpriset
   (RTP ≈ 90 %), och ett lott visar alltid "Netto +X kr" när det ger vinst.
+- **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett nummer (36×),
+  dussin eller kolumn (3×), röd/svart, jämn/udda eller låg/hög (2×) och tryck **SNURRA**.
+  Hjulet stannar exakt på det dragna numret, historiken visar de senaste snurren och
+  återbetalningen är 97,3 % – samma som på ett riktigt europeiskt hjul. Nollan vinner åt
+  huset på alla utsidor, och insatsen dras innan hjulet snurrar.
 - **Kortleken** – alla 52 kort + 2 jokrar med svenska och engelska namn.
 - Daglig bonus, saldo och insatsgränser.
 
@@ -217,6 +222,21 @@ minut när fliken ligger öppen.
 Blackjack visar en kvittorad under bordet – *Insats · Utbetalning · Netto* – efter varje runda,
 även när handen förlorar. Slots visar "Netto +X kr" ovanför vinstraderna och videopoker skriver
 ut både utbetalning och vinst.
+
+### Roulette – odds och tur
+
+Hjulet har 37 fickor och samma odds som ett riktigt europeiskt hjul:
+
+| Satsning | Utbetalning | Chans |
+| --- | --- | --- |
+| Ett nummer | 36× insatsen | 1 av 37 |
+| Dussin (1:a, 2:a, 3:e) | 3× insatsen | 12 av 37 |
+| Kolumn (2:1) | 3× insatsen | 12 av 37 |
+| Röd/svart, jämn/udda, låg/hög | 2× insatsen | 18 av 37 |
+
+Alla satsningar har samma teoretiska återbetalning, 36/37 = **97,3 %**. Tur-inställningen
+`rouletteLuck` i adminpanelen multipliceras in i vinsten på samma sätt som i de andra spelen,
+och en vinst ger alltid tillbaka mer än markern kostade – även när turen står på lägsta nivå.
 
 `npm run audit` kontrollerar utbetalningarna i alla spel: att varje vinst ger mer än insatsen,
 att blackjack betalar 2×/2,5×/1×, att vinsttabellerna är sorterade, att slotsens RTP ligger
