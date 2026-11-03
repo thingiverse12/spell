@@ -20,6 +20,10 @@ const SPORT_INFO = {
   }
 };
 
+/* Underhållsläget stänger sportspelen på servern. Då visar vi det i stället
+   för att låta spelaren få ett fel först när spelet ska läggas. */
+const sportClosed = () => !!state.settings.maintenance;
+
 const sport = {
   feed: null,
   bets: [],
@@ -275,8 +279,8 @@ function renderSlip() {
       <div class="slip__row slip__row--muted"><span>Tur</span><span>${luckText(factor)} · ${factor >= 1.03 ? 'lite kvar' : factor <= 0.97 ? 'vunnit mycket' : 'jämnt läge'}</span></div>
       <div class="slip__row slip__row--muted"><span>Saldo efter spel</span><span>${kr(Math.max(0, balance - stake))}</span></div>
 
-      <button class="btn btn--primary slip__place" id="sport-place" ${sport.busy ? 'disabled' : ''}>
-        ${sport.busy ? 'Lägger spel…' : 'Lägg spel · ' + kr(stake)}
+      <button class="btn btn--primary slip__place" id="sport-place" ${sport.busy || sportClosed() ? 'disabled' : ''}>
+        ${sportClosed() ? 'Underhållsläge – spel stängda' : sport.busy ? 'Lägger spel…' : 'Lägg spel · ' + kr(stake)}
       </button>
       <button class="btn btn--ghost btn--sm slip__clear" id="sport-clear" type="button">Rensa</button>
       <p class="tiny muted slip__note">Oddsen är påhittade och spelet sker med spelmynt.</p>
@@ -307,6 +311,11 @@ function renderSlip() {
 }
 
 async function placeBet(stake) {
+  if (sportClosed()) {
+    toast('Sportspelen är stängda – underhållsläge', 'bad');
+    renderSlip();
+    return;
+  }
   if (sport.busy || !sport.selection) return;
   const sel = sport.selection;
   sport.busy = true;
@@ -507,6 +516,7 @@ function renderSport(root) {
       </div>
 
       <div class="sport-status" id="sport-status"></div>
+      ${sportClosed() ? `<div class="banner-strip" id="sport-closed"><span>🔧</span><span>Underhållsläge – sportspelen är stängda just nu. Oddsen visas, men du kan inte lägga spel.</span></div>` : ''}
 
       <div class="sport-tabs" id="sport-tabs">
         <button class="chip chip--active" data-sport="football">Fotboll</button>

@@ -430,6 +430,17 @@ const machines = ['slots', 'videopoker', 'scratch'];
     : bad(label, 'saknas i ' + (label.includes('märket') ? 'luck.js/spelen' : 'källkoden'))
 );
 
+console.log('\nUnderhållsläget och sportspelen');
+
+const sportSrc = read('public/js/sport.js');
+[
+  ['servern nekar sportspel i underhållsläge', /maintenance\)\s*\{\s*\n?\s*if \(db\.settings\.maintenance\)/.test(apiSrc3) || /db\.settings\.maintenance/.test(apiSrc3)],
+  ['sportvyn visar varför spelen är stängda', /sportClosed\(\)/.test(sportSrc) && /sport-closed/.test(sportSrc)],
+  ['spelknappen är avstängd i underhållsläge', /sport.busy \|\| sportClosed\(\)/.test(sportSrc)],
+  ['selftestet hoppar över sportsteget i stället för att fela', /underhållsläge på/.test(apiSrc3)],
+  ['selftestet rapporterar underhållsläget', /maintenance: !!db\.settings\.maintenance/.test(apiSrc3)]
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'saknas i källkoden')));
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

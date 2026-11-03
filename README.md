@@ -37,6 +37,15 @@ Saknas eller fallerar lagringen svarar API:t `503` och appen fortsätter i
 skapa konto, insats, vinst, bonus, admininloggning, saldoändring, avstängning
 och radering – och städar bort testdatan efteråt. Svarar `{"ok": true, "steps": [...]}`.
 
+Svaret innehåller också `maintenance` och `storage`. Är underhållsläget på
+hoppar testet över sportsteget och skriver `hoppas över – underhållsläge på`
+i stället för att fela – sportspelen är då stängda med flit.
+
+Om ett sportspel inte kan läggas visas serverns eget svar i steget:
+`{status, error, odds, balance}`. Det gör att man ser skillnad på
+underhållsläge (403), stängt sportspel (403) och en match som redan hunnit
+bli klar (404).
+
 ---
 
 ## Kom igång
