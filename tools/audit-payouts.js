@@ -571,49 +571,20 @@ finnsChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'Finns
 
 /* ------------------------------ Inpostern ------------------------------ */
 
-console.log('\nInpostern – ett ord, en bluff');
+console.log('\nInpostern – ett ord, en bluff, en ledtråd i taget');
 
 const impSrc = read('public/js/imposter.js');
-const impRules = literal(impSrc, 'export const IMPOSTER = {');
-const impWords = literal(impSrc, 'export const IMPOSTER_WORDS = [');
+const inpoSrcEarly = read('public/js/imposter-online.js');
 
-if (Number(impRules.MIN_PLAYERS) === 3 && Number(impRules.MAX_PLAYERS) === 12) {
-  ok('spelet tar 3–12 spelare', `${impRules.MIN_PLAYERS}–${impRules.MAX_PLAYERS}`);
-} else bad('antalet spelare stämmer inte', JSON.stringify(impRules));
-
-if (impWords.length >= 40) ok('ordlistan är stor nog att spela många omgångar', `${impWords.length} ord`);
-else bad('ordlistan är för liten', `${impWords.length} ord`);
-
-const impMissingHint = impWords.filter((entry) => !entry.hint || !String(entry.hint).trim());
-if (!impMissingHint.length) ok('varje ord har en ledtråd till inpostern');
-else bad('några ord saknar ledtråd', impMissingHint.map((e) => e.word).join(', '));
-
-const impDuplicates = impWords.map((e) => e.word).filter((word, i, all) => all.indexOf(word) !== i);
-if (!impDuplicates.length) ok('inga ord förekommer två gånger');
-else bad('samma ord finns flera gånger', impDuplicates.join(', '));
-
-const impHints = new Set(impWords.map((e) => e.hint));
-if (impHints.size >= 8) ok('ledtrådarna är breda kategorier, inte orden', `${impHints.size} kategorier`);
-else bad('för få kategorier i ordlistan', impHints.size);
-
-const impCardSrc = impSrc.slice(impSrc.indexOf('function dealHTML()'), impSrc.indexOf('function tableHTML()'));
-const imposterBranch = impCardSrc.slice(impCardSrc.indexOf('isImposter'), impCardSrc.indexOf(': `<div class="imp__card">'));
-if (/ui\.clue/.test(imposterBranch) && !/ui\.secret/.test(imposterBranch)) {
-  ok('inpostern får ledtråden – aldrig själva ordet');
-} else bad('inpostern kan se ordet i sin vy');
-
-const impChecks = [
-  ['rollerna slumpas för varje omgång', /randomIndex\(0, ui\.count - 1\)/.test(impSrc)],
-  ['spelledaren som väljer ord blir aldrig inposter', /randomIndex\(1, ui\.count - 1\)/.test(impSrc)],
-  ['eget ord krävs innan utdelningen', /word\.length < 2/.test(impSrc) && /Skriv ordet som spelarna ska gissa på/.test(impSrc)],
-  ['varje spelare tittar själv – telefonen skickas runt', /Ge telefonen till/.test(impSrc) && /Visa min roll/.test(impSrc)],
-  ['rollerna avslöjas först när alla har sett', /Vem var inpostern\?/.test(impSrc) && /imp-reveal/.test(impSrc)],
-  ['man kan spela igen med samma spelare', /imp-again/.test(impSrc) && /ui\.round \+= 1/.test(impSrc)],
-  ['spelet kostar inga spelmynt', /Kostar <strong>0 kr/.test(impSrc) && !/api\.bet\(/.test(impSrc)],
+[
+  ['bara egna skärmar – ingen en-telefon-vy kvar', !/data-mode="local"/.test(impSrc) && !/Ge telefonen till/.test(impSrc) && /mountOnline/.test(impSrc)],
   ['vyn nås från spelhallen och menyn', /key: 'imposter'/.test(read('public/js/casino.js')) && /'\/kasino\/imposter'/.test(read('public/js/main.js'))],
+  ['länk med kod går rakt in i bordet', /joinCode\(code\)/.test(impSrc) && /export function joinCode/.test(inpoSrcEarly)],
+  ['spelaren skriver sin egen ledtråd', /id="inpo-clue"/.test(inpoSrcEarly) && /Skicka/.test(inpoSrcEarly) && /Säg inte ordet rakt ut|utan att avslöja/.test(inpoSrcEarly)],
+  ['vyn visar vems tur det är', /clueTurn/.test(inpoSrcEarly) && /s tur att ge en ledtråd/.test(inpoSrcEarly)],
+  ['ledtrådarna listas allt eftersom de ges', /inpo__clues--live/.test(inpoSrcEarly)],
   ['README beskriver Inpostern', /Inpostern/.test(read('README.md')) && /inposter/.test(read('README.md'))]
-];
-impChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'Inpostern')));
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'Inpostern')));
 
 /* -------------------- Inpostern om mynt: egna skärmar -------------------- */
 
@@ -634,6 +605,19 @@ const inpoChecks = [
   ['laget får dubbelt igen', Number(inpRules.CREW_PAYOUT) === 2, inpRules.CREW_PAYOUT],
   ['koden har fyra tecken utan 0/O/1/I', Number(inpRules.CODE_LENGTH || 4) === 4 && !/[01OI]/.test(String(inpRules.CODE_LETTERS)), String(inpRules.CODE_LETTERS)],
   ['servern äger ordlistan och rollerna', /function inpDealRound/.test(inpoSection) && /crypto\.randomInt/.test(inpoSection)],
+  [
+    'bara den vars tur är får ge en ledtråd',
+    /function inpNextClueSeat/.test(inpoSection) &&
+      /if \(turn && turn\.playerId !== player\.id\)/.test(inpoSection) &&
+      /Det är \$\{turn\.name\}s tur att ge en ledtråd/.test(inpoSection)
+  ],
+  [
+    'turordningen går genom bordet',
+    /return inpActiveSeats\(table\)\.find\(\(seat\) => !seat\.clue\) \|\| null/.test(inpoSection) &&
+      /canClue: phase === 'clues' && !mySeat\.clue && !!turn/.test(inpoSection)
+  ],
+  ['ledtrådarna syns medan de ges', /phase === 'clues' \|\| phase === 'vote'/.test(inpoSection)],
+  ['varje ledtråd får egen tid', /CLUE_TURN_MS/.test(inpoSection) && /table\.autoAt = now\(\) \+ INP\.CLUE_TURN_MS/.test(inpoSection)],
   ['inposterna får bara ledtråden', /table\.hint = entry\.hint/.test(inpoSection) && /table\.word = entry\.word/.test(inpoSection) && /hint: .*isImposter/.test(inpoSection)],
   ['rollerna läcker inte ut före slutet', /imposter: table\.phase === 'done' && !!seat\.imposter/.test(inpoSection)],
   ['ordet är dolt för inposterna', /word: !mySeat \|\| isImposter \? \(phase === 'done' \? table\.word : null\) : table\.word/.test(inpoSection)],
@@ -647,29 +631,25 @@ const inpoChecks = [
   ['avbrutet spel ger pengarna tillbaka', /voided: true/.test(inpoSection) && /function inpRefund/.test(inpoSection)],
   ['gäst utan konto nekas bordet', /ACCOUNT_REQUIRED/.test(inpoSection) || /needAccount/.test(inpoSection)],
   ['varje enhet pollar bara sitt eget bord', /POLL_MS/.test(inpoSrc) && /function onInposterRoute\(\)/.test(inpoSrc)],
-  ['man väljer en telefon eller egna skärmar', /data-mode="local"/.test(impSrc) && /data-mode="online"/.test(impSrc) && /mountOnline/.test(impSrc)],
-  ['länk med kod går rakt in i bordet', /joinCode\(code\)/.test(impSrc) && /export function joinCode/.test(inpoSrc)],
   ['koden går att dela med sig av', /inpo-copy/.test(inpoSrc) && /Kopiera/.test(inpoSrc)],
   ['vyn nås från spelhallen och menyn', /key: 'imposter'/.test(read('public/js/casino.js')) && /'\/kasino\/imposter'/.test(read('public/js/main.js'))],
   ['loggen visar Inpostern', /inposter: 'Inpostern'/.test(read('public/js/history.js')) && /inposter: '🎭'/.test(read('public/js/history.js'))],
   ['adminpanelen visar Inpostern', /inposter: 'Inpostern'/.test(read('public/js/admin.js'))],
-  ['klienten har css för bordet', /\.inpo__role/.test(read('public/css/casino.css')) && /\.imp__mode/.test(read('public/css/casino.css'))]
+  ['klienten har css för bordet', /\.inpo__role/.test(read('public/css/casino.css')) && /\.inpo__clues/.test(read('public/css/casino.css'))]
 ];
 inpoChecks.forEach(([label, passed, info]) => (passed ? ok(label, info) : bad(label, info ?? 'Inpostern om mynt')));
 
-/* ordlistan måste vara samma i klienten och på servern */
-const impWordList = impWords.map((e) => e.word + '|' + e.hint);
-const inpWordList = inpWords.map((e) => e.word + '|' + e.hint);
-const wordDiff = inpWordList.length === impWordList.length && inpWordList.every((w, i) => w === impWordList[i]);
-if (wordDiff) ok('samma ordlista i klienten och på servern', `${inpWordList.length} ord`);
-else
-  bad(
-    'ordlistorna har glidit isär',
-    `server ${inpWordList.length}, klient ${impWordList.length}` +
-      (inpWordList.length === impWordList.length
-        ? ' – först: ' + inpWordList.find((w, i) => w !== impWordList[i])
-        : '')
-  );
+/* ordlistan bor på servern – klienten får bara sitt ord och sin ledtråd */
+if (inpWords.length >= 40) ok('ordlistan är stor nog att spela många omgångar', `${inpWords.length} ord`);
+else bad('ordlistan är för liten', `${inpWords.length} ord`);
+
+const inpDuplicates = inpWords.map((e) => e.word).filter((word, i, all) => all.indexOf(word) !== i);
+if (!inpDuplicates.length) ok('inga ord förekommer två gånger');
+else bad('samma ord finns flera gånger', inpDuplicates.join(', '));
+
+const inpHints = new Set(inpWords.map((e) => e.hint));
+if (inpHints.size >= 8) ok('ledtrådarna är breda kategorier, inte orden', `${inpHints.size} kategorier`);
+else bad('för få kategorier i ordlistan', inpHints.size);
 
 if (inpWords.every((e) => e.word && e.hint)) ok('alla serverord har en ledtråd');
 else bad('något serverord saknar ledtråd', inpWords.filter((e) => !e.hint).map((e) => e.word).join(', '));

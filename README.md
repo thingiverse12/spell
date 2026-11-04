@@ -125,8 +125,8 @@ Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
   kassa och den som står kvar ensam tar allt (se nedan).
 - **Finns i sjön** – det klassiska kortspellet mot klasskamrater: 2–6 spelare, en sjö på
   bordet och en gemensam kassa. Samla fyrtal och ta kassan (se nedan).
-- **Inpostern** – ett ord och en bluff, i två lägen: **en telefon** (gratis sällskapsspel) eller
-  **egna skärmar** om spelmynt (`#/kasino/imposter`). Se nedan.
+- **Inpostern** – ett ord och en bluff: alla sitter vid **varsin skärm**, skriver sin egen
+  ledtråd i tur och ordning och gissar vem som bluffar (`#/kasino/imposter`). Se nedan.
 - **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett nummer (36×),
   dussin eller kolumn (3×), röd/svart, jämn/udda eller låg/hög (2×) och tryck **SNURRA**.
   Hjulet stannar exakt på det dragna numret, historiken visar de senaste snurren och
@@ -254,45 +254,32 @@ Alla kortbordsanrop kräver ett eget konto (namn + PIN): `GET /api/finns/tables`
 `POST /api/finns/table`, `GET /api/finns/table?id=`, `POST /api/finns/join`,
 `POST /api/finns/start`, `POST /api/finns/ask` och `POST /api/finns/leave`.
 
-### 🎭 Inpostern – ett ord, en bluff
+### 🎭 Inpostern – ett ord, en bluff, en ledtråd i taget
 
-Sällskapsspel för 3–12 spelare som spelas på **en enda telefon**. Vyn ligger på `#/kasino/imposter`
-och nås från rutan **Inpostern** i spelhallen. Det kostar inga spelmynt – det är ett spel, inte ett vad.
+Sällskapsspel för 3–12 spelare som spelas på **egna skärmar**. Vyn ligger på `#/kasino/imposter`
+och nås från rutan **Inpostern** i spelhallen. Alla lägger samma insats i en gemensam kassa.
 
-- **En spelare blir inposter.** Alla andra får samma **ord**, inpostern får bara en **svår ledtråd**
-  – en bred kategori som *Mat*, *Djur* eller *Plats*. Ordet får hen aldrig se.
-- **Telefonen skickas runt.** Varje spelare får en egen skärm – *"Ge telefonen till Elsa"* – och
-  trycker själv fram sitt kort. Ingen annan ser rollen, och rollerna syns först när man trycker
-  **Vem var inpostern?**
-- **Så avgörs omgången:** alla beskriver ordet med **ett enda ord**, sedan diskuterar man och röstar.
-  Inpostern vinner om hen listar ut ordet, eller om ni röstar ut fel person.
-- **Spelledaren kan välja ord själv.** Slå på *Spelledaren väljer ordet* och skriv in ordet (och en
-  egen ledtråd om du vill). Då får spelledaren ordet från start och **kan därför aldrig bli
-  inpostern** – rollen går till någon av de andra. Lämnas ledtråden tom får inpostern bara
-  "Spelledaren valde ordet".
-- **Ordlistan** har 112 ord i 15 kategorier, så det blir nya ord för varje omgång. Rollerna blandas
-  om vid **Spela igen**, och **Nytt spel** går tillbaka till starten med antal spelare och namn kvar.
-
-Sällskapsläget kräver ingen server och inga konton – rollerna delas ut och blandas i klienten.
-
-#### Egna skärmar – samma spel om spelmynt
-
-Välj **💰 Egna skärmar** i stället för **📱 En telefon**. Då spelar alla på sin egen iPad eller
-mobil i stället för att skicka runt en telefon – det är svårare att fuska, eftersom servern delar ut
-rollerna och varje enhet bara får se sin egen roll.
-
-- **Insats:** alla lägger samma insats (10–500 kr) och pengarna hamnar i en gemensam **kassa**.
-- **Kod:** spelledaren öppnar bordet och får en fyrsiffrig kod (t.ex. `K7Q2`). Kompisarna går in på
-  *Inpostern → Egna skärmar*, skriver koden och betalar in sin insats. Man kan också öppna
-  `#/kasino/imposter/KOD` direkt.
-- **Roller:** 3–6 spelare ger **en inposter**, 7–12 ger **två**. Alla i laget får ordet; inposterna
-  får bara en ledtråd (en bred kategori) och ser aldrig ordet.
-- **En omgång:** alla ger **en ledtråd med ett enda ord** (120 s) → alla röstar på en misstänkt
-  (90 s) → åker en inposter ut vinner laget direkt, annars får inposterna **gissa ordet** (75 s).
+- **En eller två inposter.** Alla andra får samma **ord**, inposterna får bara en **svår ledtråd**
+  – en bred kategori som *Mat*, *Djur* eller *Plats*. Ordet får de aldrig se.
+- **Egen skärm, egen ledtråd.** Var och en går med i bordet med en fyrsiffrig kod och skriver sin
+  ledtråd **själv**, direkt i appen. Servern delar ut rollerna, så ingen enhet får se någon annans
+  roll – och ingen kan skriva två ledtrådar.
+- **En i taget, i bordets ordning.** Den som är på tur får inmatningsfältet; alla andra ser
+  *"Det är Elsas tur att ge en ledtråd"* och ledtrådarna radas upp allt eftersom de kommer in.
+  När du har skickat din ledtråd går turen automatiskt vidare till nästa person. Varje ledtråd har
+  **60 sekunder** på sig innan bordet går vidare till röstningen.
+- **Så avgörs omgången:** alla röstar på en misstänkt (90 s) → åker en inposter ut vinner **laget**,
+  annars får inposterna **gissa ordet** (75 s).
 - **Utbetalning:** vinner **laget** får varje lagmedlem **dubbelt så mycket som sin insats**
   (2 × insatsen). Vinner **inposterna** delar de **hela kassan** lika mellan sig. Avbryts spelet
   (för få kvar, tyst bord) får alla tillbaka sin insats.
-- **Spelledaren** startar omgångarna och kan trycka **Ny omgång** med samma insats och samma kod.
+- **Roller:** 3–6 spelare ger **en inposter**, 7–12 ger **två**. Spelledaren startar omgångarna och
+  kan trycka **Ny omgång** med samma insats och samma kod.
+- **Kod:** spelledaren öppnar bordet och får en fyrsiffrig kod (t.ex. `K7Q2`). Kompisarna skriver
+  koden på sin egen iPad eller mobil och betalar in sin insats. Man kan också öppna
+  `#/kasino/imposter/KOD` direkt.
+- **Ordlistan** har 112 ord i 15 kategorier och ligger på servern, så klienten aldrig kan läsa
+  facit i förväg.
 - Gäster utan konto nekas bordet, och alla insatser och vinster loggas som vanliga transaktioner
   i spelhallen (spelet heter **Inpostern** i loggen och i adminpanelen).
 

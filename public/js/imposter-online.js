@@ -72,8 +72,8 @@ function seatsHTML(view) {
     .filter((s) => !s.left)
     .map(
       (s) => `<span class="inpo__player ${s.isYou ? 'is-you' : ''} ${
-        view.phase === 'done' && s.imposter ? 'is-imposter' : ''
-      }">
+        view.phase === 'clues' && view.clueTurn && view.clueTurn.seat === s.index ? 'is-turn' : ''
+      } ${view.phase === 'done' && s.imposter ? 'is-imposter' : ''}">
         <span class="inpo__avatar">${s.emoji || esc(initial(s.name))}</span>
         <span class="inpo__player-name">${esc(s.name)}${s.isHost ? ' <small>värd</small>' : ''}</span>
         ${s.isYou ? '<span class="inpo__badge">du</span>' : ''}
@@ -102,10 +102,19 @@ function barHTML(view) {
 
 function clockHTML(view) {
   if (!['clues', 'vote', 'guess'].includes(view.phase)) return '';
+  const who = view.clueTurn ? view.clueTurn.name : '';
+  const cluesText =
+    view.phase === 'clues'
+      ? view.you && view.you.canClue
+        ? 'din tur att ge en ledtråd'
+        : who
+        ? `${who}s tur att ge en ledtråd`
+        : 'väntar på ledtrådar'
+      : view.you && view.you.isImposter && view.phase === 'guess'
+      ? 'dags att gissa ordet'
+      : 'tiden rinner';
   return `<div class="rvb__status ${view.you && !view.you.isImposter ? '' : ''}">
-    <span class="rvb__status-text">${esc(phaseLabel(view.phase))} – ${
-    view.you && view.you.isImposter && view.phase === 'guess' ? 'dags att gissa ordet' : 'tiden rinner'
-  }</span>
+    <span class="rvb__status-text">${esc(phaseLabel(view.phase))} – ${esc(cluesText)}</span>
     <span class="rvb__clock" id="inpo-clock"><i></i></span>
   </div>`;
 }
@@ -119,9 +128,9 @@ function startHTML(board) {
       <section class="rvb__panel">
         <h2>Spela på egna skärmar</h2>
         <p class="rvb__panel-text">
-          Alla lägger <b>samma insats</b> och får en kod. Var och en går med på sin egen iPad eller mobil,
-          så ingen ser någon annans roll. Vinner <b>laget</b> får alla i laget <b>dubbelt igen</b>;
-          vinner <b>inposterna</b> delar de hela kassan.
+          Alla lägger <b>samma insats</b> och får en kod. Var och en går med på sin egen iPad eller mobil
+          och skriver sin egen ledtråd när det är hens tur, så ingen ser någon annans roll.
+          Vinner <b>laget</b> får alla i laget <b>dubbelt igen</b>; vinner <b>inposterna</b> delar de hela kassan.
         </p>
         <div class="bet-field">
           <span class="bet-field__label">Insats per spelare</span>
@@ -142,7 +151,7 @@ function startHTML(board) {
 
         <h3 class="inpo__sub">Så avgörs omgången</h3>
         <ol class="inpo__rules">
-          <li>Alla ger <b>en ledtråd</b> med ett enda ord.</li>
+          <li>Alla skriver <b>en ledtråd</b> med ett enda ord – i tur och ordning.</li>
           <li>Alla röstar på den de tror är inposter.</li>
           <li>Åker en inposter ut vinner <b>laget</b> – alla i laget får dubbelt igen.</li>
           <li>Annars får inposterna gissa ordet. Rätt gissning = de delar hela kassan.</li>
@@ -178,7 +187,7 @@ function lobbyHTML(view) {
         </div>
         <button class="btn btn--sm btn--ghost" id="inpo-copy">🔗 Kopiera</button>
       </div>
-      <p class="rvb__panel-text">Alla går in på <b>Inpostern → Egna skärmar</b> och skriver koden. Minst ${view.minSeats} spelare behövs.</p>
+      <p class="rvb__panel-text">Alla går in på <b>Inpostern</b> och skriver koden. Minst ${view.minSeats} spelare behövs.</p>
       ${seatsHTML(view)}
       ${
         view.isHost
@@ -194,20 +203,42 @@ function lobbyHTML(view) {
 
 function cluesHTML(view) {
   const mine = view.you || {};
+  const turn = view.clueTurn;
+  const given = (view.clues || []).filter((c) => c.clue);
+  const rows = given
+    .map(
+      (c) => `<div class="inpo__clue-row ${turn && turn.playerId === c.playerId ? 'is-turn' : ''}">
+        <span class="inpo__clue-name">${esc(c.name)}</span>
+        <span class="inpo__clue-word">${esc(c.clue)}</span>
+      </div>`
+    )
+    .join('');
+
+  const head = mine.clue
+    ? `<p class="rvb__panel-text">Din ledtråd är skickad: <b>${esc(mine.clue)}</b>.${
+        turn ? ` Nu är det <b>${esc(turn.name)}</b>s tur.` : ''
+      }</p>`
+    : mine.canClue
+    ? `<p class="rvb__panel-text"><b>Det är din tur.</b> Skriv ett enda ord som beskriver ordet utan att avslöja det –
+         inposterna lyssnar extra noga.</p>
+       <div class="inpo__row">
+         <input class="input" id="inpo-clue" maxlength="40" placeholder="Ditt ord…" value="${esc(ui.clueDraft)}" />
+         <button class="btn btn--primary" id="inpo-clue-send" ${ui.busy ? 'disabled' : ''}>Skicka</button>
+       </div>`
+    : `<p class="rvb__panel-text">Det är <b>${esc(turn ? turn.name : '…')}</b>s tur att ge en ledtråd.
+         Ledtrådarna kommer i tur och ordning – håll koll på listan.</p>`;
+
   return `<div class="inpo">
     ${barHTML(view)}
     ${roleHTML(view)}
     ${clockHTML(view)}
     <section class="rvb__panel inpo__panel">
-      <h2>Ge en ledtråd med ett ord</h2>
+      <h2>En ledtråd i taget</h2>
+      ${head}
       ${
-        mine.clue
-          ? `<p class="rvb__panel-text">Din ledtråd: <b>${esc(mine.clue)}</b>. Nu väntar vi på de andra.</p>`
-          : `<p class="rvb__panel-text">Ett enda ord som beskriver ordet utan att avslöja det – inga mellanslag. Inposterna lyssnar extra noga.</p>
-             <div class="inpo__row">
-               <input class="input" id="inpo-clue" maxlength="40" placeholder="Ditt ord…" value="${esc(ui.clueDraft)}" />
-               <button class="btn btn--primary" id="inpo-clue-send" ${ui.busy ? 'disabled' : ''}>Skicka</button>
-             </div>`
+        rows || mine.clue
+          ? `<div class="inpo__clues inpo__clues--live">${rows || '<p class="tiny muted">Ingen har gett sin ledtråd än.</p>'}</div>`
+          : ''
       }
       ${seatsHTML(view)}
       ${ui.error ? `<p class="inpo__error">${esc(ui.error)}</p>` : ''}
@@ -606,7 +637,8 @@ function onInposterRoute() {
 
 async function pollTable() {
   if (!ui.view || !ui.host) return;
-  if (!onInposterRoute()) {
+  /* Vyn kan ha bytts ut medan pollningen låg i bakgrunden. */
+  if (!onInposterRoute() || !ui.host.isConnected) {
     stopPolling();
     return;
   }
