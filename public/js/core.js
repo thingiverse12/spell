@@ -1314,6 +1314,7 @@ const ROUTES = {
   engelska: 'engelska',
   svenska: 'svenska',
   geografi: 'geografi',
+  lasaren: 'lasaren',
   utmaning: 'utmaning',
   framsteg: 'framsteg',
   logg: 'logg',

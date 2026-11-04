@@ -1206,6 +1206,110 @@ const giftRoute = apiSrcGift.slice(
   ]
 ].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'gåvan')));
 
+/* -------------------------------- läsaren -------------------------------- */
+
+console.log('\nLäsaren – böcker, bildspel, frågor och quiz');
+
+const lasDir = path.join(root, 'public', 'lasaren');
+const lasList = JSON.parse(fs.readFileSync(path.join(lasDir, 'data', 'subjects.json'), 'utf8')).subjects;
+
+/* sökmotorn är en ES-modul – kör den som vanlig funktion i kontrollen */
+const sokSrc = read('public/js/lasaren-sok.js').replace(/^export /gm, '');
+const { makeSubject } = new Function(sokSrc + '\nreturn { makeSubject };')();
+
+const las = lasList.map((meta) => {
+  const notes = JSON.parse(fs.readFileSync(path.join(lasDir, 'data', meta.id, 'notes.json'), 'utf8'));
+  const pages = JSON.parse(fs.readFileSync(path.join(lasDir, 'data', meta.id, 'pages.json'), 'utf8'));
+  return { meta, notes, pages, subject: makeSubject({ id: meta.id, meta, notes, pages }) };
+});
+
+const exists = (doc, n) => las.some((l) => l.subject.pageIndex.has(doc + ':' + n));
+
+[
+  ['ämneslistan stämmer med materialet', las.every((l) => l.meta.pageCount === l.pages.length && l.meta.glossaryCount === l.notes.glossary.length && l.meta.quizCount === l.notes.quiz.length), lasList.map((m) => m.id).join(', ')],
+  [
+    'varje sida har en bild som finns',
+    las.every((l) =>
+      l.pages.every((p) => {
+        const img = String(p.img || '');
+        return img.startsWith('/lasaren/pages/') && fs.existsSync(path.join(root, 'public', img.replace(/^\//, '')));
+      })
+    )
+  ],
+  [
+    'varje sida har en etikett (s. 24 eller "Järn (bild)")',
+    las.every((l) => l.pages.every((p) => String(p.pageLabel || p.page || '').trim().length > 0))
+  ],
+  [
+    'alla avsnitt pekar på en sida som finns',
+    las.every((l) =>
+      l.notes.chapters.every((c) =>
+        c.sections.every((s) => l.subject.pageIndex.has(s.where.doc + ':' + s.where.n))
+      )
+    )
+  ],
+  [
+    'kapitlens första sida finns',
+    las.every((l) => l.notes.chapters.every((c) => l.subject.pageIndex.has(c.first.doc + ':' + c.first.n)))
+  ],
+  ['alla begrepp pekar på en sida som finns', las.every((l) => l.notes.glossary.every((g) => l.subject.pageIndex.has(g.doc + ':' + g.n)))],
+  [
+    'alla quizfrågor har facit, förklaring och sida',
+    las.every((l) =>
+      l.notes.quiz.every(
+        (q) =>
+          Array.isArray(q.options) &&
+          q.options.length >= 3 &&
+          Number.isInteger(q.answer) &&
+          q.answer >= 0 &&
+          q.answer < q.options.length &&
+          String(q.why || '').length > 10 &&
+          l.subject.pageIndex.has(q.doc + ':' + q.n)
+      )
+    )
+  ],
+  [
+    'frågeindexet pekar på riktiga avsnitt',
+    las.every((l) =>
+      l.notes.alias.every((entry) =>
+        l.notes.chapters.some((c) => c.sections.some((s) => s.title === entry.target.section))
+      )
+    )
+  ],
+  [
+    'samma ordlista på en ledtråd (inga mellanslag)',
+    las.every((l) => l.notes.chapters.every((c) => c.sections.every((s) => s.points.every((p) => String(p).trim().length > 10))))
+  ],
+  [
+    'sökningen svarar med rätt sida',
+    [
+      ['idrott', 'vad händer om man har järnbrist', 26],
+      ['idrott', 'varför behövs vitamin D', 24],
+      ['idrott', 'vad är struma', 27],
+      ['kemi', 'varför kan kolatomen binda fyra atomer', 104],
+      ['kemi', 'hur fungerar en tensid', 138]
+    ].every(([id, q, page]) => {
+      const l = las.find((x) => x.meta.id === id);
+      const res = l && l.subject.ask(q);
+      return Boolean(res && res.answer && res.answer.source.page === page);
+    })
+  ],
+  [
+    'okänd fråga ger inget påhittat svar',
+    las.every((l) => {
+      const res = l.subject.ask('zzz qqq xxx');
+      return res.answer === null && res.hits.length === 0;
+    })
+  ],
+  [
+    'vyn finns i appen',
+    /registerView\('lasaren'/.test(read('public/js/lasaren.js')) &&
+      /lasaren/.test(read('public/js/main.js')) &&
+      /lasaren: 'lasaren'/.test(read('public/js/core.js'))
+  ],
+  ['inga externa beroenden i läsaren', !/import .* from '(?!\.\/)/.test(read('public/js/lasaren-sok.js'))]
+].forEach(([label, passed, extra]) => (passed ? ok(label, extra || '') : bad(label, extra || 'läsaren')));
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

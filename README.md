@@ -75,6 +75,43 @@ Inga beroenden behövs – servern är ren Node (>= 18).
 - Framstegssida med träffsäkerhet, streaks och sparad statistik.
 - Varje rätt svar ger spelmynt (`quizReward`, standard 25 kr).
 
+### 📖 Läsaren – böcker, bildspel och frågor med sidhänvisning
+
+Läsaren (`#/lasaren`) gör inlämnat skolmaterial läsbart och frågbart. Just nu två ämnen:
+
+| Ämne | Material | Sidor | Kapitel | Begrepp | Quiz |
+| --- | --- | --- | --- | --- | --- |
+| **Idrott och hälsa** – vitaminer och mineraler | boken s. 24–27 + bildspelet *Mineraler* | 12 | 4 | 41 | 14 |
+| **Kolets kemi** | scannade boksidor s. 100–139 | 31 | 5 | 48 | 12 |
+
+- **Läs** – sidan till vänster, anteckningarna till höger. Kapitel och avsnitt i rad
+  ovanför, bläddra med ← → eller knapparna, zoomläge Anpassa/100 %/150 %.
+  Bildspelets slides har egna etiketter (`Järn (bild)`, `Jod (bild)` …).
+- **Fråga texten** – svaret hämtas ur materialet och visas **med källsida**; under svaret
+  listas de stycken som matchade bäst. Frågan ligger i adressen, så svaret går att länka.
+- **Begrepp** – alla begrepp med definition och länk till sidan de står på.
+- **Quiz** – frågor med facit, förklaring och "Läs s. X".
+- Allt sker i webbläsaren: `public/js/lasaren-sok.js` bygger ett BM25-index över
+  anteckningar, begrepp och sidtext, plus ett frågeindex (`alias` i `notes.json`) som pekar
+  vanliga frågor rakt på rätt avsnitt. Ingen fråga och inget material lämnar sidan.
+
+Materialet ligger i `public/lasaren/`:
+
+```
+data/subjects.json          ämneslistan (titel, källa, antal sidor/begrepp/quiz)
+data/<ämne>/pages.json      sidorna: dokument, sidnummer, etikett, bild, stycken
+data/<ämne>/notes.json      kapitel + avsnitt, begrepp, quiz, frågeindex, meta
+pages/<ämne>/*.jpg          sidbilderna
+```
+
+Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
+`#/lasaren/idrott/begrepp`, `#/lasaren/kemi/quiz`.
+
+> Idrottssidorna hade ingen textlayer i PDF:en, så texten är avskriven för hand – den visas
+> utan OCR-varning. Kemins text är maskinläst och visas under "Sidans text" med en varning;
+> de städade anteckningarna är det man läser och frågar på. `npm run audit` kontrollerar att
+> varje avsnitt, begrepp och quizfråga pekar på en sida som finns och att sökningen svarar rätt.
+
 ### 🎰 Spelhallen
 - **Blackjack** – sex kortlekar, hit/stanna/dubbel/splitta, blackjack 3:2 och en snäll dealer som aldrig får 21 på given (se nedan).
 - **Star Fortune (slots)** – 5 hjul, 3 rader och tre raka vinstlinjer. Du vinner när minst **fyra lika symboler står i rad** från vänster på samma rad (jokern ★ ersätter alla), så varje vinst är minst 8× insatsen. Autospel ingår (RTP ≈ 91 %).
@@ -641,6 +678,7 @@ snabbt kan växla tillbaka till studiematerialet.
 | `server.js` | Nollberoende HTTP-server, JSON-API, spelardata i `data/db.json` |
 | `public/css/base.css` | Bastema, studieläge, knappar, modaler |
 | `public/css/casino.css` | Spelkort, filt, slots, videopoker, kortlek, admin |
+| `public/css/lasaren.css` | Läsaren – bokvy, anteckningar, frågor, begrepp, quiz |
 | `public/js/core.js` | State, API (med offline-fallback), router, ljud, toast, modaler |
 | `public/js/learn.js` | Frågebank och quizmotor |
 | `public/js/cards.js` | Kortmodell, kortrendering, kortgalleriet |
@@ -651,6 +689,9 @@ snabbt kan växla tillbaka till studiematerialet.
 | `public/js/finns.js` | Finns i sjön – kortbordet |
 | `public/js/imposter.js` | Inpostern – ord, roller och ledtrådar (båda lägena) |
 | `public/js/imposter-online.js` | Inpostern om mynt – egna skärmar, kod och insats |
+| `public/js/lasaren.js` | Läsaren – läs, fråga, begrepp och quiz (vyer + rutter) |
+| `public/js/lasaren-sok.js` | Läsarens sökmotor: BM25, frågeindex, svar med källa |
+| `public/lasaren/data/` | Materialet: sidor, anteckningar, begrepp och quiz per ämne |
 | `public/js/casino.js` | Spelhallen (lobby) |
 | `public/js/admin.js` | Adminpanelen |
 | `public/js/main.js` | Skal, navigation, hemlig upplåsning |

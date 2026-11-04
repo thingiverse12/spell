@@ -9,6 +9,7 @@ import {
 } from './core.js';
 
 import './learn.js';
+import './lasaren.js';
 import './atelje.js';
 import './casino.js';
 import './cards.js';
@@ -36,6 +37,7 @@ const STUDY_NAV = [
   { path: '/engelska', label: 'Engelska' },
   { path: '/svenska', label: 'Svenska' },
   { path: '/geografi', label: 'Geografi' },
+  { path: '/lasaren', label: 'Läsaren' },
   { path: '/framsteg', label: 'Framsteg' },
  { path: '/atelje', label: 'Ateljén' },
   { path: '/logg', label: 'Logg' },

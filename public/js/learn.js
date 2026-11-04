@@ -640,6 +640,15 @@ function renderHome(root) {
               </button>`;
             })
             .join('')}
+          <button class="subject-card subject-card--las" data-go="/lasaren">
+            <div class="subject-card__icon">📖</div>
+            <h3>Läsaren</h3>
+            <p>Läs boken och bildspelet, ställ frågor och få svar med sidhänvisning – idrott och kemi.</p>
+            <div class="subject-card__meta">
+              <span>2 ämnen · 43 sidor</span>
+              <span>Öppna</span>
+            </div>
+          </button>
         </div>
       </section>
 
