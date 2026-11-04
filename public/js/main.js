@@ -5,7 +5,7 @@
 import {
   state, hooks, storage, renderRoute, navigate, ensureSession, api, unlockCasino,
   sfx, toast, kr, esc, openModal, updateBalanceUI, toggleMute, watchSettings,
-  startScreenTime, isPaused, pauseText
+  startScreenTime, isPaused, pauseText, sleep
 } from './core.js';
 
 import './learn.js';
@@ -206,6 +206,26 @@ function setupSecretTyping() {
 
 /* ------------------------------ Start ------------------------------ */
 
+/* Öppnar sessionen. Svarar false om servern inte gick att nå, så att boot()
+   kan försöka igen i stället för att krascha på en tom skärm. */
+async function openSession() {
+  try {
+    await ensureSession();
+    return true;
+  } catch (err) {
+    if (err.status === 403) {
+      toast('Ditt konto är avstängt av admin. Ett nytt konto skapas.', 'bad', 4000);
+      try {
+        await api.guest();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+    return false;
+  }
+}
+
 async function boot() {
   state.unlocked = !!storage.get('ph.unlocked', false);
   state.muted = !!storage.get('ph.muted', false);
@@ -218,20 +238,22 @@ async function boot() {
     syncAccountGate();
   };
 
-  try {
-    await ensureSession();
-  } catch (err) {
-    if (err.status === 403) {
-      toast('Ditt konto är avstängt av admin. Nytt gästkonto skapas.', 'bad', 4000);
-      try {
-        await api.guest();
-      } catch (e) {
-        toast('Kunde inte skapa konto', 'bad');
-      }
+  /* Sessionen kan hicka till: databasen sparas som en enda fil och två
+     spelare som skriver samtidigt får ibland göra om sin förfrågan. Förr
+     kunde starten då avbrytas mitt i och lämna en tom sida – nu försöker vi
+     igen och ritar upp appen även om servern dröjer. */
+  let ready = await openSession();
+  if (!ready) {
+    toast('Servern svarar långsamt – försöker igen …', 'gold', 3000);
+    for (let i = 0; i < 4 && !ready; i += 1) {
+      await sleep(700 * (i + 1) + Math.random() * 300);
+      ready = await openSession();
     }
   }
 
   state.broadcast = state.settings.banner || '';
+  if (!ready) toast('Kunde inte nå servern – ladda om när nätet är tillbaka.', 'bad', 6000);
+
   renderTopbar();
   renderRoute();
   syncAccountGate();

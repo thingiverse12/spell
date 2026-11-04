@@ -301,6 +301,12 @@ async function request(path, { method = 'GET', body, keepalive = false, headers:
         ...(keepalive ? { keepalive: true } : {})
       });
     } catch (err) {
+      /* Nätet kan hicka till en gång – försök igen innan vi tror att vi är
+         offline. Då slipper eleven en tom sida och en ny gäst utan konto. */
+      if (attempt < 2) {
+        await sleep(300 * (attempt + 1) + Math.random() * 200);
+        continue;
+      }
       const offlineError = new Error('offline');
       offlineError.offline = true;
       throw offlineError;
@@ -326,8 +332,10 @@ async function request(path, { method = 'GET', body, keepalive = false, headers:
     err.data = data;
     if (data.retry) {
       err.retry = true; // tillfälligt hinder, inte offline
-      if (attempt < 2) {
-        await sleep(250 * (attempt + 1));
+      /* Skrivkonflikt i databasen: vänta lite längre för varje försök och
+         slumpa pausen så att inte alla spelare försöker samtidigt igen. */
+      if (attempt < 4) {
+        await sleep(200 * Math.pow(2, attempt) + Math.random() * 250);
         continue;
       }
     } else if (res.status >= 500) {
@@ -1242,10 +1250,38 @@ export function watchSettings(interval = 5000) {
     }
   };
 
+  /* En omladdning per halvminut räcker. Skulle versionen räknas om av misstag
+     laddar sidan inte om sig i en evig loop. */
+  const RELOAD_COOLDOWN_MS = 30 * 1000;
+  let reloadedAt = 0;
+  try {
+    reloadedAt = Number(sessionStorage.getItem('ph.reloadedAt') || 0) || 0;
+  } catch (e) {
+    reloadedAt = 0;
+  }
+
   const reloadNow = () => {
     stopTicker();
     watch.pending = false;
+    try {
+      sessionStorage.setItem('ph.reloadedAt', String(Date.now()));
+    } catch (e) {
+      /* vissa webbläsare nekar sessionStorage – omladdningen fungerar ändå */
+    }
     location.reload();
+  };
+
+  /* Samma inställningar som vi redan har ska aldrig ladda om sidan. */
+  const sameSettings = (settings) => {
+    if (!settings) return true;
+    try {
+      return (
+        JSON.stringify({ ...DEFAULT_SETTINGS, ...settings }) ===
+        JSON.stringify({ ...DEFAULT_SETTINGS, ...state.settings })
+      );
+    } catch (e) {
+      return false;
+    }
   };
 
   const busy = () => roundInProgress() || !!document.querySelector('.modal-backdrop');
@@ -1259,8 +1295,15 @@ export function watchSettings(interval = 5000) {
   };
 
   const changed = (data) => {
+    const same = sameSettings(data.settings);
     applyRemoteSettings(data.settings);
     watch.version = String(data.version);
+
+    /* Inget synligt ändrat (bara versionen) – rita om och var nöjd. */
+    if (same) return;
+
+    /* Nyss omladdad: nöj oss med de nya värdena den här gången. */
+    if (Date.now() - reloadedAt < RELOAD_COOLDOWN_MS) return;
 
     if (state.adminToken) {
       // Adminens egen flik ska inte kastas ut ur panelen.
