@@ -127,11 +127,12 @@ Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
   bordet och en gemensam kassa. Samla fyrtal och ta kassan (se nedan).
 - **Inpostern** – ett ord och en bluff: alla sitter vid **varsin skärm**, skriver sin egen
   ledtråd i tur och ordning och gissar vem som bluffar (`#/kasino/imposter`). Se nedan.
-- **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett nummer (36×),
-  dussin eller kolumn (3×), röd/svart, jämn/udda eller låg/hög (2×) och tryck **SNURRA**.
-  Hjulet stannar exakt på det dragna numret, historiken visar de senaste snurren och
-  återbetalningen är 97,3 % – samma som på ett riktigt europeiskt hjul. Nollan vinner åt
-  huset på alla utsidor, och insatsen dras innan hjulet snurrar.
+- **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett enkelnummer (45×),
+  grön nolla (100×), dussin eller kolumn (3×), röd/svart, jämn/udda eller låg/hög (2×) och
+  tryck **SNURRA**. Hjulet stannar exakt på det dragna numret och historiken visar de senaste
+  snurren. **Enkelnumren och nollan betalar bättre än de matematiska oddsen** – ju smalare
+  satsning, desto mer att vinna – medan utsidorna ligger kvar på 97,3 % som på ett riktigt
+  europeiskt hjul. Nollan vinner åt huset på alla utsidor, och insatsen dras innan hjulet snurrar.
 - **Kortleken** – alla 52 kort + 2 jokrar med svenska och engelska namn.
 - Daglig bonus, saldo och insatsgränser.
 
@@ -491,16 +492,20 @@ ut både utbetalning och vinst.
 
 ### Roulette – odds och tur
 
-Hjulet har 37 fickor och samma odds som ett riktigt europeiskt hjul:
+Hjulet har 37 fickor. Enkelnumren och den gröna nollan betalar extra bra, utsidorna har
+europeiska odds:
 
-| Satsning | Utbetalning | Chans |
-| --- | --- | --- |
-| Ett nummer | 36× insatsen | 1 av 37 |
-| Dussin (1:a, 2:a, 3:e) | 3× insatsen | 12 av 37 |
-| Kolumn (2:1) | 3× insatsen | 12 av 37 |
-| Röd/svart, jämn/udda, låg/hög | 2× insatsen | 18 av 37 |
+| Satsning | Utbetalning | Chans | Återbetalning |
+| --- | --- | --- | --- |
+| Grön nolla (0) | 100× insatsen | 1 av 37 | 270,3 % |
+| Ett enkelnummer | 45× insatsen | 1 av 37 | 121,6 % |
+| Dussin (1:a, 2:a, 3:e) | 3× insatsen | 12 av 37 | 97,3 % |
+| Kolumn (2:1) | 3× insatsen | 12 av 37 | 97,3 % |
+| Röd/svart, jämn/udda, låg/hög | 2× insatsen | 18 av 37 | 97,3 % |
 
-Alla satsningar har samma teoretiska återbetalning, 36/37 = **97,3 %**. Tur-inställningen
+Satsar man smalt tjänar man mer: ett enkelnummer ger **45×** och grön nolla **100×**, alltså
+klart över de matematiska 36× – men chansen är också bara 1 av 37. Utsidorna betalar
+36/37 = **97,3 %**, och där vinner nollan åt huset. Tur-inställningen
 `rouletteLuck` i adminpanelen multipliceras in i vinsten på samma sätt som i de andra spelen,
 och en vinst ger alltid tillbaka mer än markern kostade – även när turen står på lägsta nivå.
 

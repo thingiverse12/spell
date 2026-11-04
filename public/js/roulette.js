@@ -2,10 +2,11 @@
    Roulette – europeiskt hjul med 37 fickor (0–36).
 
    Spelaren lägger marker på bordet (ett nummer eller en utsida), trycker
-   på SNURRA och får betalt enligt vanliga roulette-odds: 36× på ett
-   nummer, 3× på dussin/kolumn och 2× på röd/svart, jämn/udda och
-   låg/hög. Precis som i de andra spelen multipliceras vinsten med turen
-   (den faktor admin ställer in som rouletteLuck).
+   på SNURRA och får betalt: 45× på ett enkelnummer, hela 100× på den
+   gröna nollan, 3× på dussin/kolumn och 2× på röd/svart, jämn/udda och
+   låg/hög. Enkelnumren och nollan betalar alltså bättre än de matematiska
+   oddsen – ju smalare satsning, desto mer att vinna. Precis som i de andra
+   spelen multipliceras vinsten med turen (rouletteLuck).
    ===================================================================== */
 
 import {
@@ -23,8 +24,10 @@ const WHEEL = [
 
 const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 
-/* Utbetalning per satsad krona, inklusive insatsen (36× = insatsen + 35×). */
-const PAYOUTS = { straight: 36, dozen: 3, column: 3, even: 2 };
+/* Utbetalning per satsad krona, inklusive insatsen (45× = insatsen + 44×).
+   Enkelnumren och den gröna nollan ligger medvetet över de matematiska
+   oddsen (36×) så att den som satsar smalt tjänar mer när det slår in. */
+const PAYOUTS = { straight: 45, zero: 100, dozen: 3, column: 3, even: 2 };
 
 const OUTSIDE = [
   { key: 'red', label: 'RÖD', tone: 'red', mult: 2, hit: (n) => RED.has(n) },
@@ -47,8 +50,9 @@ const COLUMNS = [
   { key: 'col3', label: 'KOLUMN 3', mult: 3, hit: (n) => n !== 0 && n % 3 === 0 }
 ];
 
-/* Delas med npm run audit så oddsen kan kontrolleras utanför webbläsaren. */
-export const ROULETTE_MATH = { WHEEL, RED, OUTSIDE, DOZENS, COLUMNS, PAYOUTS };
+/* Delas med npm run audit och testerna så oddsen kan kontrolleras utanför
+   webbläsaren – även vad varje satsning faktiskt betalar. */
+export const ROULETTE_MATH = { WHEEL, RED, OUTSIDE, DOZENS, COLUMNS, PAYOUTS, pays };
 
 const STEP = 360 / WHEEL.length;
 const SPIN_MS = 3200;
@@ -133,6 +137,8 @@ const chipValues = () => [10, 25, 50, 100, 250].filter((v) => v <= Math.max(10, 
 
 /* Vinstandel för en satsnyckel givet vinnande nummer. */
 function pays(key, n) {
+  // Gröna nollan är ett eget vad med egen, högre utdelning.
+  if (key === 'n:0') return n === 0 ? PAYOUTS.zero : 0;
   if (key.startsWith('n:')) return Number(key.slice(2)) === n ? PAYOUTS.straight : 0;
   const found =
     OUTSIDE.find((b) => b.key === key) || DOZENS.find((b) => b.key === key) || COLUMNS.find((b) => b.key === key);
@@ -219,8 +225,8 @@ function renderRoulette(root) {
             </div>
             <p class="tiny muted" style="margin-top:10px">
               Klicka på ett nummer eller en utsida för att lägga en marker. Högerklick tar bort
-              markern igen. Ett nummer ger 36×, dussin och kolumn 3×, röd/svart, jämn/udda och
-              låg/hög 2×.
+              markern igen. <strong>Enkelnummer ger 45×</strong> och <strong>grön 0 ger 100×</strong> –
+              dussin och kolumn 3×, röd/svart, jämn/udda och låg/hög 2×.
             </p>
           </div>
         </div>
@@ -307,7 +313,7 @@ function renderTable(root) {
 
   table.innerHTML = `
     <div class="ru-grid">
-      <div class="ru-zero">${cell('n:0', '0', 'ru-num ru-green ru-zero__btn')}</div>
+      <div class="ru-zero">${cell('n:0', '0<em class="ru-zero__mult">×100</em>', 'ru-num ru-green ru-zero__btn')}</div>
       <div class="ru-numbers">${numbers.join('')}</div>
       <div class="ru-columns">${COLUMNS.map((c) => cell(c.key, '2:1', 'ru-col', `aria-label="${c.label}"`)).join('')}</div>
     </div>
@@ -527,11 +533,13 @@ async function spin(root) {
 
 /* ------------------------------ Info ------------------------------ */
 
+/* Hur mycket en satsning betalar tillbaka i snitt, i procent. */
+const rtpLabel = (mult) => `${((mult / 37) * 100).toFixed(1).replace('.', ',')} %`;
+
 function showInfo() {
   sfx.click();
   const luck = settingLuck('rouletteLuck');
   const level = luckLevelName(luck);
-  const rtp = 97.3; // 36/37 på alla satsningar i ett europeiskt hjul
   openModal({
     title: 'Roulette – odds och regler',
     sub: 'Ett europeiskt hjul med 37 fickor: 0 (grön), 18 röda och 18 svarta.',
@@ -539,7 +547,8 @@ function showInfo() {
     body: `<div class="table-scroll"><table class="data-table">
         <thead><tr><th>Satsning</th><th>Utbetalning</th><th>Chans</th></tr></thead>
         <tbody>
-          <tr><td>Ett nummer</td><td>36× insatsen</td><td>1 av 37</td></tr>
+          <tr><td><strong>Grön nolla (0)</strong></td><td><strong>100× insatsen</strong></td><td>1 av 37</td></tr>
+          <tr><td><strong>Ett enkelnummer</strong></td><td><strong>45× insatsen</strong></td><td>1 av 37</td></tr>
           <tr><td>Dussin (1:a, 2:a, 3:e)</td><td>3× insatsen</td><td>12 av 37</td></tr>
           <tr><td>Kolumn (2:1)</td><td>3× insatsen</td><td>12 av 37</td></tr>
           <tr><td>Röd / svart</td><td>2× insatsen</td><td>18 av 37</td></tr>
@@ -548,9 +557,11 @@ function showInfo() {
         </tbody>
       </table></div>
       <p class="small" style="margin-top:14px">
-        Nollan vinner åt huset på alla utsidor. Teoretisk återbetalning är
-        <strong>${String(rtp).replace('.', ',')} %</strong> på varje satsning – samma som på ett riktigt
-        europeiskt hjul.
+        <strong>Enkelnumren och nollan betalar mer än de matematiska oddsen</strong> – det är här man
+        tjänar stort. Ett nummer ger i snitt <strong>${rtpLabel(PAYOUTS.straight)}</strong> tillbaka och
+        grön nolla hela <strong>${rtpLabel(PAYOUTS.zero)}</strong>.
+        Utsidorna (röd/svart, jämn/udda, låg/hög, dussin och kolumner) ligger kvar på
+        <strong>${rtpLabel(36)}</strong>, och där vinner nollan åt huset.
       </p>
       <p class="tiny muted" style="margin-top:10px">
         Gällande tur: <strong>${'×' + Number(luck).toFixed(2).replace('.', ',')}</strong>

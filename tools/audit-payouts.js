@@ -880,16 +880,22 @@ const covers = {
 };
 const hits = (key) => wheel.filter(covers[key]).length;
 const rtp = (mult, hitCount) => (mult * hitCount) / wheel.length;
-const allSameRtp = [rtp(ruPay.straight, 1), rtp(ruPay.dozen, 12), rtp(ruPay.even, 18)].every(
+// Utsidorna ska ligga kvar på europeiska odds (36/37) medan enkelnumren och
+// den gröna nollan medvetet betalar över 100 % – det är spelets egen gåva till
+// den som satsar smalt.
+const outsideRtp = [rtp(ruPay.dozen, 12), rtp(ruPay.column, 12), rtp(ruPay.even, 18)].every(
   (v) => Math.abs(v - 36 / 37) < 0.0005
 );
+const straightRtp = rtp(ruPay.straight, 1);
+const zeroRtp = rtp(ruPay.zero, 1);
 
 [
   ['37 olika fickor, 0 till 36', wheel.length === 37 && new Set(wheel).size === 37 && Math.min(...wheel) === 0 && Math.max(...wheel) === 36],
   ['rätt färger – 0 grön, 18 röda och 18 svarta', colors.green === 1 && colors.red === 18 && colors.black === 18],
   [
-    'oddsen är roulettens egna: 36× nummer, 3× dussin/kolumn, 2× utsida',
-    ruPay.straight === 36 &&
+    'oddsen: 45× enkelnummer, 100× grön nolla, 3× dussin/kolumn, 2× utsida',
+    ruPay.straight === 45 &&
+      ruPay.zero === 100 &&
       ruPay.dozen === 3 &&
       ruPay.column === 3 &&
       ruPay.even === 2 &&
@@ -903,7 +909,24 @@ const allSameRtp = [rtp(ruPay.straight, 1), rtp(ruPay.dozen, 12), rtp(ruPay.even
     ruOutside.every((b) => hits(b.key) === 18) && [...ruDozens, ...ruColumns].every((b) => hits(b.key) === 12)
   ],
   ['nollan vinner åt huset på alla utsidor', ruOutside.every((b) => !covers[b.key](0))],
-  ['återbetalningen är 97,3 % på varje satsning', allSameRtp, (36 / 37 * 100).toFixed(1).replace('.', ',') + ' %'],
+  [
+    'enkelnumren betalar bättre än de matematiska oddsen',
+    ruPay.straight > 36 && Math.abs(straightRtp - 45 / 37) < 1e-9,
+    '45× = ' + (straightRtp * 100).toFixed(1).replace('.', ',') + ' %'
+  ],
+  [
+    'grön nolla betalar mer än alla andra nummer',
+    ruPay.zero > ruPay.straight && Math.abs(zeroRtp - 100 / 37) < 1e-9,
+    '100× = ' + (zeroRtp * 100).toFixed(1).replace('.', ',') + ' %'
+  ],
+  ['nollan är ett eget vad med egen utdelning', /if \(key === 'n:0'\) return n === 0 \? PAYOUTS\.zero : 0;/.test(ruSrc)],
+  ['nollan ger inget på de andra numren', /return Number\(key\.slice\(2\)\) === n \? PAYOUTS\.straight : 0;/.test(ruSrc)],
+  ['utsidorna ligger kvar på 97,3 %', outsideRtp, ((36 / 37) * 100).toFixed(1).replace('.', ',') + ' %'],
+  [
+    'nollrutan visar sin utdelning på bordet',
+    /ru-zero__mult/.test(ruSrc) && /ru-zero__mult/.test(read('public/css/casino.css')) && /100× insatsen/.test(ruSrc)
+  ],
+  ['reglerna beskriver de nya oddsen', /45× insatsen/.test(ruSrc) && /100×/.test(ruSrc)],
   ['turen multipliceras in i varje vinst', /luckPayout\(amount, Math\.max\(1\.01, mult \* luck\), factor\)/.test(ruSrc) && /rouletteLuck/.test(ruSrc)],
   ['en vinst ger alltid mer än insatsen, även vid lägsta tur', luckPayout(100, Math.max(1.01, 2 * 0.1), LUCK_MIN) > 100],
   [
