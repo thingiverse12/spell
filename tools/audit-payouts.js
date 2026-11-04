@@ -615,6 +615,65 @@ const impChecks = [
 ];
 impChecks.forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'Inpostern')));
 
+/* -------------------- Inpostern om mynt: egna skärmar -------------------- */
+
+console.log('\nInpostern om mynt – egna skärmar och en kassa');
+
+const inpoSrc = read('public/js/imposter-online.js');
+const inpoServerSrc = read('lib/api.js');
+const inpoSection = inpoServerSrc.slice(
+  inpoServerSrc.indexOf("const INP_GAME = 'inposter'"),
+  inpoServerSrc.indexOf('/* ---- ateljén ---- */')
+);
+const inpRules = literal(inpoServerSrc, 'const INP = {');
+const inpWords = literal(inpoServerSrc, 'const INP_WORDS = [');
+
+const inpoChecks = [
+  ['bordet tar 3–12 spelare', Number(inpRules.MIN_SEATS) === 3 && Number(inpRules.MAX_SEATS) === 12, `${inpRules.MIN_SEATS}–${inpRules.MAX_SEATS}`],
+  ['två inposter först från sju spelare', Number(inpRules.TWO_IMPOSTERS_FROM) === 7, inpRules.TWO_IMPOSTERS_FROM],
+  ['laget får dubbelt igen', Number(inpRules.CREW_PAYOUT) === 2, inpRules.CREW_PAYOUT],
+  ['koden har fyra tecken utan 0/O/1/I', Number(inpRules.CODE_LENGTH || 4) === 4 && !/[01OI]/.test(String(inpRules.CODE_LETTERS)), String(inpRules.CODE_LETTERS)],
+  ['servern äger ordlistan och rollerna', /function inpDealRound/.test(inpoSection) && /crypto\.randomInt/.test(inpoSection)],
+  ['inposterna får bara ledtråden', /table\.hint = entry\.hint/.test(inpoSection) && /table\.word = entry\.word/.test(inpoSection) && /hint: .*isImposter/.test(inpoSection)],
+  ['rollerna läcker inte ut före slutet', /imposter: table\.phase === 'done' && !!seat\.imposter/.test(inpoSection)],
+  ['ordet är dolt för inposterna', /word: !mySeat \|\| isImposter \? \(phase === 'done' \? table\.word : null\) : table\.word/.test(inpoSection)],
+  ['lagets vinst ger insatsen gång två', /inpPayWin\([^)]*ante \* INP\.CREW_PAYOUT/.test(inpoSection) || /ante \* INP\.CREW_PAYOUT/.test(inpoSection)],
+  [
+    'inposterna delar hela kassan',
+    /const share = imposters\.length \? round2\(pot \/ imposters\.length\) : 0/.test(inpoSection) &&
+      /pot - share \* i/.test(inpoSection)
+  ],
+  ['insatsen dras från alla i kassan', /function inpTakeAnte/.test(inpoSection) && /table\.pot = round2\(\(table\.pot \|\| 0\) \+ ante\)/.test(inpoSection)],
+  ['avbrutet spel ger pengarna tillbaka', /voided: true/.test(inpoSection) && /function inpRefund/.test(inpoSection)],
+  ['gäst utan konto nekas bordet', /ACCOUNT_REQUIRED/.test(inpoSection) || /needAccount/.test(inpoSection)],
+  ['varje enhet pollar bara sitt eget bord', /POLL_MS/.test(inpoSrc) && /function onInposterRoute\(\)/.test(inpoSrc)],
+  ['man väljer en telefon eller egna skärmar', /data-mode="local"/.test(impSrc) && /data-mode="online"/.test(impSrc) && /mountOnline/.test(impSrc)],
+  ['länk med kod går rakt in i bordet', /joinCode\(code\)/.test(impSrc) && /export function joinCode/.test(inpoSrc)],
+  ['koden går att dela med sig av', /inpo-copy/.test(inpoSrc) && /Kopiera/.test(inpoSrc)],
+  ['vyn nås från spelhallen och menyn', /key: 'imposter'/.test(read('public/js/casino.js')) && /'\/kasino\/imposter'/.test(read('public/js/main.js'))],
+  ['loggen visar Inpostern', /inposter: 'Inpostern'/.test(read('public/js/history.js')) && /inposter: '🎭'/.test(read('public/js/history.js'))],
+  ['adminpanelen visar Inpostern', /inposter: 'Inpostern'/.test(read('public/js/admin.js'))],
+  ['klienten har css för bordet', /\.inpo__role/.test(read('public/css/casino.css')) && /\.imp__mode/.test(read('public/css/casino.css'))]
+];
+inpoChecks.forEach(([label, passed, info]) => (passed ? ok(label, info) : bad(label, info ?? 'Inpostern om mynt')));
+
+/* ordlistan måste vara samma i klienten och på servern */
+const impWordList = impWords.map((e) => e.word + '|' + e.hint);
+const inpWordList = inpWords.map((e) => e.word + '|' + e.hint);
+const wordDiff = inpWordList.length === impWordList.length && inpWordList.every((w, i) => w === impWordList[i]);
+if (wordDiff) ok('samma ordlista i klienten och på servern', `${inpWordList.length} ord`);
+else
+  bad(
+    'ordlistorna har glidit isär',
+    `server ${inpWordList.length}, klient ${impWordList.length}` +
+      (inpWordList.length === impWordList.length
+        ? ' – först: ' + inpWordList.find((w, i) => w !== impWordList[i])
+        : '')
+  );
+
+if (inpWords.every((e) => e.word && e.hint)) ok('alla serverord har en ledtråd');
+else bad('något serverord saknar ledtråd', inpWords.filter((e) => !e.hint).map((e) => e.word).join(', '));
+
 /* -------------------------------- sport -------------------------------- */
 
 console.log('\nSport – spel till fasta odds');

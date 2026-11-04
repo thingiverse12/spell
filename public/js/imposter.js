@@ -12,6 +12,7 @@
    ===================================================================== */
 
 import { registerView, sfx, esc, navigate, toast } from './core.js';
+import { mountOnline, unmountOnline, joinCode } from './imposter-online.js';
 
 /* Reglerna som siffror – exporteras så att npm run audit kan kontrollera
    spelet utanför webbläsaren. */
@@ -172,6 +173,7 @@ const randomIndex = (min, max) => min + Math.floor(Math.random() * (max - min + 
 
 const ui = {
   root: null,
+  mode: 'local', // local = en telefon (gratis), online = egna skärmar (insats)
   step: 'setup', // setup | deal | table | reveal
   count: 4,
   names: [],
@@ -515,22 +517,60 @@ function bind() {
 
 /* ------------------------------ vyn ------------------------------ */
 
-function renderImposter(root) {
+function modeTabsHTML() {
+  return `<div class="imp__modes">
+    <button class="imp__mode ${ui.mode === 'local' ? 'is-active' : ''}" data-mode="local">
+      <span>📱 En telefon</span>
+      <small>gratis sällskapsspel</small>
+    </button>
+    <button class="imp__mode ${ui.mode === 'online' ? 'is-active' : ''}" data-mode="online">
+      <span>💰 Egna skärmar</span>
+      <small>om spelmynt · kod</small>
+    </button>
+  </div>`;
+}
+
+function renderStage() {
+  const root = ui.root;
+  if (!root) return;
+  const stage = root.querySelector('#imp-stage');
+  if (!stage) return;
+  root.querySelectorAll('[data-mode]').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.mode === ui.mode);
+  });
+
+  if (ui.mode === 'online') {
+    if (stage.querySelector('#inpo-host')) return;
+    stage.innerHTML = '<div id="inpo-host"></div>';
+    mountOnline(stage.querySelector('#inpo-host'));
+    return;
+  }
+
+  unmountOnline();
+  stage.innerHTML = '<div id="imp-body"></div>';
+  paint();
+}
+
+function renderImposter(root, route) {
   ui.root = root;
+  const code = (route && route.parts && route.parts[2]) || '';
+  if (code) ui.mode = 'online';
+
   root.innerHTML = `
     <div class="wrap">
       <div class="casino-top">
         <div class="casino-top__title">
           <h1>Inpostern</h1>
-          <p>Ett ord, en bluff – och en telefon som skickas runt</p>
+          <p>Ett ord, en bluff – spela på en telefon eller om mynt på egna skärmar</p>
         </div>
         <div style="flex:1"></div>
         <button class="btn btn--sm btn--ghost" id="imp-home">← Spelhallen</button>
       </div>
-      <div id="imp-body"></div>
+      ${modeTabsHTML()}
+      <div id="imp-stage"></div>
       <p class="tiny muted" style="margin:18px 0 30px">
-        Sällskapsspel utan spelmynt. Rollerna delas ut på en och samma telefon – skicka den vidare och
-        låt var och en titta själv.
+        Inget av detta är riktiga pengar. I läget <b>Egna skärmar</b> delas rollerna ut av servern, så var och en
+        ser bara sin egen roll – det gör fusk svårare än när telefonen skickas runt.
       </p>
     </div>`;
 
@@ -538,9 +578,18 @@ function renderImposter(root) {
     sfx.click();
     navigate('/kasino');
   });
+  root.querySelectorAll('[data-mode]').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      if (ui.mode === btn.dataset.mode) return;
+      ui.mode = btn.dataset.mode;
+      sfx.click();
+      renderStage();
+    })
+  );
 
   document.onkeydown = null;
-  paint();
+  renderStage();
+  if (code) joinCode(code);
 }
 
 /** Inget att städa – spelet lever bara i klienten. */

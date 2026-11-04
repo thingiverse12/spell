@@ -88,8 +88,8 @@ Inga beroenden behövs – servern är ren Node (>= 18).
   kassa och den som står kvar ensam tar allt (se nedan).
 - **Finns i sjön** – det klassiska kortspellet mot klasskamrater: 2–6 spelare, en sjö på
   bordet och en gemensam kassa. Samla fyrtal och ta kassan (se nedan).
-- **Inpostern** – sällskapsspel: en telefon, en hemlig roll och ett ord. Alla utom inpostern får
-  samma ord, inpostern får en svår ledtråd (se nedan).
+- **Inpostern** – ett ord och en bluff, i två lägen: **en telefon** (gratis sällskapsspel) eller
+  **egna skärmar** om spelmynt (`#/kasino/imposter`). Se nedan.
 - **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett nummer (36×),
   dussin eller kolumn (3×), röd/svart, jämn/udda eller låg/hög (2×) och tryck **SNURRA**.
   Hjulet stannar exakt på det dragna numret, historiken visar de senaste snurren och
@@ -236,7 +236,28 @@ och nås från rutan **Inpostern** i spelhallen. Det kostar inga spelmynt – de
 - **Ordlistan** har 112 ord i 15 kategorier, så det blir nya ord för varje omgång. Rollerna blandas
   om vid **Spela igen**, och **Nytt spel** går tillbaka till starten med antal spelare och namn kvar.
 
-Spelet kräver ingen server och inga konton – rollerna delas ut och blandas i klienten.
+Sällskapsläget kräver ingen server och inga konton – rollerna delas ut och blandas i klienten.
+
+#### Egna skärmar – samma spel om spelmynt
+
+Välj **💰 Egna skärmar** i stället för **📱 En telefon**. Då spelar alla på sin egen iPad eller
+mobil i stället för att skicka runt en telefon – det är svårare att fuska, eftersom servern delar ut
+rollerna och varje enhet bara får se sin egen roll.
+
+- **Insats:** alla lägger samma insats (10–500 kr) och pengarna hamnar i en gemensam **kassa**.
+- **Kod:** spelledaren öppnar bordet och får en fyrsiffrig kod (t.ex. `K7Q2`). Kompisarna går in på
+  *Inpostern → Egna skärmar*, skriver koden och betalar in sin insats. Man kan också öppna
+  `#/kasino/imposter/KOD` direkt.
+- **Roller:** 3–6 spelare ger **en inposter**, 7–12 ger **två**. Alla i laget får ordet; inposterna
+  får bara en ledtråd (en bred kategori) och ser aldrig ordet.
+- **En omgång:** alla ger **en ledtråd med ett enda ord** (120 s) → alla röstar på en misstänkt
+  (90 s) → åker en inposter ut vinner laget direkt, annars får inposterna **gissa ordet** (75 s).
+- **Utbetalning:** vinner **laget** får varje lagmedlem **dubbelt så mycket som sin insats**
+  (2 × insatsen). Vinner **inposterna** delar de **hela kassan** lika mellan sig. Avbryts spelet
+  (för få kvar, tyst bord) får alla tillbaka sin insats.
+- **Spelledaren** startar omgångarna och kan trycka **Ny omgång** med samma insats och samma kod.
+- Gäster utan konto nekas bordet, och alla insatser och vinster loggas som vanliga transaktioner
+  i spelhallen (spelet heter **Inpostern** i loggen och i adminpanelen).
 
 ### 👤 Konton – alla måste ha ett
 - **Alla måste skapa ett konto** med namn + fyrsiffrig PIN innan de kommer in i appen.
@@ -628,7 +649,8 @@ snabbt kan växla tillbaka till studiematerialet.
 | `public/js/videopoker.js` | Videopoker |
 | `public/js/scratch.js` | Skraplotter |
 | `public/js/finns.js` | Finns i sjön – kortbordet |
-| `public/js/imposter.js` | Inpostern – ord, roller och ledtrådar |
+| `public/js/imposter.js` | Inpostern – ord, roller och ledtrådar (båda lägena) |
+| `public/js/imposter-online.js` | Inpostern om mynt – egna skärmar, kod och insats |
 | `public/js/casino.js` | Spelhallen (lobby) |
 | `public/js/admin.js` | Adminpanelen |
 | `public/js/main.js` | Skal, navigation, hemlig upplåsning |

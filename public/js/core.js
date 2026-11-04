@@ -771,6 +771,26 @@ export const api = {
     }
   },
 
+  /* ---------- Inpostern om mynt ----------
+     Rollerna delas ut på servern så att varje enhet bara ser sin egen roll.
+     Går servern inte att nå finns inget lokalt spel att falla tillbaka på. */
+  async inposter(path, body) {
+    try {
+      const data = body
+        ? await request('/api/inposter/' + path, { method: 'POST', body })
+        : await request('/api/inposter/' + path);
+      if (data && typeof data.balance === 'number' && state.player) state.player.balance = data.balance;
+      return data;
+    } catch (err) {
+      if (err.offline) {
+        const offline = new Error('Inpostern om mynt kräver uppkoppling – prova igen när nätet är tillbaka');
+        offline.offline = true;
+        throw offline;
+      }
+      throw err;
+    }
+  },
+
   /** Loggar ett svar i studieloggen. Lokalt om servern inte svarar. */
   async studyEvent(event) {
     const entry = {
