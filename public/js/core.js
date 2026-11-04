@@ -1232,7 +1232,9 @@ async function readSettingsVersion() {
  * laddas sidan om för alla spelare (admin själv får bara nya värden).
  * Väntar med omladdningen om en runda pågår eller en modal är öppen.
  */
-export function watchSettings(interval = 5000) {
+/* Var 15:e sekund räcker: servern behöver inte frågas oftare, och varje
+   fråga kostar för alla som har appen öppen samtidigt. */
+export function watchSettings(interval = 15000) {
   if (settingsWatch) return settingsWatch;
 
   const watch = {
