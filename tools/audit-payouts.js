@@ -1313,6 +1313,48 @@ const exists = (doc, n) => las.some((l) => l.subject.pageIndex.has(doc + ':' + n
   ['inga externa beroenden i läsaren', !/import .* from '(?!\.\/)/.test(read('public/js/lasaren-sok.js'))]
 ].forEach(([label, passed, extra]) => (passed ? ok(label, extra || '') : bad(label, extra || 'läsaren')));
 
+/* --------------------------- gästkonton --------------------------- */
+
+console.log('\nGästkonton – städningen i adminpanelen');
+
+const coreSrc5 = read('public/js/core.js');
+const adminSrc5 = read('public/js/admin.js');
+[
+  ['servern har en egen rutt för städningen', /'POST \/api\/admin\/guests\/delete'/.test(apiSrc3)],
+  ['bara admin kommer åt den', /'POST \/api\/admin\/guests\/delete': async \(req, res\) => \{\s*\n?\s*if \(!adminFromRequest\(req\)\) return json\(res, 401/.test(apiSrc3)],
+  [
+    'bara konton utan PIN raderas',
+    /if \(!player \|\| player\.pinHash\) return;/.test(apiSrc3) && /Object\.values\(db\.players\)\.forEach/.test(apiSrc3)
+  ],
+  [
+    'gäster som är mitt i porten hoppas över',
+    /const GUEST_KEEP_MS = 2 \* 60 \* 1000;/.test(apiSrc3) && /const active = now\(\) - \(Number\(player\.lastSeen\) \|\| 0\) < GUEST_KEEP_MS;/.test(apiSrc3)
+  ],
+  [
+    'gäster som sitter i ett spelbord hoppas över',
+    /function tableSeatIds\(\)/.test(apiSrc3) && /db\.revolverTables, db\.finnsTables, db\.inposterTables/.test(apiSrc3)
+  ],
+  [
+    'logg, sportspel och utbetalningar städas med',
+    /db\.transactions = db\.transactions\.filter\(\(t\) => !gone\.has\(t\.playerId\)\)/.test(apiSrc3) &&
+      /db\.sportBets = db\.sportBets\.filter\(\(b\) => !gone\.has\(b\.playerId\)\)/.test(apiSrc3) &&
+      /db\.payouts\.keys = db\.payouts\.keys\.filter/.test(apiSrc3)
+  ],
+  ['förhandsgranskning med dryRun raderar inget', /const preview = !!body\.dryRun;/.test(apiSrc3) && /if \(dryRun\) return \{ deleted: 0, wouldDelete: ids\.length/.test(apiSrc3)],
+  ['klienten anropar den nya rutten', /async adminPurgeGuests\(\)/.test(coreSrc5) && /'\/api\/admin\/guests\/delete'/.test(coreSrc5)],
+  ['lokalt läge har samma funktion', /purgeGuests\(\) \{\s*\n?\s*return \{ ok: true, deleted: 0/.test(coreSrc5)],
+  [
+    'adminpanelen har knappen och en bekräftelse',
+    /id="guests-purge"/.test(adminSrc5) &&
+      /Radera alla gästkonton\?/.test(adminSrc5) &&
+      /api\.adminPurgeGuests\(\)/.test(adminSrc5) &&
+      /renderAdmin\(root\)/.test(adminSrc5)
+  ],
+  ['panelen visar hur många gäster som finns', /const guests = data\.players\.filter\(\(p\) => p\.isGuest\);/.test(adminSrc5)],
+  ['selftestet kontrollerar städningen', /admin kan städa bort gästkonton/.test(apiSrc3)],
+  ['README beskriver städningen', /gästkonto(n)?/i.test(read('README.md')) && /Radera alla gästkonton/.test(read('README.md'))]
+].forEach(([label, passed, extra]) => (passed ? ok(label, extra || '') : bad(label, 'gästkonton')));
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

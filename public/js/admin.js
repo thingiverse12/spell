@@ -672,6 +672,7 @@ function renderVinster(content, data) {
 
 function renderSpelare(content, root, data) {
   const lastGift = (data.gifts || [])[0];
+  const guests = data.players.filter((p) => p.isGuest);
   content.innerHTML = `
     <div class="panel" style="padding:20px;margin-bottom:16px">
       <h3 style="font-size:15px;margin-bottom:6px">🎁 Gåva till alla</h3>
@@ -693,6 +694,19 @@ function renderSpelare(content, root, data) {
             } konton (${timeText(lastGift.at)})${lastGift.message ? ' · "' + esc(lastGift.message) + '"' : ''}</p>`
           : ''
       }
+    </div>
+    <div class="panel" style="padding:20px;margin-bottom:16px">
+      <h3 style="font-size:15px;margin-bottom:6px">🧹 Gästkonton</h3>
+      <p class="small muted" style="margin-bottom:12px">
+        Gästkonton är de namnlösa konton som skapas automatiskt när någon öppnar appen
+        första gången – de duger bara till att skapa sitt riktiga konto med.
+        Just nu finns <strong>${guests.length}</strong> gästkonton${
+          state.adminLocal ? ' (lokalt läge – bara ditt eget konto finns)' : ''
+        }. Konton med namn och PIN rörs aldrig.
+      </p>
+      <button class="btn btn--ghost" id="guests-purge" ${guests.length && !state.adminLocal ? '' : 'disabled'}>
+        Radera alla gästkonton${guests.length ? ` (${guests.length})` : ''}
+      </button>
     </div>
     <div class="table-scroll">
       <table class="data-table">
@@ -915,6 +929,28 @@ function renderSpelare(content, root, data) {
         const gift = (res && res.gift) || { players: data.players.length, total };
         toast(`🎁 ${kr(gift.total)} delat till ${gift.players} konton`, 'gold', 3600);
         sfx.win();
+        renderAdmin(root);
+      } catch (err) {
+        toast(err.message, 'bad');
+      }
+    });
+  }
+
+  /* Städa bort alla gästkonton. */
+  const purgeBtn = content.querySelector('#guests-purge');
+  if (purgeBtn) {
+    purgeBtn.addEventListener('click', async () => {
+      const ok = await confirmModal({
+        title: 'Radera alla gästkonton?',
+        text: `${guests.length} namnlösa konton raderas för gott, tillsammans med sina loggrader. Konton med namn och PIN-kod rörs aldrig.`,
+        confirmLabel: 'Radera'
+      });
+      if (!ok) return;
+      try {
+        const res = state.adminLocal ? localAdmin.purgeGuests() : await api.adminPurgeGuests();
+        const deleted = Number(res && res.deleted) || 0;
+        toast(deleted ? `🧹 ${deleted} gästkonton borttagna` : 'Inga gästkonton att ta bort', deleted ? 'ok' : 'bad', 3200);
+        sfx.click();
         renderAdmin(root);
       } catch (err) {
         toast(err.message, 'bad');

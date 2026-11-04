@@ -988,6 +988,11 @@ export const api = {
     return request('/api/admin/player', { method: 'POST', body: { id, action, value } });
   },
 
+  /** Raderar alla gästkonton (namnlösa konton utan PIN). */
+  async adminPurgeGuests() {
+    return request('/api/admin/guests/delete', { method: 'POST' });
+  },
+
   async adminSettings(settings) {
     const data = await request('/api/admin/settings', { method: 'POST', body: { settings } });
     state.settings = { ...DEFAULT_SETTINGS, ...data.settings };
@@ -1125,6 +1130,11 @@ export const localAdmin = {
     store.set('ph.settings', merged);
     state.settings = merged;
     return { settings: merged };
+  },
+
+  /* I lokalt läge finns bara det egna kontot – inga gäster att städa. */
+  purgeGuests() {
+    return { ok: true, deleted: 0, kept: 0, players: 1 };
   },
 
   broadcast(message) {

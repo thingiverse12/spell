@@ -327,6 +327,25 @@ Servern gör inget förrän `confirm: true` skickas – `POST /api/admin/gift` u
 svarar bara med en förhandsvisning (`players`, `amount`, `total`). Selftestet provar
 bara att rutten kräver admin och ett belopp, så inga saldon rörs av testet.
 
+### 🧹 Rensa gästkonton
+Varje gång någon öppnar Plugghörnan första gången skapas ett **gästkonto** – ett
+namnlöst konto (`Gäst 1234`) som bara duger till att skapa sitt riktiga konto med.
+Efter en tid blir det många sådana i spelarlistan, så adminpanelen har en egen
+städning i fliken **Spelare**:
+
+- Kortet **🧹 Gästkonton** visar hur många gästkonton som finns just nu.
+- **Radera alla gästkonton** frågar först och raderar sedan alla konton **utan
+  PIN-kod**, tillsammans med deras loggrader, sportspel och utbetalningsnycklar.
+  Konton med namn och PIN rörs aldrig.
+- Två sorters gäster sparas alltid: de som varit **aktiva de senaste två
+  minuterna** (de kan stå mitt i kontoporten) och de som sitter i ett **levande
+  spelbord**. Kortet visar hur många som sparades.
+
+Servern gör jobbet i `POST /api/admin/guests/delete` (kräver admin). Med
+`{ "dryRun": true }` svarar rutten bara med en förhandsvisning
+(`wouldDelete`, `kept`) utan att radera något – det är den selftestet kör, så
+inga riktiga gästkonton försvinner när testerna går.
+
 ### ⏸ Pausa spelare
 I adminpanelen, fliken **Spelare**, har varje spelare knappen **Pausa**. Pausen stänger
 av spelandet men inte plugget:
@@ -592,6 +611,7 @@ Nås på tre sätt:
 
 I panelen kan admin:
 - se alla spelare, konton/gäster, saldon, omsättning och utbetalningar,
+  och städa bort alla gästkonton med ett klick,
 - följa exakt vad varje spelare vinner, per spel,
 - sätta/justera spelares saldo, stänga av eller nollställa konton,
 - **ge sig själv spelmynt** uppe på Översikt: snabbknappar (+500, +1 000, +5 000, +10 000)
