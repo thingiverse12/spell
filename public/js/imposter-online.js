@@ -113,7 +113,7 @@ function clockHTML(view) {
       : view.you && view.you.isImposter && view.phase === 'guess'
       ? 'dags att gissa ordet'
       : 'tiden rinner';
-  return `<div class="rvb__status ${view.you && !view.you.isImposter ? '' : ''}">
+  return `<div class="rvb__status">
     <span class="rvb__status-text">${esc(phaseLabel(view.phase))} – ${esc(cluesText)}</span>
     <span class="rvb__clock" id="inpo-clock"><i></i></span>
   </div>`;
