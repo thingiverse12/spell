@@ -14,6 +14,7 @@ const GAME_LABELS = {
   scratch: 'Skraplotter',
   roulette: 'Roulette',
   atelje: 'Ateljén',
+  pokemon: 'Pokémon-kort',
   revolver: 'Rysk roulette',
   revolverbord: 'Rysk roulette – bord',
   finns: 'Finns i sjön',

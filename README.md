@@ -115,6 +115,11 @@ Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
 ### 🎰 Spelhallen
 - **Blackjack** – sex kortlekar, hit/stanna/dubbel/splitta, blackjack 3:2 och en snäll dealer som aldrig får 21 på given (se nedan).
 - **Star Fortune (slots)** – 5 hjul, 3 rader och tre raka vinstlinjer. Du vinner när minst **två lika symboler står i rad** från vänster på samma rad (jokern ★ ersätter alla): två i rad ger pengarna tillbaka med liten marginal, tre, fyra och fem i rad ger de stora vinsterna (upp till 1000×). Ungefär **varannan snurr ger vinst** och utbetalningen ligger på cirka 112 % av insatserna. En ruta under hjulen förklarar direkt hur man vinner. Autospel ingår.
+- **Pokémon-kort** – öppna ett pack för **500 kr** och få ett slumpat kort: **vanligt**
+  (95,5 %, värt 10 kr), **ovanligt** (4 %, värt 10 000 kr) eller **legendariskt** (0,5 %, värt
+  50 000 kr). Korten kan säljas direkt till banken eller läggas ut på **marknaden**, där andra
+  spelare köper dem för det pris du sätter – pengarna går rakt till säljaren. 48 kort i
+  katalogen, inga bilder (bara emoji och namn) och en ruta i vyn förklarar oddsen.
 - **Videopoker** – Jacks or Better med håll-kort.
 - **Skraplotter** – köp ett lott (10–500 kr), skrapa de nio rutorna med musen eller
   fingret och få vinst på tre lika belopp. Vinsttrappan går från 1,5× till 50× lottpriset

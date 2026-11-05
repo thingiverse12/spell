@@ -756,6 +756,60 @@ export const api = {
     return data;
   },
 
+  /* ---------- Pokémon-kort ----------
+     Korten ligger på spelaren på servern och alla köp och försäljningar går
+     genom servern, så priser och odds kan inte ändras i klienten. */
+  async pokemon() {
+    const data = await offlineSafe(request('/api/pokemon'), 'Pokémon-korten kräver uppkoppling');
+    if (state.player && typeof data.balance === 'number') state.player.balance = data.balance;
+    return data;
+  },
+
+  async pokemonPack() {
+    const data = await offlineSafe(
+      request('/api/pokemon/pack', { method: 'POST' }),
+      'Packen kräver uppkoppling'
+    );
+    if (state.player) state.player.balance = data.balance;
+    return data;
+  },
+
+  async pokemonSell(cardId) {
+    const data = await offlineSafe(
+      request('/api/pokemon/sell', { method: 'POST', body: { cardId } }),
+      'Försäljningen kräver uppkoppling'
+    );
+    if (state.player) state.player.balance = data.balance;
+    return data;
+  },
+
+  async pokemonList(cardId, price) {
+    const data = await offlineSafe(
+      request('/api/pokemon/list', { method: 'POST', body: { cardId, price } }),
+      'Marknaden kräver uppkoppling'
+    );
+    if (state.player) state.player.balance = data.balance;
+    return data;
+  },
+
+  async pokemonUnlist(listingId) {
+    const data = await offlineSafe(
+      request('/api/pokemon/unlist', { method: 'POST', body: { listingId } }),
+      'Marknaden kräver uppkoppling'
+    );
+    if (state.player) state.player.balance = data.balance;
+    return data;
+  },
+
+  async pokemonBuy(listingId) {
+    const data = await offlineSafe(
+      request('/api/pokemon/buy', { method: 'POST', body: { listingId } }),
+      'Marknaden kräver uppkoppling'
+    );
+    if (state.player) state.player.balance = data.balance;
+    return data;
+  },
+
   /* ---------- rysk roulette mot varandra ----------
      Ett bord kräver att alla sitter på samma server. Går servern inte att nå
      finns det inget lokalt bordsläge att falla tillbaka på – då säger vi det

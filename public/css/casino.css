@@ -2478,3 +2478,122 @@
   .inpo__code-input { font-size: 24px; }
   .inpo__share-code strong { font-size: 28px; }
 }
+
+/* ------------------------------ Pokémon-kort ------------------------------
+   Ett pack, en samling och en marknad. Färgen på kortet visar ovanligheten:
+   grått = vanligt, blått = ovanligt, guld = legendariskt. */
+
+.pk-note { padding: 20px; text-align: center; }
+.pk-warn { color: #f0a15c; margin: 6px 0 0; }
+
+.pk-pack {
+  display: flex; gap: 24px; align-items: stretch; justify-content: space-between;
+  padding: 20px 22px; margin-bottom: 18px; flex-wrap: wrap;
+}
+.pk-pack__text { flex: 1 1 320px; min-width: 0; }
+.pk-pack__text h3 { margin: 0 0 6px; font-size: 18px; }
+.pk-pack__text p { margin: 0 0 12px; font-size: 13.5px; color: var(--text-soft, #c3c8d2); line-height: 1.5; }
+.pk-pack__side {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px;
+  justify-content: center; min-width: 210px; text-align: right;
+}
+
+.pk-odds { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pk-odds__row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: rgba(0, 0, 0, .18); font-size: 13px;
+}
+.pk-odds__chance { color: var(--text-soft, #9aa0ad); }
+.pk-odds__value { margin-left: auto; font-weight: 700; color: #f7e6b0; }
+
+.pk-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+  border: 1px solid var(--line);
+}
+.pk-badge.pk-card--common { color: #cfe6cf; border-color: rgba(160, 200, 160, .45); background: rgba(160, 200, 160, .12); }
+.pk-badge.pk-card--rare { color: #a9d0ff; border-color: rgba(96, 165, 250, .55); background: rgba(96, 165, 250, .14); }
+.pk-badge.pk-card--legendary { color: #ffd979; border-color: rgba(231, 196, 106, .6); background: rgba(231, 196, 106, .16); }
+
+.pk-section { margin-top: 22px; }
+.pk-grid {
+  display: grid; gap: 12px; margin-top: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.pk-card {
+  display: flex; flex-direction: column; gap: 4px; text-align: center;
+  padding: 14px 12px; border-radius: 16px;
+  border: 1px solid var(--line);
+  background: linear-gradient(170deg, rgba(255, 255, 255, .06), rgba(0, 0, 0, .28));
+  transition: transform .15s, border-color .15s, box-shadow .15s;
+}
+.pk-card:hover { transform: translateY(-2px); }
+.pk-card__art { font-size: 40px; line-height: 1.1; }
+.pk-card__name { margin: 2px 0 0; font-size: 14.5px; }
+.pk-card__rarity { margin: 0 0 6px; font-size: 11.5px; color: var(--text-soft, #9aa0ad); }
+.pk-card__actions { display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+
+.pk-card.pk-card--rare { border-color: rgba(96, 165, 250, .45); box-shadow: 0 0 0 1px rgba(96, 165, 250, .12) inset; }
+.pk-card.pk-card--legendary {
+  border-color: rgba(231, 196, 106, .65);
+  box-shadow: 0 0 18px rgba(231, 196, 106, .18), 0 0 0 1px rgba(231, 196, 106, .2) inset;
+  background: linear-gradient(170deg, rgba(231, 196, 106, .16), rgba(0, 0, 0, .3));
+}
+
+/* Marknaden: en rad per kort till salu. */
+.pk-market { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.pk-listing {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 14px; border-radius: 14px;
+  border: 1px solid var(--line); background: rgba(0, 0, 0, .18);
+}
+.pk-listing.pk-card--rare { border-color: rgba(96, 165, 250, .4); }
+.pk-listing.pk-card--legendary { border-color: rgba(231, 196, 106, .55); background: rgba(231, 196, 106, .09); }
+.pk-listing__art { font-size: 26px; }
+.pk-listing__text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pk-listing__side { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+/* Kortet man just fått. */
+.pk-reveal {
+  display: flex; justify-content: center;
+  padding: 18px 0 4px;
+  animation: pk-pop .35s ease-out;
+}
+.pk-reveal__card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 20px 28px; border-radius: 20px; text-align: center;
+  border: 1px solid var(--line);
+  background: linear-gradient(170deg, rgba(255, 255, 255, .08), rgba(0, 0, 0, .32));
+}
+.pk-reveal__tag {
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  color: var(--text-soft, #9aa0ad);
+}
+.pk-reveal__art { font-size: 62px; line-height: 1.1; }
+.pk-reveal__name { margin: 2px 0 0; font-size: 22px; }
+.pk-reveal__meta { margin: 0 0 10px; font-size: 13px; color: var(--text-soft, #c3c8d2); }
+.pk-reveal__actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+.pk-reveal.pk-card--rare { border-color: rgba(96, 165, 250, .5); }
+.pk-reveal.pk-card--rare .pk-reveal__card { border-color: rgba(96, 165, 250, .55); box-shadow: 0 0 24px rgba(96, 165, 250, .22); }
+.pk-reveal.pk-card--legendary .pk-reveal__card {
+  border-color: rgba(231, 196, 106, .7);
+  box-shadow: 0 0 34px rgba(231, 196, 106, .3);
+  background: linear-gradient(170deg, rgba(231, 196, 106, .2), rgba(0, 0, 0, .32));
+}
+.pk-reveal.pk-card--legendary .pk-reveal__tag { color: #ffd979; }
+
+@keyframes pk-pop {
+  from { transform: scale(.86); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  .pk-pack { flex-direction: column; }
+  .pk-pack__side { align-items: stretch; text-align: left; }
+  .pk-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+  .pk-listing { flex-wrap: wrap; }
+  .pk-listing__side { margin-left: 0; }
+}

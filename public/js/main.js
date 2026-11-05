@@ -24,6 +24,7 @@ import './imposter.js';
 import './history.js';
 import './rank.js';
 import './sport.js';
+import './pokemon.js';
 import './admin.js';
 import { avatarHTML } from './look.js';
 import { syncAccountGate } from './gate.js';
@@ -56,6 +57,7 @@ const CASINO_NAV = [
   { path: '/kasino/finns', label: 'Finns i sjön' },
   { path: '/kasino/imposter', label: 'Inpostern' },
   { path: '/kasino/sport', label: 'Live Sport' },
+  { path: '/kasino/pokemon', label: 'Pokémon-kort' },
   { path: '/kasino/kortleken', label: 'Kortleken' },
   { path: '/kasino/rikast', label: 'Rikast' },
   { path: '/kasino/historik', label: 'Logg' }

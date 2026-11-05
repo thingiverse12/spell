@@ -1425,6 +1425,45 @@ const adminSrc5 = read('public/js/admin.js');
   ['README beskriver städningen', /gästkonto(n)?/i.test(read('README.md')) && /Radera alla gästkonton/.test(read('README.md'))]
 ].forEach(([label, passed, extra]) => (passed ? ok(label, extra || '') : bad(label, 'gästkonton')));
 
+/* ---------------------------- Pokémon-korten ----------------------------
+   Ett pack kostar 500 kr och ger ett kort som kan säljas för ett fast värde.
+   Kontrollerna ser att oddsen summerar till 1, att korten är dyrare ju
+   ovanligare de är och att ett pack inte betalar ut mer än dubbelt igen. */
+const apiSrcPk = read('lib/api.js');
+const pkPrice = Number((apiSrcPk.match(/const POKEMON_PACK_PRICE = (\d+)/) || [])[1]);
+const pkValues = literal(apiSrcPk, 'const POKEMON_VALUES =');
+const pkOdds = literal(apiSrcPk, 'const POKEMON_ODDS =');
+const pkDex = literal(apiSrcPk, 'const POKEMON_DEX = [');
+const pkClient = read('public/js/pokemon.js');
+const pkCasino = read('public/js/casino.js');
+const pkSum = Object.values(pkOdds).reduce((sum, share) => sum + Number(share || 0), 0);
+const pkEv = Object.keys(pkOdds).reduce((sum, rarity) => sum + Number(pkOdds[rarity]) * Number(pkValues[rarity]), 0);
+
+console.log('\nPokémon-kort');
+[
+  ['packet kostar 500 kr', pkPrice === 500, pkPrice],
+  ['värdena är 10 / 10 000 / 50 000', pkValues.common === 10 && pkValues.rare === 10000 && pkValues.legendary === 50000, pkValues],
+  ['oddsen summerar till 1', Math.abs(pkSum - 1) < 1e-9, pkSum.toFixed(4)],
+  ['legendariska är ovanligast', pkOdds.legendary < pkOdds.rare && pkOdds.rare < pkOdds.common, pkOdds],
+  [
+    'ett pack betalar igen mellan 1 och 2 gånger priset',
+    pkEv >= pkPrice && pkEv <= pkPrice * 2,
+    Math.round((pkEv / pkPrice) * 100) + ' %'
+  ],
+  ['katalogen har alla tre ovanligheterna', ['common', 'rare', 'legendary'].every((r) => pkDex.some((c) => c.rarity === r)), pkDex.length + ' kort'],
+  [
+    'klienten ritar bara det servern säger',
+    /registerView\('pokemon'/.test(pkClient) && !/Math\.random/.test(pkClient),
+    'odds och priser kommer från api'
+  ],
+  ['förklaringen "Så vinner du" syns i vyn', /Så vinner du/.test(pkClient) && /pk-odds/.test(pkClient)],
+  ['packen kräver konto och saldo', /pokemonGate/.test(apiSrcPk) && /player\.balance < POKEMON_PACK_PRICE/.test(apiSrcPk)],
+  ['man kan inte köpa sitt eget kort', /listing\.sellerId === player\.id/.test(apiSrcPk)],
+  ['säljaren får pengarna vid köp', /seller\.balance = round2\(seller\.balance \+ price\)/.test(apiSrcPk)],
+  ['spelhallen länkar till korten', /key: 'pokemon'/.test(pkCasino) && /'\/kasino\/pokemon'/.test(read('public/js/main.js'))],
+  ['README beskriver korten', /Pokémon-kort/i.test(read('README.md'))]
+].forEach(([label, passed, extra]) => (passed ? ok(label, extra === undefined ? '' : String(extra)) : bad(label, extra === undefined ? '' : String(extra))));
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'
