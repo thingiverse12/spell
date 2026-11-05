@@ -13,7 +13,7 @@ import {
   registerView, state, api, sfx, toast, kr, num, esc, sleep, navigate, openModal, updateBalanceUI, guardRound
 } from './core.js';
 import {
-  currentLuck, clampLuckSetting, luckPayout, machineLuckPill, luckLevelName, settingLuck, watchLuck
+  currentLuck, clampLuckSetting, machineLuckPill, luckLevelName, settingLuck, watchLuck
 } from './luck.js';
 
 /* Hjulets ordning, medurs från nollan. */
@@ -28,6 +28,10 @@ const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 
    Enkelnumren och den gröna nollan ligger medvetet över de matematiska
    oddsen (36×) så att den som satsar smalt tjänar mer när det slår in. */
 const PAYOUTS = { straight: 45, zero: 100, dozen: 3, column: 3, even: 2 };
+
+/* Högst fyra olika vad per snurr. Då går det inte att lägga ut markörer över
+   hela bordet (eller på alla tre dussin) och vinna varje gång. */
+const MAX_BETS = 4;
 
 const OUTSIDE = [
   { key: 'red', label: 'RÖD', tone: 'red', mult: 2, hit: (n) => RED.has(n) },
@@ -52,7 +56,44 @@ const COLUMNS = [
 
 /* Delas med npm run audit och testerna så oddsen kan kontrolleras utanför
    webbläsaren – även vad varje satsning faktiskt betalar. */
-export const ROULETTE_MATH = { WHEEL, RED, OUTSIDE, DOZENS, COLUMNS, PAYOUTS, pays };
+/**
+ * Vad en snurr betalar. Tur och gummiband gäller vinsten som är kvar när
+ * insatsen är återbetald – aldrig insatsen själv. Annars gick det att lägga
+ * hälften på rött och hälften på svart (eller på alla tre dussin) och ändå
+ * få tillbaka flera gånger pengarna varje snurr: ena sidan betalade tillbaka
+ * mer än båda insatserna tillsammans.
+ */
+export function spinPayout(chips, n, luck = 1, factor = 1) {
+  let stake = 0;
+  let raw = 0;
+  chips.forEach((amount, key) => {
+    const bet = Number(amount) || 0;
+    if (!(bet > 0)) return;
+    stake += bet;
+    const mult = pays(key, n);
+    if (mult > 0) raw += bet * mult;
+  });
+  /* Under 1 betyder otur och ska inte heller äta upp insatsen. */
+  const boost = Math.max(1, (Number(luck) || 1) * (Number(factor) || 1));
+  const payout = raw > stake ? stake + (raw - stake) * boost : raw;
+  return {
+    stake: Math.round(stake * 100) / 100,
+    raw: Math.round(raw * 100) / 100,
+    payout: Math.round(payout)
+  };
+}
+
+export const ROULETTE_MATH = {
+  WHEEL,
+  RED,
+  OUTSIDE,
+  DOZENS,
+  COLUMNS,
+  PAYOUTS,
+  MAX_BETS,
+  pays,
+  spinPayout
+};
 
 const STEP = 360 / WHEEL.length;
 const SPIN_MS = 3200;
@@ -209,7 +250,7 @@ function renderRoulette(root) {
             </div>
 
             <div class="roulette-total">
-              <span>Insats på bordet</span>
+              <span>Insats på bordet <em class="tiny muted" id="ru-bets">${game.chips.size}/${MAX_BETS} vad</em></span>
               <strong id="ru-total">${kr(betTotal())}</strong>
             </div>
 
@@ -225,7 +266,8 @@ function renderRoulette(root) {
             </div>
             <p class="tiny muted" style="margin-top:10px">
               Klicka på ett nummer eller en utsida för att lägga en marker. Högerklick tar bort
-              markern igen. <strong>Enkelnummer ger 45×</strong> och <strong>grön 0 ger 100×</strong> –
+              markern igen. Högst <strong>${MAX_BETS} olika vad</strong> per snurr.
+              <strong>Enkelnummer ger 45×</strong> och <strong>grön 0 ger 100×</strong> –
               dussin och kolumn 3×, röd/svart, jämn/udda och låg/hög 2×.
             </p>
           </div>
@@ -383,6 +425,8 @@ function updateTotals(root) {
   if (netEl) netEl.innerHTML = `Netto <strong>${kr(game.net)}</strong>`;
   const balEl = root.querySelector('#ru-balance');
   if (balEl) balEl.textContent = kr(state.player ? state.player.balance : 0);
+  const betsEl = root.querySelector('#ru-bets');
+  if (betsEl) betsEl.textContent = `${game.chips.size}/${MAX_BETS} vad`;
 }
 
 function placeChip(root, key, dir) {
@@ -402,6 +446,10 @@ function placeChip(root, key, dir) {
     return;
   }
 
+  if (current === 0 && game.chips.size >= MAX_BETS) {
+    toast(`Högst ${MAX_BETS} olika vad per snurr`, 'bad', 2600);
+    return;
+  }
   if (total + game.chip > balance) {
     toast('Inte tillräckligt med spelmynt – ta en bonus!', 'bad');
     return;
@@ -488,17 +536,10 @@ async function spin(root) {
   sfx.click();
   await sleep(SPIN_MS + 120);
 
-  // Räkna ut vad varje marker ger med gällande tur.
+  // Räkna ut vad snurren ger med gällande tur.
   const factor = currentLuck();
   const luck = luckMult();
-  let payout = 0;
-  game.chips.forEach((amount, key) => {
-    const mult = pays(key, n);
-    // Vinner numret ska satsningen alltid ge tillbaka mer än den kostade,
-    // även om admin ställt turen väldigt lågt.
-    if (mult > 0) payout += luckPayout(amount, Math.max(1.01, mult * luck), factor);
-  });
-  payout = Math.round(payout);
+  const payout = spinPayout(game.chips, n, luck, factor).payout;
 
   game.spinCount += 1;
   game.net += payout - total;
@@ -571,8 +612,13 @@ function showInfo() {
       </p>
       <p class="tiny muted" style="margin-top:10px">
         Gällande tur: <strong>${'×' + Number(luck).toFixed(2).replace('.', ',')}</strong>
-        ${level ? `(${level})` : '(egen nivå)'} – turen multiplicerar vinsten ovanpå insatsen, precis
-        som i de andra spelen. Allt spelas med spelmynt, aldrig riktiga pengar.
+        ${level ? `(${level})` : '(egen nivå)'} – turen gäller vinsten som blir kvar när insatsen
+        är återbetald, aldrig insatsen själv.
+      </p>
+      <p class="tiny muted" style="margin-top:6px">
+        Lägger man hälften på rött och hälften på svart (eller satsar på alla tre dussin) får man
+        bara tillbaka det man lagt – ingen tur på det, och nollan tar allt.
+        Allt spelas med spelmynt, aldrig riktiga pengar.
       </p>`,
     actions: [{ label: 'Stäng' }]
   });

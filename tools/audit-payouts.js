@@ -939,8 +939,29 @@ const zeroRtp = rtp(ruPay.zero, 1);
     /ru-zero__mult/.test(ruSrc) && /ru-zero__mult/.test(read('public/css/casino.css')) && /100× insatsen/.test(ruSrc)
   ],
   ['reglerna beskriver de nya oddsen', /45× insatsen/.test(ruSrc) && /100×/.test(ruSrc)],
-  ['turen multipliceras in i varje vinst', /luckPayout\(amount, Math\.max\(1\.01, mult \* luck\), factor\)/.test(ruSrc) && /rouletteLuck/.test(ruSrc)],
-  ['en vinst ger alltid mer än insatsen, även vid lägsta tur', luckPayout(100, Math.max(1.01, 2 * 0.1), LUCK_MIN) > 100],
+  [
+    'turen gäller bara vinsten över insatsen, aldrig insatsen',
+    /const boost = Math\.max\(1, \(Number\(luck\) \|\| 1\) \* \(Number\(factor\) \|\| 1\)\);/.test(ruSrc) &&
+      /const payout = raw > stake \? stake \+ \(raw - stake\) \* boost : raw;/.test(ruSrc) &&
+      /rouletteLuck/.test(ruSrc)
+  ],
+  [
+    'halva/halva ger aldrig mer än insatsen',
+    (() => {
+      const hedge = (raw, stake, luck = 3) => (raw > stake ? stake + (raw - stake) * Math.max(1, luck) : raw);
+      return hedge(200, 200) === 200 && hedge(300, 300) === 300 && hedge(0, 200) === 0;
+    })()
+  ],
+  ['högst fyra olika vad per snurr', /const MAX_BETS = 4;/.test(ruSrc) && /game\.chips\.size >= MAX_BETS/.test(ruSrc)],
+  [
+    'en vinst ger alltid mer än insatsen, även vid lägsta tur',
+    (() => {
+      const stake = 100;
+      const raw = stake * ruPay.even;
+      const boost = Math.max(1, 1 * LUCK_MIN);
+      return (raw > stake ? stake + (raw - stake) * boost : raw) >= raw;
+    })()
+  ],
   [
     'kontrollrummet öppnas bara med koden 333333',
     /const ROULETTE_CODE = '333333';/.test(apiSrc3) &&
