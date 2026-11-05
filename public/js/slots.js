@@ -1,7 +1,7 @@
 /* =====================================================================
    Star Fortune – 5 hjul, 3 rader, 3 vinstlinjer.
 
-   Vinst kräver minst fyra lika symboler i rad från vänster på samma rad.
+   Vinst kräver minst tre lika symboler i rad från vänster på samma rad.
    Bara de tre raka, vågräta raderna räknas – inga zickzack-linjer.
    ===================================================================== */
 
@@ -21,21 +21,23 @@ const SYMBOLS = {
   cherry: { glyph: '🍒', cls: '', weight: 10, name: 'Körsbär' }
 };
 
-/* Vinsttabell: multiplar av insatsen för 4 / 5 lika i rad från vänster.
-   Kravet är minst fyra i rad, så varje vinst är stor – minst 8× insatsen. */
+/* Vinsttabell: multiplar av insatsen för 3 / 4 / 5 lika i rad från vänster.
+   Tre i rad ger en mindre vinst (minst 3,5× insatsen), fyra och fem ger de
+   stora. Tidigare krävdes fyra i rad, vilket gav en träffchans på under 3 %
+   – då gick det att snurra hundratals gånger utan en enda vinst. */
 const PAYTABLE = {
   wild: { 5: 2500 },
-  seven: { 4: 42, 5: 420 },
-  diamond: { 4: 26, 5: 270 },
-  bell: { 4: 18, 5: 185 },
-  bar: { 4: 16, 5: 160 },
-  melon: { 4: 12, 5: 120 },
-  plum: { 4: 10, 5: 100 },
-  cherry: { 4: 8, 5: 80 }
+  seven: { 3: 6, 4: 42, 5: 420 },
+  diamond: { 3: 5.5, 4: 26, 5: 270 },
+  bell: { 3: 5, 4: 18, 5: 185 },
+  bar: { 3: 4.6, 4: 16, 5: 160 },
+  melon: { 3: 4.2, 4: 12, 5: 120 },
+  plum: { 3: 3.8, 4: 10, 5: 100 },
+  cherry: { 3: 3.5, 4: 8, 5: 80 }
 };
 
 /* Minsta antal lika symboler i rad som ger vinst. */
-const MIN_COUNT = 4;
+const MIN_COUNT = 3;
 
 const PAYLINES = [
   /* Bara raka rader: mitten, översta och nedersta. */
@@ -147,7 +149,7 @@ function renderMachine(root) {
 
       <div class="slot-machine">
         <div class="slot-title">Star Fortune</div>
-        <div class="slot-sub">Minst 4 lika i rad · jokern ersätter alla symboler</div>
+        <div class="slot-sub">Minst 3 lika i rad · jokern ersätter alla symboler</div>
         <div class="luck-row" id="sl-luck" data-luck-cell="slotLuck">${machineLuckPill('slotLuck')}</div>
 
         <div class="reels" id="reels"></div>
@@ -404,16 +406,17 @@ function showInfo(root) {
         <td style="font-size:20px">${symbolHTML(key)}</td>
         <td class="num">${cell(5)}</td>
         <td class="num">${cell(4)}</td>
+        <td class="num">${cell(3)}</td>
       </tr>`;
     })
     .join('');
 
   openModal({
     title: 'Star Fortune – vinsttabell',
-    sub: 'Du vinner när minst fyra lika symboler står i rad från vänster på samma rad – mitten, översta eller nedersta raden. Summorna är multiplar av insatsen.',
+    sub: 'Du vinner när minst tre lika symboler står i rad från vänster på samma rad – mitten, översta eller nedersta raden. Summorna är multiplar av insatsen.',
     wide: true,
     body: `<div class="table-scroll"><table class="data-table">
-        <thead><tr><th>Symbol</th><th>5 i rad</th><th>4 i rad</th></tr></thead>
+        <thead><tr><th>Symbol</th><th>5 i rad</th><th>4 i rad</th><th>3 i rad</th></tr></thead>
         <tbody>${rows}</tbody>
       </table></div>
       <p class="tiny muted" style="margin-top:14px">★ Stjärnan är joker och ersätter alla symboler. Allt spelas med spelmynt – aldrig riktiga pengar.</p>

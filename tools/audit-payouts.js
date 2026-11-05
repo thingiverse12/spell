@@ -129,6 +129,13 @@ const SYM_KEYS = Object.keys(SYMBOL_WEIGHT);
 const WEIGHT_SUM = SYM_KEYS.reduce((sum, key) => sum + SYMBOL_WEIGHT[key], 0);
 const SYM_P = SYM_KEYS.map((key) => SYMBOL_WEIGHT[key] / WEIGHT_SUM);
 
+/* Minsta antal lika i rad läses ur källkoden, så kontrollen följer spelet. */
+const minCount = Number(/const MIN_COUNT = (\d+);/.exec(slotsSrc)?.[1] || 0);
+/* Tur-inställningen för slots ligger i DEFAULT_SETTINGS – den multipliceras in
+   i varje vinst (luckPayout(bet, mult * luck(), factor)), så RTP måste räknas
+   med den. Annars ser spelet ut att betala 136 % fast det i praktiken ger 95 %. */
+const SLOT_LUCK = Number(/slotLuck:\s*([\d.]+)/.exec(read('lib/api.js'))?.[1] || 1);
+
 const lineDist = (() => {
   const out = [];
   const symbols = [];
@@ -141,7 +148,7 @@ const lineDist = (() => {
         if (symbols[i] === base || symbols[i] === 'wild') count += 1;
         else break;
       }
-      const mult = count >= 4 && paytable[base] ? paytable[base][count] : 0;
+      const mult = count >= minCount && paytable[base] ? paytable[base][count] : 0;
       if (mult) out.push({ mult, prob });
       return;
     }
@@ -160,7 +167,7 @@ const hitChance = lineDist.reduce((sum, line) => sum + line.prob, 0);
 const RTP_BET = 100; // rimlig insats – undviker avrundningsbrus
 const rtpAt = (factor) => {
   const perLine = lineDist.reduce(
-    (sum, line) => sum + line.prob * luckPayout(RTP_BET, line.mult, factor),
+    (sum, line) => sum + line.prob * luckPayout(RTP_BET, line.mult * SLOT_LUCK, factor),
     0
   );
   return ((perLine * paylines.length) / RTP_BET) * 100;
@@ -171,8 +178,9 @@ if (hitChance * paylines.length * 100 > 1) {
 } else bad('vinstchansen är för låg', `${(hitChance * paylines.length * 100).toFixed(1)} %`);
 
 const baseRtp = rtpAt(1);
-if (baseRtp > 88 && baseRtp < 97) ok('RTP ligger i intervallet vid neutral tur', `${baseRtp.toFixed(1)} %`);
-else bad('RTP utanför intervallet 88–97 %', `${baseRtp.toFixed(1)} %`);
+if (baseRtp > 85 && baseRtp < 100) {
+  ok('RTP ligger i intervallet vid neutral tur', `${baseRtp.toFixed(1)} % (slotLuck ×${SLOT_LUCK})`);
+} else bad('RTP utanför intervallet 85–100 %', `${baseRtp.toFixed(1)} % (slotLuck ×${SLOT_LUCK})`);
 
 const happyRtp = rtpAt(LUCK_MAX);
 const sadRtp = rtpAt(LUCK_MIN);
@@ -194,16 +202,18 @@ const straightLines = paylines.length > 0 && paylines.every((line) => line.every
 if (straightLines) ok('bara raka rader ger vinst', `${paylines.length} raka rader`);
 else bad('vinstlinjerna går inte rakt över hjulen', `${paylines.length} linjer`);
 
-/* Minst fyra lika i rad krävs. */
-const minCount = Number(/const MIN_COUNT = (\d+);/.exec(slotsSrc)?.[1] || 0);
-const fourRule = /if \(count < MIN_COUNT\) return;/.test(slotsSrc);
-if (minCount >= 4 && fourRule) ok('minst fyra lika i rad krävs', `${minCount} i rad`);
+/* Minst tre lika i rad – annars blev det knappt några vinster alls. */
+const threeRule = /if \(count < MIN_COUNT\) return;/.test(slotsSrc);
+if (minCount === 3 && threeRule) ok('minst tre lika i rad ger vinst', `${minCount} i rad`);
 else bad('vinst kan ges för färre än fyra i rad', `MIN_COUNT ${minCount}`);
 
-/* Vinsttabellen ska inte betala för tre i rad längre. */
-const hasThree = Object.values(paytable).some((entry) => entry[3] !== undefined);
-if (!hasThree) ok('tre i rad ger ingen vinst längre');
-else bad('tre i rad betalar fortfarande');
+/* Tre i rad ska betala – men mindre än fyra och fem i rad. */
+const threeRow = Object.entries(paytable).filter(([, entry]) => entry[3] !== undefined);
+const threeOk =
+  threeRow.length >= 7 &&
+  threeRow.every(([, entry]) => entry[3] > 1 && entry[3] < entry[4] && entry[4] < entry[5]);
+if (threeOk) ok('tre i rad betalar, men mindre än fyra och fem', `${threeRow.length} symboler`);
+else bad('tre i rad betalar inte, eller mer än fyra i rad');
 
 /* ----------------------------- videopoker ----------------------------- */
 

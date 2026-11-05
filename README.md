@@ -114,7 +114,7 @@ Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
 
 ### 🎰 Spelhallen
 - **Blackjack** – sex kortlekar, hit/stanna/dubbel/splitta, blackjack 3:2 och en snäll dealer som aldrig får 21 på given (se nedan).
-- **Star Fortune (slots)** – 5 hjul, 3 rader och tre raka vinstlinjer. Du vinner när minst **fyra lika symboler står i rad** från vänster på samma rad (jokern ★ ersätter alla), så varje vinst är minst 8× insatsen. Autospel ingår (RTP ≈ 91 %).
+- **Star Fortune (slots)** – 5 hjul, 3 rader och tre raka vinstlinjer. Du vinner när minst **tre lika symboler står i rad** från vänster på samma rad (jokern ★ ersätter alla): tre i rad ger minst 3,5× insatsen, fyra och fem ger de stora vinsterna (upp till 2500×). Träffchansen är ungefär 13 % per snurr. Autospel ingår (RTP ≈ 95 %).
 - **Videopoker** – Jacks or Better med håll-kort.
 - **Skraplotter** – köp ett lott (10–500 kr), skrapa de nio rutorna med musen eller
   fingret och få vinst på tre lika belopp. Vinsttrappan går från 1,5× till 50× lottpriset
@@ -589,7 +589,7 @@ Sport**:
   Mycket låg ×0,25 / Låg ×0,70 / Normal ×1,00 / Hög ×1,40 / Mycket hög ×2,00 / Extrem ×3,00 –
   eller med ett eget värde mellan ×0,10 och ×3,00. Det sparas i samma sekund som man ändrar det.
 
-Med gummibandet varierar slotsens RTP mellan ungefär 75 % (stor hög) och 114 % (nästan tomt
+Med gummibandet varierar slotsens RTP mellan ungefär 70 % (stor hög) och 124 % (nästan tomt
 konto); mitt på skalan, vid startsaldot, ligger den på 92,6 %. Det är uträknat i
 [docs/simulering.md](docs/simulering.md).
 
