@@ -178,8 +178,16 @@ function resultHTML() {
   </div>`;
 }
 
+/* Hela saldot som lottpris – man får satsa allt, upp till taket. */
+function allInPrice() {
+  const balance = Math.max(0, state.player?.balance ?? 0);
+  const max = Math.min(1000000000000000, Math.max(0, Number(state.settings.maxBet) || 0));
+  return Math.round(Math.min(balance, max));
+}
+
 function renderScratch(root) {
   const prices = ticketPrices();
+  const allIn = allInPrice();
   const price = game.price || prices[0];
   const balance = state.player?.balance ?? 0;
   const st = stats();
@@ -243,6 +251,12 @@ function renderScratch(root) {
                     ${p > balance ? 'title="Du har inte tillräckligt med spelmynt"' : ''}>${kr(p)}</button>`
                 )
                 .join('')}
+              ${
+                allIn > 0 && !prices.includes(allIn)
+                  ? `<button class="scratch-price ${allIn === price ? 'is-active' : ''}" data-price="${allIn}" type="button"
+                      title="Spela om hela saldot på ett lott">Allt in · ${kr(allIn)}</button>`
+                  : ''
+              }
             </div>
             <p class="tiny muted" style="margin-top:8px">Vinsten räknas på lottpriset – ett dyrare lott ger större belopp.</p>
           </div>

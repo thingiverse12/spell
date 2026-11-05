@@ -169,6 +169,7 @@ function renderMachine(root) {
                      min="${minBet}" max="${Math.max(minBet, Math.min(balance, maxBet))}" step="${step}" value="${bet}" />
               <button class="stepper-btn" id="sl-plus" aria-label="Öka insats">+</button>
             </div>
+            <button class="chip-mini" id="sl-all" type="button" title="Satsa hela saldot">Allt</button>
           </div>
 
           <div class="row" style="gap:8px">
@@ -215,6 +216,11 @@ function renderMachine(root) {
   });
   root.querySelector('#sl-plus').addEventListener('click', () => {
     setBet(game.bet + step);
+    sfx.chip();
+  });
+  /* Allt: satsa hela saldot på en snurr (upp till taket). */
+  root.querySelector('#sl-all').addEventListener('click', () => {
+    setBet(state.player?.balance ?? 0);
     sfx.chip();
   });
   betField.addEventListener('change', () => {

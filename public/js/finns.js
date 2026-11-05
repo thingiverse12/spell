@@ -298,6 +298,8 @@ function tableHTML(view) {
 function boardHTML(board) {
   const ante = board.ante || board.min || 10;
   const chips = [25, 50, 100, 250, 500].filter((v) => v >= board.min && v <= board.max);
+  /* Allt: sätt in hela saldot i kassan (högst bordets tak). */
+  const allIn = Math.round(Math.min(state.player?.balance ?? 0, board.max));
   return `<div class="rvb rvb--board">
     <div class="rvb__panels">
       <section class="rvb__panel">
@@ -327,6 +329,13 @@ function boardHTML(board) {
               </button>`
             )
             .join('')}
+          ${
+            allIn > 0 && !chips.includes(allIn)
+              ? `<button class="chip-btn" data-ante="${allIn}" title="Sätt in hela saldot">
+                <div class="poker-chip poker-chip--gold" style="--chip-size:52px"><span>ALLT</span></div>
+              </button>`
+              : ''
+          }
         </div>
         <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:4px">
           <span class="mini-pill">Min <strong>${kr(board.min)}</strong></span>

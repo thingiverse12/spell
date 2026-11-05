@@ -336,13 +336,19 @@ function renderChips(root) {
   const box = root.querySelector('#ru-chips');
   if (!box) return;
   const values = chipValues();
-  box.innerHTML = values
-    .map(
-      (v) => `<button class="ru-chip-btn${v === game.chip ? ' is-active' : ''}" data-chip="${v}">
+  /* Allt-markören satsar hela saldot på ett vad (upp till taket). */
+  const all = limits().maxBet;
+  box.innerHTML =
+    values
+      .map(
+        (v) => `<button class="ru-chip-btn${v === game.chip ? ' is-active' : ''}" data-chip="${v}">
         <span class="poker-chip poker-chip--gold" style="--chip-size:42px"><span>${v}</span></span>
       </button>`
-    )
-    .join('');
+      )
+      .join('') +
+    `<button class="ru-chip-btn${all === game.chip ? ' is-active' : ''}" data-chip="${all}" title="Satsa hela saldot">
+      <span class="poker-chip poker-chip--gold" style="--chip-size:42px"><span>ALLT</span></span>
+    </button>`;
   box.querySelectorAll('[data-chip]').forEach((btn) => {
     btn.addEventListener('click', () => {
       game.chip = Number(btn.dataset.chip) || game.chip;

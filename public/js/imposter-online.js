@@ -138,6 +138,7 @@ function startHTML(board) {
             <input class="bet-field__input" id="inpo-ante" type="number" inputmode="numeric"
                    min="${board.min}" max="${board.max}" step="${Math.max(1, board.min)}" value="${ante}" />
             <span class="bet-field__unit">kr</span>
+            <button class="chip-mini" id="inpo-ante-all" type="button" title="Sätt in hela saldot">Allt</button>
           </div>
         </div>
         <div class="row" style="gap:8px;flex-wrap:wrap">
@@ -442,6 +443,19 @@ function bind() {
       const min = Number(board.min) || 1;
       const max = Number(board.max) || 100000;
       ui.ante = Math.max(min, Math.min(max, Math.round(Number(anteInput.value) || min)));
+      repaint();
+    });
+
+  const allBtn = host.querySelector('#inpo-ante-all');
+  if (allBtn)
+    allBtn.addEventListener('click', () => {
+      const board = ui.board || {};
+      const min = Number(board.min) || 1;
+      const max = Number(board.max) || min;
+      const input = host.querySelector('#inpo-ante');
+      ui.ante = Math.max(min, Math.min(max, Math.round(Math.min(state.player?.balance ?? 0, max))));
+      if (input) input.value = ui.ante;
+      sfx.chip();
       repaint();
     });
 

@@ -796,11 +796,23 @@ const storeSrc = read('lib/store.js');
 console.log('\nUtbetalning av stora vinster');
 
 const apiSrc3 = read('lib/api.js');
-const creditMax = Number(/const CREDIT_MAX = ([\d_]+);/.exec(apiSrc3)?.[1]?.replace(/_/g, '') || 0);
+/* Konstanten kan vara ett tal eller ett alias (CREDIT_MAX = MAX_STAKE), så vi
+   följer den ett steg. */
+function constantValue(source, name) {
+  const literal = new RegExp(`const ${name} = ([\\d_]+);`).exec(source);
+  if (literal) return Number(literal[1].replace(/_/g, ''));
+  const alias = new RegExp(`const ${name} = ([A-Z_]+);`).exec(source);
+  return alias ? constantValue(source, alias[1]) : 0;
+}
+const creditMax = constantValue(apiSrc3, 'CREDIT_MAX');
+const maxStake = constantValue(apiSrc3, 'MAX_STAKE');
 [
   // 250 000 får bara finnas kvar som igenkänning av gamla vinster – aldrig som tak.
   ['inga vinster klipps vid 250 000 längre', !/:\s*250000;/.test(apiSrc3) && !/Math\.min\([^)]*250000\)/.test(apiSrc3)],
   ['skyddsräcket ligger över miljonvinster', creditMax >= 10000000, true],
+  ['man får satsa hela saldot upp till en biljard', maxStake >= 1000000000000000],
+  ['insatsen kontrolleras mot taket', /amount > stakeCap/.test(apiSrc3)],
+  ['borden har samma tak', (apiSrc3.match(/Math\.min\(Number\(db\.settings\.maxBet\) \|\| MAX_STAKE, MAX_STAKE\)/g) || []).length >= 3],
   ['quizbelöningen har fortfarande ett eget tak', /game === 'quiz' \? 400 : CREDIT_MAX/.test(apiSrc3)],
   ['klienten varnar om en vinst skulle klämmas', /data\.capped/.test(read('public/js/core.js'))]
 ].forEach(([label, passed, showCap]) =>

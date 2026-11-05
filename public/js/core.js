@@ -6,7 +6,7 @@ import { demoFeed, hockeyFeed, decideOutcome } from './sportdemo.js';
 
 export const DEFAULT_SETTINGS = {
   minBet: 10,
-  maxBet: 5000,
+  maxBet: 1000000000000000,
   startBalance: 2500,
   blackjackPayout: 1.5,
   dealerHitsSoft17: false,
@@ -21,7 +21,7 @@ export const DEFAULT_SETTINGS = {
   banner: '',
   sportEnabled: true,
   sportMargin: 6,
-  sportMaxStake: 500,
+  sportMaxStake: 1000000000000000,
   rubberBand: true
 };
 
@@ -88,7 +88,25 @@ export function esc(value) {
     .replace(/'/g, '&#39;');
 }
 
-export const num = (n) => Math.round(Number(n) || 0).toLocaleString('sv-SE');
+/* Stora belopp skrivs kort: 1 500 000 000 000 blir "1,5 biljoner". Upp till
+   en biljard går det att satsa, och med alla siffror blir texten oläslig. */
+const BIG_NUMBERS = [
+  { value: 1e15, one: 'biljard', many: 'biljarder' },
+  { value: 1e12, one: 'biljon', many: 'biljoner' }
+];
+
+export const num = (n) => {
+  const value = Number(n) || 0;
+  const big = BIG_NUMBERS.find((unit) => Math.abs(value) >= unit.value);
+  if (!big) return Math.round(value).toLocaleString('sv-SE');
+  const scaled = value / big.value;
+  const rounded = Math.round(scaled * 10) / 10;
+  const text =
+    Math.abs(rounded) < 1000
+      ? String(rounded).replace('.', ',')
+      : Math.round(rounded).toLocaleString('sv-SE');
+  return text + ' ' + (Math.abs(rounded) === 1 ? big.one : big.many);
+};
 export const kr = (n) => num(n) + ' kr';
 export const clamp = (v, min, max) => Math.min(max, Math.max(min, Number(v) || 0));
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

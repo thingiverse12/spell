@@ -116,6 +116,7 @@ function render(root) {
               </div>
               <button class="stepper-btn" id="vp-plus" ${game.phase !== 'betting' ? 'disabled' : ''}>+</button>
             </div>
+            <button class="chip-mini" id="vp-all" type="button" ${game.phase !== 'betting' ? 'disabled' : ''} title="Satsa hela saldot">Allt</button>
 
             <div class="row" style="gap:10px;flex-wrap:wrap">
               <button class="action-btn action-btn--deal" id="vp-action" style="max-width:280px">
@@ -177,6 +178,12 @@ function render(root) {
     if (game.phase !== 'betting') return;
     game.bet = Math.min(Math.min(maxBet, balance), game.bet + step);
     sfx.click();
+    render(root);
+  });
+  root.querySelector('#vp-all').addEventListener('click', () => {
+    if (game.phase !== 'betting') return;
+    game.bet = Math.max(minBet, Math.min(maxBet, balance));
+    sfx.chip();
     render(root);
   });
   root.querySelector('#vp-bet').addEventListener('change', (e) => {

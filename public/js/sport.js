@@ -271,7 +271,7 @@ function renderSlip() {
           .filter((v) => v >= min && v <= max)
           .map((v) => `<button class="chip-mini" data-quick="${v}" type="button">${v}</button>`)
           .join('')}
-        <button class="chip-mini" data-quick="${max}" type="button">Max</button>
+        <button class="chip-mini" data-quick="${max}" type="button" title="Satsa hela saldot">Allt</button>
       </div>
 
       <div class="slip__row"><span>Utbetalning vid vinst</span><strong class="slip__win">${kr(potential)}</strong></div>
