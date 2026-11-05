@@ -905,13 +905,19 @@ const zeroRtp = rtp(ruPay.zero, 1);
   ['37 olika fickor, 0 till 36', wheel.length === 37 && new Set(wheel).size === 37 && Math.min(...wheel) === 0 && Math.max(...wheel) === 36],
   ['rätt färger – 0 grön, 18 röda och 18 svarta', colors.green === 1 && colors.red === 18 && colors.black === 18],
   [
+    'rött och svart går inte att satsa på',
+    !ruOutside.some((b) => b.key === 'red' || b.key === 'black') &&
+      /const REMOVED_BETS = new Set\(\['red', 'black'\]\);/.test(ruSrc) &&
+      /if \(REMOVED_BETS\.has\(key\)\)/.test(ruSrc)
+  ],
+  [
     'oddsen: 45× enkelnummer, 100× grön nolla, 3× dussin/kolumn, 2× utsida',
     ruPay.straight === 45 &&
       ruPay.zero === 100 &&
       ruPay.dozen === 3 &&
       ruPay.column === 3 &&
       ruPay.even === 2 &&
-      ruOutside.length === 6 &&
+      ruOutside.length === 4 &&
       ruOutside.every((b) => b.mult === 2) &&
       ruDozens.every((d) => d.mult === 3) &&
       ruColumns.every((c) => c.mult === 3)

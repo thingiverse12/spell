@@ -3,8 +3,8 @@
 
    Spelaren lägger marker på bordet (ett nummer eller en utsida), trycker
    på SNURRA och får betalt: 45× på ett enkelnummer, hela 100× på den
-   gröna nollan, 3× på dussin/kolumn och 2× på röd/svart, jämn/udda och
-   låg/hög. Enkelnumren och nollan betalar alltså bättre än de matematiska
+   gröna nollan, 3× på dussin/kolumn och 2× på jämn/udda och låg/hög.
+   Rött och svart går inte att satsa på – se REMOVED_BETS. Enkelnumren och nollan betalar alltså bättre än de matematiska
    oddsen – ju smalare satsning, desto mer att vinna. Precis som i de andra
    spelen multipliceras vinsten med turen (rouletteLuck).
    ===================================================================== */
@@ -33,9 +33,12 @@ const PAYOUTS = { straight: 45, zero: 100, dozen: 3, column: 3, even: 2 };
    hela bordet (eller på alla tre dussin) och vinna varje gång. */
 const MAX_BETS = 4;
 
+/* Rött och svart finns inte som vad. Med hälften på varje var man garanterad
+   att få tillbaka insatsen varje snurr, och med turen på det blev det rena
+   pengamaskinen. Färgerna syns fortfarande på numren, men går inte att satsa på. */
+const REMOVED_BETS = new Set(['red', 'black']);
+
 const OUTSIDE = [
-  { key: 'red', label: 'RÖD', tone: 'red', mult: 2, hit: (n) => RED.has(n) },
-  { key: 'black', label: 'SVART', tone: 'black', mult: 2, hit: (n) => n !== 0 && !RED.has(n) },
   { key: 'odd', label: 'UDDA', tone: 'plain', mult: 2, hit: (n) => n !== 0 && n % 2 === 1 },
   { key: 'even', label: 'JÄMN', tone: 'plain', mult: 2, hit: (n) => n !== 0 && n % 2 === 0 },
   { key: 'low', label: '1–18', tone: 'plain', mult: 2, hit: (n) => n >= 1 && n <= 18 },
@@ -91,6 +94,7 @@ export const ROULETTE_MATH = {
   COLUMNS,
   PAYOUTS,
   MAX_BETS,
+  REMOVED_BETS,
   pays,
   spinPayout
 };
@@ -268,7 +272,9 @@ function renderRoulette(root) {
               Klicka på ett nummer eller en utsida för att lägga en marker. Högerklick tar bort
               markern igen. Högst <strong>${MAX_BETS} olika vad</strong> per snurr.
               <strong>Enkelnummer ger 45×</strong> och <strong>grön 0 ger 100×</strong> –
-              dussin och kolumn 3×, röd/svart, jämn/udda och låg/hög 2×.
+              dussin och kolumn 3×, jämn/udda och låg/hög 2×.
+              <strong>Rött och svart finns inte som vad</strong> – de gick att lägga hälften på
+              varje och få pengarna tillbaka gratis.
             </p>
           </div>
         </div>
@@ -431,6 +437,11 @@ function updateTotals(root) {
 
 function placeChip(root, key, dir) {
   if (game.spinning) return;
+  /* Ifall ett gammalt gränssnitt ligger kvar i cachen. */
+  if (REMOVED_BETS.has(key)) {
+    toast('Rött och svart går inte att satsa på', 'bad', 2600);
+    return;
+  }
   const { minBet, maxBet, balance } = limits();
   const total = betTotal();
   const current = game.chips.get(key) || 0;
@@ -598,7 +609,6 @@ function showInfo() {
           <tr><td><strong>Ett enkelnummer</strong></td><td><strong>45× insatsen</strong></td><td>1 av 37</td></tr>
           <tr><td>Dussin (1:a, 2:a, 3:e)</td><td>3× insatsen</td><td>12 av 37</td></tr>
           <tr><td>Kolumn (2:1)</td><td>3× insatsen</td><td>12 av 37</td></tr>
-          <tr><td>Röd / svart</td><td>2× insatsen</td><td>18 av 37</td></tr>
           <tr><td>Jämn / udda</td><td>2× insatsen</td><td>18 av 37</td></tr>
           <tr><td>Låg (1–18) / hög (19–36)</td><td>2× insatsen</td><td>18 av 37</td></tr>
         </tbody>
@@ -607,7 +617,7 @@ function showInfo() {
         <strong>Enkelnumren och nollan betalar mer än de matematiska oddsen</strong> – det är här man
         tjänar stort. Ett nummer ger i snitt <strong>${rtpLabel(PAYOUTS.straight)}</strong> tillbaka och
         grön nolla hela <strong>${rtpLabel(PAYOUTS.zero)}</strong>.
-        Utsidorna (röd/svart, jämn/udda, låg/hög, dussin och kolumner) ligger kvar på
+        Utsidorna (jämn/udda, låg/hög, dussin och kolumner) ligger kvar på
         <strong>${rtpLabel(36)}</strong>, och där vinner nollan åt huset.
       </p>
       <p class="tiny muted" style="margin-top:10px">
@@ -616,8 +626,9 @@ function showInfo() {
         är återbetald, aldrig insatsen själv.
       </p>
       <p class="tiny muted" style="margin-top:6px">
-        Lägger man hälften på rött och hälften på svart (eller satsar på alla tre dussin) får man
-        bara tillbaka det man lagt – ingen tur på det, och nollan tar allt.
+        <strong>Rött och svart går inte att satsa på</strong> – med hälften på varje fick man
+        tillbaka insatsen varje snurr. Satsar man på alla tre dussin (eller alla tre kolumner) får
+        man bara tillbaka det man lagt – ingen tur på det, och nollan tar allt.
         Allt spelas med spelmynt, aldrig riktiga pengar.
       </p>`,
     actions: [{ label: 'Stäng' }]

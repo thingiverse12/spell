@@ -128,8 +128,9 @@ Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
 - **Inpostern** – ett ord och en bluff: alla sitter vid **varsin skärm**, skriver sin egen
   ledtråd i tur och ordning och gissar vem som bluffar (`#/kasino/imposter`). Se nedan.
 - **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett enkelnummer (45×),
-  grön nolla (100×), dussin eller kolumn (3×), röd/svart, jämn/udda eller låg/hög (2×) och
-  tryck **SNURRA**. Hjulet stannar exakt på det dragna numret och historiken visar de senaste
+  grön nolla (100×), dussin eller kolumn (3×), jämn/udda eller låg/hög (2×) och
+  tryck **SNURRA**. Rött och svart går inte att satsa på (man kunde lägga hälften på varje och
+  få tillbaka pengarna gratis), och man kan högst ha fyra olika vad per snurr. Hjulet stannar exakt på det dragna numret och historiken visar de senaste
   snurren. **Enkelnumren och nollan betalar bättre än de matematiska oddsen** – ju smalare
   satsning, desto mer att vinna – medan utsidorna ligger kvar på 97,3 % som på ett riktigt
   europeiskt hjul. Nollan vinner åt huset på alla utsidor, och insatsen dras innan hjulet snurrar.
