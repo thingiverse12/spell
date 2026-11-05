@@ -29,6 +29,7 @@ import './admin.js';
 import { avatarHTML } from './look.js';
 import { syncAccountGate } from './gate.js';
 import { initReklam } from './reklam.js';
+import { openAdminCode } from './admin.js';
 
 const app = document.getElementById('app');
 
@@ -131,6 +132,11 @@ function renderTopbar() {
           <span class="balance__value" id="balance-value">${kr(balance)}</span>
         </div>
       </div>
+      ${
+        state.player?.admin
+          ? `<button class="btn btn--sm btn--ghost" id="staff-btn" title="Du är personal – öppna adminpanelen">👑 Personal</button>`
+          : ''
+      }
       <button class="btn btn--icon btn--ghost" id="sound-btn" title="Ljud">${state.muted ? '🔇' : '🔊'}</button>
       ${
         casino
@@ -140,6 +146,8 @@ function renderTopbar() {
     </div>`;
 
   bar.querySelector('#brand').addEventListener('click', brandClick);
+  const staffBtn = bar.querySelector('#staff-btn');
+  if (staffBtn) staffBtn.addEventListener('click', () => openAdminCode());
   bar.querySelector('#sound-btn').addEventListener('click', () => {
     const muted = toggleMute();
     bar.querySelector('#sound-btn').textContent = muted ? '🔇' : '🔊';

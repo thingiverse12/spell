@@ -66,6 +66,7 @@ const GAME_LABELS = {
   revolverbord: 'Rysk roulette (bord)',
   finns: 'Finns i sjön',
   inposter: 'Inpostern',
+  pokemon: 'Pokémon-kort',
   kortleken: 'Kortleken',
   sport: 'Sport (Live Sport)',
   quiz: 'Quiz',
@@ -125,6 +126,13 @@ const loginErrorText = (err) =>
     : 'Kunde inte logga in: ' + ((err && err.message) || 'okänt fel');
 
 export function openAdminCode() {
+  /* Personal med admin på kontot behöver ingen kod. */
+  if (state.player && state.player.admin) {
+    sfx.win();
+    toast('Välkommen, chef!', 'gold');
+    navigate('/admin');
+    return;
+  }
   openModal({
     title: 'Personal',
     sub: 'Ange koden för att öppna adminpanelen.',
@@ -222,7 +230,8 @@ async function renderAdmin(root) {
       const saved = storage.get('ph.admin', null);
       if (saved) state.adminToken = saved;
     }
-    if (!state.adminToken) return renderLogin(root);
+    /* Konton som fått admin helt och hållet kommer in med sin egen session. */
+    if (!state.adminToken && !state.player?.admin) return renderLogin(root);
   }
 
   root.innerHTML = `<div class="wrap"><p class="muted" style="padding:60px 0">Laddar panelen …</p></div>`;
@@ -726,12 +735,13 @@ function renderSpelare(content, root, data) {
               <td class="num" style="color:${(p.won - p.wagered) >= 0 ? '#6ff0b8' : '#ff8a9b'}">${(p.won - p.wagered) >= 0 ? '+' : ''}${kr(p.won - p.wagered)}</td>
               <td class="num">${p.rounds}</td>
               <td class="tiny muted">${timeText(p.lastSeen)}</td>
-              <td>${p.banned ? '<span class="chip" style="background:rgba(220,47,72,.18);color:#ff8a9b">Avstängd</span>' : p.isGuest ? '<span class="chip">Gäst</span>' : '<span class="chip chip--mint">Konto</span>'}${pauseChip(p)}</td>
+              <td>${p.banned ? '<span class="chip" style="background:rgba(220,47,72,.18);color:#ff8a9b">Avstängd</span>' : p.isGuest ? '<span class="chip">Gäst</span>' : '<span class="chip chip--mint">Konto</span>'}${p.admin ? ' <span class="chip chip--gold" title="Kontot öppnar adminpanelen utan kod">👑 Personal</span>' : ''}${pauseChip(p)}</td>
               <td style="white-space:nowrap">
                 <button class="btn btn--sm btn--ghost" data-balance="${p.id}">Saldo</button>
                 <button class="btn btn--sm btn--ghost" data-pause="${p.id}">${isPaused(p) ? 'Släpp paus' : 'Pausa'}</button>
                 <button class="btn btn--sm btn--ghost" data-ban="${p.id}">${p.banned ? 'Släpp' : 'Stäng'}</button>
                 <button class="btn btn--sm btn--ghost" data-reset="${p.id}">Noll</button>
+                <button class="btn btn--sm btn--ghost" data-admin="${p.id}">${p.admin ? 'Ta bort admin' : 'Gör admin'}</button>
               </td>
             </tr>`).join('') || '<tr><td colspan="10" class="muted">Inga spelare ännu.</td></tr>'}
         </tbody>
@@ -879,6 +889,28 @@ function renderSpelare(content, root, data) {
       try {
         await playerAction(player.id, 'ban', !player.banned);
         toast(player.banned ? 'Spelaren släppt' : 'Spelaren avstängd', 'ok');
+        renderAdmin(root);
+      } catch (err) {
+        toast(err.message, 'bad');
+      }
+    });
+  });
+
+  content.querySelectorAll('[data-admin]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const player = data.players.find((p) => p.id === btn.dataset.admin);
+      if (player.admin) {
+        const ok = await confirmModal({
+          title: 'Ta bort admin?',
+          text: `${player.name} kan inte längre öppna panelen med sitt konto.`,
+          confirmLabel: 'Ta bort',
+          danger: true
+        });
+        if (!ok) return;
+      }
+      try {
+        await playerAction(player.id, 'admin', !player.admin);
+        toast(player.admin ? 'Admin borttaget' : `${player.name} är nu admin`, 'ok');
         renderAdmin(root);
       } catch (err) {
         toast(err.message, 'bad');

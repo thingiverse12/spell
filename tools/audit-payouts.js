@@ -1464,6 +1464,34 @@ console.log('\nPokémon-kort');
   ['README beskriver korten', /Pokémon-kort/i.test(read('README.md'))]
 ].forEach(([label, passed, extra]) => (passed ? ok(label, extra === undefined ? '' : String(extra)) : bad(label, extra === undefined ? '' : String(extra))));
 
+/* ---------------------------- Personal på kontot ----------------------------
+   Ett konto kan få admin helt och hållet: då räcker spelarens egen session för
+   panelen och ingen kod behövs. Kontrollerna ser att det bara gäller konton
+   som faktiskt har flaggan, att avstängda konton stoppas och att koden finns
+   kvar för alla andra. */
+const apiSrcAdm = read('lib/api.js');
+const adminSrcAdm = read('public/js/admin.js');
+const mainSrcAdm = read('public/js/main.js');
+
+console.log('\nPersonal på kontot');
+[
+  [
+    'spelarens session räcker för panelen',
+    /const player = findPlayerByToken\(req\);\s*\n\s*if \(player && player\.admin && !player\.banned\)/.test(apiSrcAdm)
+  ],
+  ['avstängd personal stoppas', /player\.admin && !player\.banned/.test(apiSrcAdm)],
+  ['admin-flaggan följer med spelaren till klienten', /admin: !!p\.admin,/.test(apiSrcAdm)],
+  ['panelen kan göra någon till admin', /action === 'admin'/.test(apiSrcAdm) && /player\.admin = !!body\.value/.test(apiSrcAdm)],
+  ['bytet loggas', /player\.admin \? 'blev admin' : 'admin borttaget'/.test(apiSrcAdm)],
+  ['koden fungerar fortfarande', /'POST \/api\/admin\/login'/.test(apiSrcAdm) && /adminToken: issueAdminToken\(\)/.test(apiSrcAdm)],
+  ['panelen hoppar över kodrutan för personal', /!state\.adminToken && !state\.player\?\.admin/.test(adminSrcAdm)],
+  ['kod-modalen släpper in personal direkt', /if \(state\.player && state\.player\.admin\)/.test(adminSrcAdm)],
+  ['toppraden har en Personal-knapp', /id="staff-btn"/.test(mainSrcAdm) && /openAdminCode\(\)/.test(mainSrcAdm)],
+  ['spelarlistan har knappen Gör admin', /data-admin="\$\{p\.id\}"/.test(adminSrcAdm) && /'admin', !player\.admin/.test(adminSrcAdm)],
+  ['personal märks i listan', /👑 Personal/.test(adminSrcAdm)],
+  ['README beskriver personal på kontot', /admin helt och hållet|Personal på kontot/i.test(read('README.md'))]
+].forEach(([label, passed]) => (passed ? ok(label) : bad(label, 'personal')));
+
 console.log(
   failures === 0
     ? '\nAlla kontroller gick igenom ✅\n'

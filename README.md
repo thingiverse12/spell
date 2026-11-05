@@ -615,6 +615,13 @@ Nås på tre sätt:
 
 **Koden är `Vincent12`** (ändra med miljövariabeln `ADMIN_CODE`).
 
+**Personal på kontot:** ett konto kan få *admin helt och hållet* – då öppnar
+kontot panelen med sin egen inloggning, utan kod, på alla enheter. Sådana konton
+märks med **👑 Personal** i spelarlistan, får en **👑 Personal**-knapp i toppraden
+och hoppar förbi kodrutan. I panelen finns knappen **Gör admin** / **Ta bort admin**
+på varje spelare; avstängda konton tappar panelen direkt. Koden fungerar som förut
+för alla andra.
+
 I panelen kan admin:
 - se alla spelare, konton/gäster, saldon, omsättning och utbetalningar,
   och städa bort alla gästkonton med ett klick,

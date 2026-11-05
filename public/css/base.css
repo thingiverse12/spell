@@ -277,6 +277,7 @@ body.theme-casino .btn--primary { --btn-bg: linear-gradient(160deg, #f6e3a2, #d8
   border: 1px solid var(--line);
 }
 .chip--mint { background: var(--mint-soft); color: var(--mint); border-color: transparent; }
+.chip--gold { background: rgba(231, 196, 106, .18); color: #e7c46a; border-color: transparent; }
 .chip--amber { background: var(--amber-soft); color: var(--amber); border-color: transparent; }
 .chip--accent { background: var(--accent-soft); color: var(--accent); border-color: transparent; }
 .chip[data-filter] { cursor: pointer; }
