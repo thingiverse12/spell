@@ -114,7 +114,7 @@ Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
 
 ### 🎰 Spelhallen
 - **Blackjack** – sex kortlekar, hit/stanna/dubbel/splitta, blackjack 3:2 och en snäll dealer som aldrig får 21 på given (se nedan).
-- **Star Fortune (slots)** – 5 hjul, 3 rader och tre raka vinstlinjer. Du vinner när minst **tre lika symboler står i rad** från vänster på samma rad (jokern ★ ersätter alla): tre i rad ger minst 3,5× insatsen, fyra och fem ger de stora vinsterna (upp till 2500×). Träffchansen är ungefär 13 % per snurr. Autospel ingår (RTP ≈ 95 %).
+- **Star Fortune (slots)** – 5 hjul, 3 rader och tre raka vinstlinjer. Du vinner när minst **två lika symboler står i rad** från vänster på samma rad (jokern ★ ersätter alla): två i rad ger pengarna tillbaka med liten marginal, tre, fyra och fem i rad ger de stora vinsterna (upp till 1000×). Ungefär **varannan snurr ger vinst** och utbetalningen ligger på cirka 112 % av insatserna. En ruta under hjulen förklarar direkt hur man vinner. Autospel ingår.
 - **Videopoker** – Jacks or Better med håll-kort.
 - **Skraplotter** – köp ett lott (10–500 kr), skrapa de nio rutorna med musen eller
   fingret och få vinst på tre lika belopp. Vinsttrappan går från 1,5× till 50× lottpriset

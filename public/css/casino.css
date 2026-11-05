@@ -439,6 +439,24 @@
 }
 .slot-sub { text-align: center; color: #b39ddb; font-size: 11.5px; letter-spacing: .18em; text-transform: uppercase; margin-bottom: 14px; }
 
+/* Så vinner du – kort förklaring direkt under hjulen */
+.slot-howto {
+  max-width: 540px;
+  margin: 12px auto 0;
+  padding: 10px 14px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .04);
+  border: 1px solid rgba(179, 157, 219, .24);
+  text-align: center;
+}
+.slot-howto__title { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: #b39ddb; margin-bottom: 8px; }
+.slot-howto__row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.slot-howto__cell { display: flex; flex-direction: column; gap: 2px; padding: 6px 4px; border-radius: 10px; background: rgba(179, 157, 219, .10); }
+.slot-howto__cell strong { font-size: 13px; color: #fff; }
+.slot-howto__cell em { font-size: 10.5px; font-style: normal; color: #cdbcf0; }
+.slot-howto__foot { margin-top: 8px; font-size: 11px; line-height: 1.45; color: #b39ddb; }
+@media (max-width: 560px) { .slot-howto__row { grid-template-columns: repeat(2, 1fr); } }
+
 .reels {
   position: relative;
   display: grid; grid-template-columns: repeat(5, 1fr);

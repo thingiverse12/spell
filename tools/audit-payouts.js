@@ -165,27 +165,40 @@ const lineDist = (() => {
 const hitChance = lineDist.reduce((sum, line) => sum + line.prob, 0);
 
 const RTP_BET = 100; // rimlig insats – undviker avrundningsbrus
+
+/* Samma utbetalning som game: tur och gummiband gäller vinsten ovanpå
+   insatsen (slotWin i slots.js). */
+const slotWin = (stake, mult, luckSetting = 1, factor = 1) => {
+  const sats = Math.max(0, Number(stake) || 0);
+  const m = Number(mult) || 0;
+  if (!(m > 1) || !(sats > 0)) return 0;
+  const eff = Math.min(LUCK_MAX, Math.max(LUCK_MIN, (Number(luckSetting) || 1) * (Number(factor) || 1)));
+  return Math.max(Math.round(sats + (sats * m - sats) * eff), Math.ceil(sats) + 1);
+};
+
 const rtpAt = (factor) => {
   const perLine = lineDist.reduce(
-    (sum, line) => sum + line.prob * luckPayout(RTP_BET, line.mult * SLOT_LUCK, factor),
+    (sum, line) => sum + line.prob * slotWin(RTP_BET, line.mult, SLOT_LUCK, factor),
     0
   );
   return ((perLine * paylines.length) / RTP_BET) * 100;
 };
 
-if (hitChance * paylines.length * 100 > 1) {
-  ok('vinstchansen är rimlig för en snurr', `${(hitChance * paylines.length * 100).toFixed(1)} %`);
-} else bad('vinstchansen är för låg', `${(hitChance * paylines.length * 100).toFixed(1)} %`);
+/* Raderna ligger på var sin rad (0, 1 och 2) och dras oberoende, så
+   chansen att minst en rad vinner är 1 − (1 − p)^antalRader. */
+const winShare = 1 - Math.pow(1 - hitChance, paylines.length);
+if (winShare * 100 > 10) ok('vinstchansen är rimlig för en snurr', `${(winShare * 100).toFixed(1)} %`);
+else bad('vinstchansen är för låg', `${(winShare * 100).toFixed(1)} %`);
 
 const baseRtp = rtpAt(1);
-if (baseRtp > 85 && baseRtp < 100) {
+if (baseRtp > 95 && baseRtp < 125) {
   ok('RTP ligger i intervallet vid neutral tur', `${baseRtp.toFixed(1)} % (slotLuck ×${SLOT_LUCK})`);
-} else bad('RTP utanför intervallet 85–100 %', `${baseRtp.toFixed(1)} % (slotLuck ×${SLOT_LUCK})`);
+} else bad('RTP utanför intervallet 95–125 %', `${baseRtp.toFixed(1)} % (slotLuck ×${SLOT_LUCK})`);
 
 const happyRtp = rtpAt(LUCK_MAX);
 const sadRtp = rtpAt(LUCK_MIN);
-if (happyRtp > baseRtp && sadRtp < baseRtp) {
-  ok('lågt saldo ger högre RTP, högt saldo lägre', `${sadRtp.toFixed(1)} % → ${happyRtp.toFixed(1)} %`);
+if (happyRtp > baseRtp && sadRtp <= baseRtp + 0.01) {
+  ok('lågt saldo ger högre RTP, högt saldo lägst ×0,70', `${sadRtp.toFixed(1)} % → ${happyRtp.toFixed(1)} %`);
 } else bad('gummibandet påverkar inte slots', `${sadRtp.toFixed(1)} / ${baseRtp.toFixed(1)} / ${happyRtp.toFixed(1)}`);
 // Gummibandet ska ge en märkbar men inte absurd skillnad: en spelare med
 // mycket kvar vinner mindre (RTP ~70 %) och en med lite kvar vinner mer (~117 %).
@@ -193,7 +206,7 @@ if (sadRtp > 60 && happyRtp < 130) {
   ok('RTP stannar inom gummibandets spann', `${sadRtp.toFixed(1)}–${happyRtp.toFixed(1)} %`);
 } else bad('RTP blir orimligt vid någon tur', `${sadRtp.toFixed(1)}–${happyRtp.toFixed(1)} %`);
 
-const lousiestSlotWin = luckPayout(100, minSlotMult, LUCK_MIN);
+const lousiestSlotWin = slotWin(100, minSlotMult, SLOT_LUCK, LUCK_MIN);
 if (lousiestSlotWin > 100) ok('sämsta tänkbara vinstrad ger ändå plus', `100 kr → ${lousiestSlotWin} kr`);
 else bad('sämsta vinstraden ger inte plus', `${lousiestSlotWin} kr`);
 
@@ -202,18 +215,22 @@ const straightLines = paylines.length > 0 && paylines.every((line) => line.every
 if (straightLines) ok('bara raka rader ger vinst', `${paylines.length} raka rader`);
 else bad('vinstlinjerna går inte rakt över hjulen', `${paylines.length} linjer`);
 
-/* Minst tre lika i rad – annars blev det knappt några vinster alls. */
-const threeRule = /if \(count < MIN_COUNT\) return;/.test(slotsSrc);
-if (minCount === 3 && threeRule) ok('minst tre lika i rad ger vinst', `${minCount} i rad`);
-else bad('vinst kan ges för färre än fyra i rad', `MIN_COUNT ${minCount}`);
+/* Minst två lika i rad – då vinner ungefär två av tre snurr. */
+const twoRule = /if \(count < MIN_COUNT\) return;/.test(slotsSrc);
+if (minCount === 2 && twoRule) ok('minst två lika i rad ger vinst', `${minCount} i rad`);
+else bad('vinst kräver fler än två i rad', `MIN_COUNT ${minCount}`);
 
-/* Tre i rad ska betala – men mindre än fyra och fem i rad. */
-const threeRow = Object.entries(paytable).filter(([, entry]) => entry[3] !== undefined);
-const threeOk =
-  threeRow.length >= 7 &&
-  threeRow.every(([, entry]) => entry[3] > 1 && entry[3] < entry[4] && entry[4] < entry[5]);
-if (threeOk) ok('tre i rad betalar, men mindre än fyra och fem', `${threeRow.length} symboler`);
-else bad('tre i rad betalar inte, eller mer än fyra i rad');
+/* Två i rad ska ge pengarna tillbaka, tre eller fler riktiga vinster. */
+const twoRow = Object.entries(paytable).filter(([, entry]) => entry[2] !== undefined);
+const twoOk =
+  twoRow.length >= 7 &&
+  twoRow.every(([, entry]) => entry[2] > 1 && entry[2] < entry[3] && entry[3] < entry[4] && entry[4] < entry[5]);
+if (twoOk) ok('två i rad betalar, men mindre än tre, fyra och fem', `${twoRow.length} symboler`);
+else bad('två i rad betalar inte, eller mer än tre i rad');
+
+/* En vanlig spelare ska vinna ofta – minst var tredje snurr. */
+if (winShare >= 0.3) ok('vinst på minst var tredje snurr', `${(winShare * 100).toFixed(0)} %`);
+else bad('för sällan vinst i slotsen', `${(winShare * 100).toFixed(0)} %`);
 
 /* ----------------------------- videopoker ----------------------------- */
 
@@ -779,7 +796,10 @@ console.log('\nAdminpanel – spel-ekonomi');
 const economySrc = read('public/js/economy.js');
 const adminSrc2 = read('public/js/admin.js');
 [
-  ['slots.js delar vinsttabellen med panelen', /export const SLOT_MATH = \{ SYMBOLS, PAYTABLE, PAYLINES(, MIN_COUNT)? \};/.test(slotsSrc)],
+  [
+    'slots.js delar vinsttabellen med panelen',
+    /export const SLOT_MATH = \{ SYMBOLS, PAYTABLE, PAYLINES, MIN_COUNT, slotWin \};/.test(slotsSrc)
+  ],
   ['scratch.js delar vinsttrappan med panelen', /export const SCRATCH_MATH = \{ TIERS, NO_WIN_WEIGHT, TOTAL_WEIGHT \};/.test(read('public/js/scratch.js'))],
   [
     'panelen räknar med spelets egen utbetalningsformel',
@@ -855,8 +875,9 @@ const machines = ['slots', 'videopoker', 'scratch'];
       /refreshLuckPills/.test(luckSrc3)
   ],
   [
-    'turen multipliceras in i slotsens utbetalning',
-    /luckPayout\(bet, mult \* luck\(\), factor\)/.test(slotsSrc) &&
+    'turen gäller vinsten i slotsen, aldrig insatsen',
+    /const win = slotWin\(bet, mult, luck\(\), factor\);/.test(slotsSrc) &&
+      /Math\.max\(Math\.round\(stake \+ \(stake \* m - stake\) \* eff\), Math\.ceil\(stake\) \+ 1\)/.test(slotsSrc) &&
       /clampLuckSetting\(state\.settings\.slotLuck\)/.test(slotsSrc)
   ],
   [

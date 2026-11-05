@@ -65,7 +65,7 @@ export function slotRtp(luckSetting, factor = 1, bet = 100) {
   const luck = clampLuck(luckSetting);
   let ev = 0;
   for (const line of lineDist()) {
-    ev += line.prob * luckPayout(bet, line.mult * luck, factor);
+    ev += line.prob * SLOT_MATH.slotWin(bet, line.mult, luck, factor);
   }
   ev *= SLOT_MATH.PAYLINES.length;
   return (ev / bet) * 100;

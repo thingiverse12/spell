@@ -83,6 +83,15 @@ function luckFactor(balance, startBalance = START_BALANCE) {
 }
 
 /** Exakt kopia av luckPayout() i luck.js. */
+/* Slotsens utbetalning: tur och gummiband gäller vinsten ovanpå insatsen. */
+function slotWin(stake, mult, luckSetting = 1, factor = 1) {
+  const sats = Math.max(0, Number(stake) || 0);
+  const m = Number(mult) || 0;
+  if (!(m > 1) || !(sats > 0)) return 0;
+  const eff = Math.min(LUCK_MAX, Math.max(LUCK_MIN, (Number(luckSetting) || 1) * (Number(factor) || 1)));
+  return Math.max(Math.round(sats + (sats * m - sats) * eff), Math.ceil(sats) + 1);
+}
+
 function luckPayout(stake, mult, factor = 1) {
   const sats = Math.max(0, Number(stake) || 0);
   const m = Number(mult) || 0;
@@ -103,6 +112,7 @@ const SYMBOLS = literal(slotsSrc, 'const SYMBOLS = {');
 const PAYTABLE = literal(slotsSrc, 'const PAYTABLE = {');
 const PAYLINES = literal(slotsSrc, 'const PAYLINES = [');
 const LINES = PAYLINES.length;
+const SLOT_MIN_COUNT = Number(/const MIN_COUNT = (\d+);/.exec(slotsSrc)?.[1] || 0);
 
 const SYM_KEYS = Object.keys(SYMBOLS);
 const WEIGHTS = SYM_KEYS.map((k) => SYMBOLS[k].weight);
@@ -126,7 +136,7 @@ function lineMultiplier(symbols) {
     if (symbols[i] === base || symbols[i] === 'wild') count += 1;
     else break;
   }
-  if (count < 3) return 0;
+  if (count < SLOT_MIN_COUNT) return 0;
   return PAYTABLE[base]?.[count] || 0;
 }
 
@@ -156,7 +166,7 @@ function slotRtp(luckSetting, factor, bet) {
   const luck = clampSetting(luckSetting);
   let ev = 0;
   for (const { mult, probability } of lineDist) {
-    ev += probability * luckPayout(bet, mult * luck, factor);
+    ev += probability * slotWin(bet, mult, luck, factor);
   }
   ev *= LINES;
   return (ev / bet) * 100;
@@ -187,7 +197,7 @@ function spinPayout(grid, bet, luckSetting, factor) {
     const symbols = line.map((row, reel) => grid[reel][row]);
     const mult = lineMultiplier(symbols);
     if (!mult) continue;
-    const win = luckPayout(bet, mult * luck, factor);
+    const win = slotWin(bet, mult, luck, factor);
     if (win <= 0) continue;
     total += win;
     lines += 1;
