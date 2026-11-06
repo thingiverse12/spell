@@ -142,7 +142,10 @@ Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
   **Turen gäller bara enkelnummer och grön nolla** – utsidorna betalar alltid sin fasta multipel,
   så en satsning på udda är 2× på 18 av 37 nummer (97,3 % tillbaka) hur hög turen än är. Förut fick
   utsidorna turen på köpet, och med turen på ×3 gav udda 4× pengarna på varannan snurr – då var det
-  i praktiken garanterat att man gick plus.
+  i praktiken garanterat att man gick plus. **Netto**-pillret vid bordet är summan av alla snurr sedan
+  bordet öppnades (antalet snurr står bredvid), så tio förlorade 100-kronorssnurr visar −1 000 kr –
+  det är inget enskilt snurr. En vinst som ändå ger minusnetto, när man satsat på flera vad i samma
+  snurr, skriver ut insatsen i vinstmeddelandet.
 - **Kortleken** – alla 52 kort + 2 jokrar med svenska och engelska namn.
 - Daglig bonus, saldo och insatsgränser.
 

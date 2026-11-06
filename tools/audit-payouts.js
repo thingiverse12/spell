@@ -1004,6 +1004,20 @@ const zeroRtp = rtp(ruPay.zero, 1);
   ],
   ['högst fyra olika vad per snurr', /const MAX_BETS = 4;/.test(ruSrc) && /game\.chips\.size >= MAX_BETS/.test(ruSrc)],
   [
+    'netto-räknaren säger att den gäller alla snurr',
+    ruSrc.includes('· ${game.spinCount} snurr') &&
+      ruSrc.includes('Summan av alla snurr sedan du öppnade bordet')
+  ],
+  [
+    'en vinst som ändå ger minusnetto visar insatsen',
+    ruSrc.includes("const stakeText = net < 0 ? ` (insats ${kr(total)})` : '';") &&
+      ruSrc.includes('netto ${netText}${stakeText}')
+  ],
+  [
+    'reglerna förklarar nettot',
+    ruSrc.includes('är summan av alla snurr sedan du öppnade det') && ruSrc.includes('−1 000 kr')
+  ],
+  [
     'en vinst på ett enkelnummer ger alltid mer än insatsen',
     (() => {
       const stake = 100;

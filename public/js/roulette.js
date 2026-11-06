@@ -441,8 +441,15 @@ function updateTotals(root) {
   if (totalEl) totalEl.textContent = kr(total);
   const btn = root.querySelector('#ru-spin');
   if (btn) btn.disabled = game.spinning || total <= 0;
+  /* Netto är summan av alla snurr sedan bordet öppnades – därför står antalet
+     snurr bredvid, så en siffra som −1 000 inte ser ut som en enskild snurr. */
   const netEl = root.querySelector('#ru-net');
-  if (netEl) netEl.innerHTML = `Netto <strong>${kr(game.net)}</strong>`;
+  if (netEl) {
+    netEl.innerHTML =
+      `Netto <strong>${kr(game.net)}</strong>` +
+      (game.spinCount ? ` <em class="tiny muted">· ${game.spinCount} snurr</em>` : '');
+    netEl.title = 'Summan av alla snurr sedan du öppnade bordet – inte bara den senaste.';
+  }
   const balEl = root.querySelector('#ru-balance');
   if (balEl) balEl.textContent = kr(state.player ? state.player.balance : 0);
   const betsEl = root.querySelector('#ru-bets');
@@ -581,12 +588,15 @@ async function spin(root) {
     updateBalanceUI();
     const net = payout - total;
     const netText = (net >= 0 ? '+' : '−') + kr(Math.abs(net));
+    /* Vinst på flera vad kan ändå ge minusnetto – skriv ut insatsen då, så
+       siffran går att räkna hem (t.ex. 500 kr vinst på 1 000 kr insats). */
+    const stakeText = net < 0 ? ` (insats ${kr(total)})` : '';
     if (payout >= total * 10) {
       sfx.bigWin();
       toast(`STORVINST! ${kr(payout)} på ${n} ${pocketColor(n) === 'red' ? 'röd' : pocketColor(n) === 'black' ? 'svart' : 'grön'}`, 'gold', 3400);
     } else {
       sfx.win();
-      toast(`Vinst ${kr(payout)} på ${n} – netto ${netText}`, 'gold', 3000);
+      toast(`Vinst ${kr(payout)} på ${n} – netto ${netText}${stakeText}`, 'gold', 3000);
     }
   } else {
     sfx.lose();
@@ -640,6 +650,12 @@ function showInfo() {
         nolla</strong>, och bara vinsten som blir kvar när insatsen är återbetald. Utsidorna
         (jämn/udda, låg/hög, dussin och kolumner) betalar alltid sin fasta multipel, så en
         satsning på udda är 2× på 18 av 37 nummer – inget mer.
+      </p>
+      <p class="tiny muted" style="margin-top:6px">
+        <strong>Netto</strong> vid bordet är summan av alla snurr sedan du öppnade det: satsar du
+        100 kr och förlorar tio snurr i rad står det <strong>−1 000 kr</strong>, även om den senaste
+        snurren bara kostade 100 kr. Antalet snurr står bredvid siffran, och en vinst som ändå ger
+        minusnetto (flera vad i samma snurr) visar insatsen i rutan.
       </p>
       <p class="tiny muted" style="margin-top:6px">
         <strong>Rött och svart går inte att satsa på</strong> – med hälften på varje fick man
