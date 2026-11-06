@@ -139,6 +139,10 @@ Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
   snurren. **Enkelnumren och nollan betalar bättre än de matematiska oddsen** – ju smalare
   satsning, desto mer att vinna – medan utsidorna ligger kvar på 97,3 % som på ett riktigt
   europeiskt hjul. Nollan vinner åt huset på alla utsidor, och insatsen dras innan hjulet snurrar.
+  **Turen gäller bara enkelnummer och grön nolla** – utsidorna betalar alltid sin fasta multipel,
+  så en satsning på udda är 2× på 18 av 37 nummer (97,3 % tillbaka) hur hög turen än är. Förut fick
+  utsidorna turen på köpet, och med turen på ×3 gav udda 4× pengarna på varannan snurr – då var det
+  i praktiken garanterat att man gick plus.
 - **Kortleken** – alla 52 kort + 2 jokrar med svenska och engelska namn.
 - Daglig bonus, saldo och insatsgränser.
 

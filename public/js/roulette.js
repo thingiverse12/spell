@@ -60,25 +60,38 @@ const COLUMNS = [
 /* Delas med npm run audit och testerna så oddsen kan kontrolleras utanför
    webbläsaren – även vad varje satsning faktiskt betalar. */
 /**
- * Vad en snurr betalar. Tur och gummiband gäller vinsten som är kvar när
- * insatsen är återbetald – aldrig insatsen själv. Annars gick det att lägga
- * hälften på rött och hälften på svart (eller på alla tre dussin) och ändå
- * få tillbaka flera gånger pengarna varje snurr: ena sidan betalade tillbaka
- * mer än båda insatserna tillsammans.
+ * Vad en snurr betalar.
+ *
+ * Turen och gummibandet gäller bara de smala vaden – ett enkelnummer eller
+ * den gröna nollan, där man satsar på 1 av 37. Där blir vinsten insatsen
+ * plus vinsten över insatsen gånger turen, så en vinst ger alltid mer än
+ * insatsen.
+ *
+ * Utsidorna (jämn/udda, låg/hög, dussin och kolumner) betalar alltid sin
+ * fasta multipel. Förut fick de turen på köpet, och med turen på ×3 gav en
+ * satsning på udda 4× pengarna på 18 av 37 nummer – då var det i praktiken
+ * garanterat att man gick plus, och man kunde lägga hälften på udda och
+ * hälften på jämnt och ändå tjäna på varje snurr.
  */
 export function spinPayout(chips, n, luck = 1, factor = 1) {
   let stake = 0;
   let raw = 0;
+  let payout = 0;
+  /* Under 1 betyder otur och ska inte heller äta upp insatsen. */
+  const boost = Math.max(1, (Number(luck) || 1) * (Number(factor) || 1));
+
   chips.forEach((amount, key) => {
     const bet = Number(amount) || 0;
     if (!(bet > 0)) return;
     stake += bet;
     const mult = pays(key, n);
-    if (mult > 0) raw += bet * mult;
+    if (!(mult > 0)) return;
+    const win = bet * mult;
+    raw += win;
+    const narrow = key === 'n:0' || key.startsWith('n:');
+    payout += narrow ? (win > bet ? bet + (win - bet) * boost : win) : win;
   });
-  /* Under 1 betyder otur och ska inte heller äta upp insatsen. */
-  const boost = Math.max(1, (Number(luck) || 1) * (Number(factor) || 1));
-  const payout = raw > stake ? stake + (raw - stake) * boost : raw;
+
   return {
     stake: Math.round(stake * 100) / 100,
     raw: Math.round(raw * 100) / 100,
@@ -272,7 +285,8 @@ function renderRoulette(root) {
               Klicka på ett nummer eller en utsida för att lägga en marker. Högerklick tar bort
               markern igen. Högst <strong>${MAX_BETS} olika vad</strong> per snurr.
               <strong>Enkelnummer ger 45×</strong> och <strong>grön 0 ger 100×</strong> –
-              dussin och kolumn 3×, jämn/udda och låg/hög 2×.
+              dussin och kolumn 3×, jämn/udda och låg/hög 2×. Bara enkelnummer och nollan
+              får turen; utsidorna betalar alltid sin fasta multipel.
               <strong>Rött och svart finns inte som vad</strong> – de gick att lägga hälften på
               varje och få pengarna tillbaka gratis.
             </p>
@@ -622,8 +636,10 @@ function showInfo() {
       </p>
       <p class="tiny muted" style="margin-top:10px">
         Gällande tur: <strong>${'×' + Number(luck).toFixed(2).replace('.', ',')}</strong>
-        ${level ? `(${level})` : '(egen nivå)'} – turen gäller vinsten som blir kvar när insatsen
-        är återbetald, aldrig insatsen själv.
+        ${level ? `(${level})` : '(egen nivå)'} – turen gäller bara <strong>enkelnummer och grön
+        nolla</strong>, och bara vinsten som blir kvar när insatsen är återbetald. Utsidorna
+        (jämn/udda, låg/hög, dussin och kolumner) betalar alltid sin fasta multipel, så en
+        satsning på udda är 2× på 18 av 37 nummer – inget mer.
       </p>
       <p class="tiny muted" style="margin-top:6px">
         <strong>Rött och svart går inte att satsa på</strong> – med hälften på varje fick man

@@ -977,26 +977,39 @@ const zeroRtp = rtp(ruPay.zero, 1);
   ],
   ['reglerna beskriver de nya oddsen', /45× insatsen/.test(ruSrc) && /100×/.test(ruSrc)],
   [
-    'turen gäller bara vinsten över insatsen, aldrig insatsen',
-    /const boost = Math\.max\(1, \(Number\(luck\) \|\| 1\) \* \(Number\(factor\) \|\| 1\)\);/.test(ruSrc) &&
-      /const payout = raw > stake \? stake \+ \(raw - stake\) \* boost : raw;/.test(ruSrc) &&
-      /rouletteLuck/.test(ruSrc)
+    'turen gäller bara enkelnummer och grön nolla',
+    /const narrow = key === 'n:0' \|\| key\.startsWith\('n:'\);/.test(ruSrc) &&
+      /payout \+= narrow \? \(win > bet \? bet \+ \(win - bet\) \* boost : win\) : win;/.test(ruSrc)
   ],
   [
-    'halva/halva ger aldrig mer än insatsen',
+    'utsidorna betalar alltid sin fasta multipel',
+    !/const payout = raw > stake \? stake \+ \(raw - stake\) \* boost : raw;/.test(ruSrc)
+  ],
+  [
+    'en satsning på udda är inte garanterad vinst',
     (() => {
-      const hedge = (raw, stake, luck = 3) => (raw > stake ? stake + (raw - stake) * Math.max(1, luck) : raw);
-      return hedge(200, 200) === 200 && hedge(300, 300) === 300 && hedge(0, 200) === 0;
+      /* 2× på 18 av 37 nummer, oavsett tur: 97,3 % tillbaka. */
+      const rtpOdd = (ruPay.even * hits('odd')) / wheel.length;
+      return Math.abs(rtpOdd - 36 / 37) < 1e-9 && rtpOdd < 1;
+    })(),
+    ((ruPay.even * hits('odd') * 100) / wheel.length).toFixed(1).replace('.', ',') + ' %'
+  ],
+  [
+    'udda + jämn ger pengarna tillbaka, aldrig mer',
+    (() => {
+      /* Två utsidor à 100 kr: en vinner och betalar 2×, nollan tar allt. */
+      const hedge = (n) => (n === 0 ? 0 : 100 * ruPay.even);
+      return wheel.every((n) => hedge(n) <= 200) && hedge(0) === 0;
     })()
   ],
   ['högst fyra olika vad per snurr', /const MAX_BETS = 4;/.test(ruSrc) && /game\.chips\.size >= MAX_BETS/.test(ruSrc)],
   [
-    'en vinst ger alltid mer än insatsen, även vid lägsta tur',
+    'en vinst på ett enkelnummer ger alltid mer än insatsen',
     (() => {
       const stake = 100;
-      const raw = stake * ruPay.even;
+      const raw = stake * ruPay.straight;
       const boost = Math.max(1, 1 * LUCK_MIN);
-      return (raw > stake ? stake + (raw - stake) * boost : raw) >= raw;
+      return (raw > stake ? stake + (raw - stake) * boost : raw) >= stake * 2;
     })()
   ],
   [
