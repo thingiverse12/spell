@@ -923,11 +923,12 @@ const covers = {
 };
 const hits = (key) => wheel.filter(covers[key]).length;
 const rtp = (mult, hitCount) => (mult * hitCount) / wheel.length;
-// Utsidorna ska ligga kvar på europeiska odds (36/37) medan enkelnumren och
-// den gröna nollan medvetet betalar över 100 % – det är spelets egen gåva till
-// den som satsar smalt.
+// Alla vad ska ligga på de riktiga europeiska oddsen: 36/37 = 97,3 %.
 const outsideRtp = [rtp(ruPay.dozen, 12), rtp(ruPay.column, 12), rtp(ruPay.even, 18)].every(
   (v) => Math.abs(v - 36 / 37) < 0.0005
+);
+const everyBetRtp = [rtp(ruPay.straight, 1), rtp(ruPay.zero, 1), rtp(ruPay.dozen, 12), rtp(ruPay.column, 12), rtp(ruPay.even, 18)].every(
+  (v) => Math.abs(v - 36 / 37) < 1e-9
 );
 const straightRtp = rtp(ruPay.straight, 1);
 const zeroRtp = rtp(ruPay.zero, 1);
@@ -942,9 +943,9 @@ const zeroRtp = rtp(ruPay.zero, 1);
       /if \(REMOVED_BETS\.has\(key\)\)/.test(ruSrc)
   ],
   [
-    'oddsen: 45× enkelnummer, 100× grön nolla, 3× dussin/kolumn, 2× utsida',
-    ruPay.straight === 45 &&
-      ruPay.zero === 100 &&
+    'oddsen: 36× enkelnummer och grön nolla, 3× dussin/kolumn, 2× utsida',
+    ruPay.straight === 36 &&
+      ruPay.zero === 36 &&
       ruPay.dozen === 3 &&
       ruPay.column === 3 &&
       ruPay.even === 2 &&
@@ -959,23 +960,33 @@ const zeroRtp = rtp(ruPay.zero, 1);
   ],
   ['nollan vinner åt huset på alla utsidor', ruOutside.every((b) => !covers[b.key](0))],
   [
-    'enkelnumren betalar bättre än de matematiska oddsen',
-    ruPay.straight > 36 && Math.abs(straightRtp - 45 / 37) < 1e-9,
-    '45× = ' + (straightRtp * 100).toFixed(1).replace('.', ',') + ' %'
+    'enkelnumret betalar de riktiga 35:1 (36× med insatsen)',
+    ruPay.straight === 36 && Math.abs(straightRtp - 36 / 37) < 1e-9,
+    '36× = ' + (straightRtp * 100).toFixed(1).replace('.', ',') + ' %'
   ],
   [
-    'grön nolla betalar mer än alla andra nummer',
-    ruPay.zero > ruPay.straight && Math.abs(zeroRtp - 100 / 37) < 1e-9,
-    '100× = ' + (zeroRtp * 100).toFixed(1).replace('.', ',') + ' %'
+    'grön nolla ger samma som ett enkelnummer',
+    ruPay.zero === 36 && ruPay.zero === ruPay.straight && Math.abs(zeroRtp - 36 / 37) < 1e-9,
+    '36× = ' + (zeroRtp * 100).toFixed(1).replace('.', ',') + ' %'
   ],
+  ['varje vad ger samma 97,3 % tillbaka', everyBetRtp],
   ['nollan är ett eget vad med egen utdelning', /if \(key === 'n:0'\) return n === 0 \? PAYOUTS\.zero : 0;/.test(ruSrc)],
   ['nollan ger inget på de andra numren', /return Number\(key\.slice\(2\)\) === n \? PAYOUTS\.straight : 0;/.test(ruSrc)],
   ['utsidorna ligger kvar på 97,3 %', outsideRtp, ((36 / 37) * 100).toFixed(1).replace('.', ',') + ' %'],
   [
     'nollrutan visar sin utdelning på bordet',
-    /ru-zero__mult/.test(ruSrc) && /ru-zero__mult/.test(read('public/css/casino.css')) && /100× insatsen/.test(ruSrc)
+    /ru-zero__mult/.test(ruSrc) &&
+      /ru-zero__mult/.test(read('public/css/casino.css')) &&
+      /×36<\/em>/.test(ruSrc)
   ],
-  ['reglerna beskriver de nya oddsen', /45× insatsen/.test(ruSrc) && /100×/.test(ruSrc)],
+  [
+    'reglerna visar både odds och utbetalning',
+    /36× insatsen/.test(ruSrc) && /35:1/.test(ruSrc) && /1:1/.test(ruSrc) && /2× insatsen/.test(ruSrc)
+  ],
+  [
+    'reglerna ger ett räknat exempel (25 kr på udda ger 50 kr)',
+    ruSrc.includes('Satsar du 25 kr på udda') && ruSrc.includes('<strong>50 kr</strong>')
+  ],
   [
     'turen gäller bara enkelnummer och grön nolla',
     /const narrow = key === 'n:0' \|\| key\.startsWith\('n:'\);/.test(ruSrc) &&
@@ -1070,6 +1081,58 @@ const zeroRtp = rtp(ruPay.zero, 1);
       /chanceBox\('rouletteLuck'/.test(read('public/js/admin.js'))
   ]
 ].forEach(([label, passed, extra]) => (passed ? ok(label, extra || '') : bad(label, 'roulette.js')));
+
+console.log('\nRoulette mot varandra – ett hjul, flera spelare');
+
+const rubSrc = read('public/js/roulettebord.js');
+const rubMath = literal(rubSrc, 'export const ROULETTE_BORD_MATH');
+const rubServer = literal(apiSrc3, 'const RUB = {');
+
+const samePay = (a, b) => ['straight', 'zero', 'dozen', 'column', 'even'].every((k) => a[k] === b[k]);
+
+[
+  [
+    'bordet har plats för åtta spelare och fyra vad',
+    rubMath.MAX_SEATS === 8 && rubMath.MAX_BETS === 4,
+    `${rubMath.MAX_SEATS} platser, ${rubMath.MAX_BETS} vad`
+  ],
+  [
+    'bordsvyn betalar samma odds som ensamspelet',
+    samePay(rubMath.PAYOUTS, ruPay),
+    JSON.stringify(rubMath.PAYOUTS)
+  ],
+  [
+    'servern betalar samma odds som klienten',
+    samePay(rubServer.PAYOUTS, rubMath.PAYOUTS),
+    JSON.stringify(rubServer.PAYOUTS)
+  ],
+  [
+    'klient och server håller med om rundans längd',
+    rubMath.BET_MS === 30000 && rubMath.RESULT_MS === 7000 && rubServer.BET_MS === 30000 && rubServer.RESULT_MS === 7000
+  ],
+  ['ett nummer per runda för hela bordet', /crypto\.randomInt\(0, 37\)/.test(apiSrc3) && /function rubPocket\(n\)/.test(apiSrc3)],
+  ['servern drar numret – aldrig klienten', !/Math\.random|randomInt/.test(rubSrc)],
+  [
+    'alla ser samma nummer ur bordets vy',
+    (() => {
+      const start = apiSrc3.indexOf('function rubPublic(');
+      const end = apiSrc3.indexOf('function rubPlayerOrError(');
+      const body = apiSrc3.slice(start, end);
+      return start > 0 && end > start && /const number = Number\.isInteger\(table\.number\)/.test(body) && /\n\s+number,/.test(body);
+    })()
+  ],
+  ['insatsen dras bara för de egna markerna', /function rubSetBets\(table, player, rawChips\)/.test(apiSrc3) && /seat\.staked/.test(apiSrc3)],
+  ['marker som tas bort betalas tillbaka', /function rubRefund\(player, amount\)/.test(apiSrc3) && /rubRefund\(player,/.test(apiSrc3)],
+  ['hjulet snurrar så fort alla lagt sina marker', /function rubReady\(table\)/.test(apiSrc3) && /rubSweep\(table\);\s*\n\s*json\(res, 200, \{ ok: true, table: rubPublic\(table, player\)/.test(apiSrc3)],
+  ['kassan betalas ut enligt samma odds i rubPays', /function rubPays\(key, n\)/.test(apiSrc3) && /RUB\.PAYOUTS\.straight/.test(apiSrc3)],
+  ['gäst utan konto nekas bordsläget', /function rubPlayerOrError\(req, res\)/.test(apiSrc3) && /needAccount: true/.test(apiSrc3)],
+  ['bordsvyn pollar bordet och stoppar när man lämnar', /POLL_MS = ROULETTE_BORD_MATH\.POLL_MS/.test(rubSrc) && /function stopRouletteBord\(/.test(rubSrc)],
+  ['vyn nås från spelhallen och via direktlänk', /key: 'roulette\/bord'/.test(read('public/js/casino.js')) && /roulette\/bord/.test(read('public/js/main.js'))],
+  ['loggen visar bordet', /roulettebord: 'Roulette – bord'/.test(read('public/js/history.js'))],
+  ['adminpanelen visar bordet', /roulettebord: 'Roulette \(bord\)'/.test(read('public/js/admin.js'))],
+  ['selftestet spelar en runda vid bordet', /roulette mot varandra: ett nummer för hela bordet/.test(apiSrc3)],
+  ['README beskriver bordsläget', /Roulette mot varandra/.test(readmeBj) && /samma hjul/.test(readmeBj)]
+].forEach(([label, passed, extra]) => (passed ? ok(label, extra || '') : bad(label, 'roulettebord.js')));
 
 console.log('\nUtbetalning till spelarna');
 

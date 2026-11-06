@@ -132,13 +132,13 @@ Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
   bordet och en gemensam kassa. Samla fyrtal och ta kassan (se nedan).
 - **Inpostern** – ett ord och en bluff: alla sitter vid **varsin skärm**, skriver sin egen
   ledtråd i tur och ordning och gissar vem som bluffar (`#/kasino/imposter`). Se nedan.
-- **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett enkelnummer (45×),
-  grön nolla (100×), dussin eller kolumn (3×), jämn/udda eller låg/hög (2×) och
-  tryck **SNURRA**. Rött och svart går inte att satsa på (man kunde lägga hälften på varje och
+- **Roulette** – europeiskt hjul med 37 fickor (0–36). Lägg marker på ett enkelnummer (36×),
+  grön nolla (36×), dussin eller kolumn (3×), jämn/udda eller låg/hög (2×) och
+  tryck **SNURRA**. Det är **de riktiga europeiska oddsen**: enkelnummer och nolla betalar 35:1,
+  dussin och kolumn 2:1 och utsidorna 1:1, så varje vad ger 36/37 = **97,3 %** tillbaka i snitt.
+  Rött och svart går inte att satsa på (man kunde lägga hälften på varje och
   få tillbaka pengarna gratis), och man kan högst ha fyra olika vad per snurr. Hjulet stannar exakt på det dragna numret och historiken visar de senaste
-  snurren. **Enkelnumren och nollan betalar bättre än de matematiska oddsen** – ju smalare
-  satsning, desto mer att vinna – medan utsidorna ligger kvar på 97,3 % som på ett riktigt
-  europeiskt hjul. Nollan vinner åt huset på alla utsidor, och insatsen dras innan hjulet snurrar.
+  snurren. Nollan vinner åt huset på alla utsidor, och insatsen dras innan hjulet snurrar.
   **Turen gäller bara enkelnummer och grön nolla** – utsidorna betalar alltid sin fasta multipel,
   så en satsning på udda är 2× på 18 av 37 nummer (97,3 % tillbaka) hur hög turen än är. Förut fick
   utsidorna turen på köpet, och med turen på ×3 gav udda 4× pengarna på varannan snurr – då var det
@@ -146,6 +146,8 @@ Adresser: `#/lasaren/idrott/las/idrott/3` (s. 26), `#/lasaren/kemi/fraga/…`,
   bordet öppnades (antalet snurr står bredvid), så tio förlorade 100-kronorssnurr visar −1 000 kr –
   det är inget enskilt snurr. En vinst som ändå ger minusnetto, när man satsat på flera vad i samma
   snurr, skriver ut insatsen i vinstmeddelandet.
+- **Roulette – bord** – spela mot varandra: 2–8 spelare satsar på **samma hjul**, ser varandras
+  marker och får samma nummer. Samma odds som ensamspelet, inget mer husövertag (se nedan).
 - **Kortleken** – alla 52 kort + 2 jokrar med svenska och engelska namn.
 - Daglig bonus, saldo och insatsgränser.
 
@@ -296,6 +298,35 @@ och nås från rutan **Inpostern** i spelhallen. Alla lägger samma insats i en 
   facit i förväg.
 - Gäster utan konto nekas bordet, och alla insatser och vinster loggas som vanliga transaktioner
   i spelhallen (spelet heter **Inpostern** i loggen och i adminpanelen).
+
+### 🎡 Roulette mot varandra – ett hjul, flera spelare
+
+Samma europeiska hjul som vanliga rouletten, men alla sitter vid **samma bord**. Vyn ligger på
+`#/kasino/roulette/bord` och nås från rutan **Roulette – bord** i spelhallen.
+
+- **Ett hjul för hela bordet.** Servern drar **ett** nummer per runda (0–36) och skickar samma
+  nummer till alla, så ingen kan få ett eget snurr. Klienten kan aldrig påverka eller läsa av
+  nästa nummer.
+- **Samma odds som ensamspelet.** Enkelnummer och grön nolla 36× (35:1), dussin och kolumn
+  3× (2:1), jämn/udda och låg/hög 2× (1:1) – utbetalningen är alltid insatsen **plus** vinsten,
+  så 25 kr på udda ger 50 kr. Rött och svart går fortfarande inte att satsa på, och man har högst
+  **fyra olika vad** per runda. Markerna kostar 10–500 kr styck, precis som förut.
+- **Rundan:** 30 sekunder att lägga sina marker. Så fort **alla** vid bordet har lagt marker
+  snurrar hjulet direkt – annars snurrar det när tiden är ute. Numret visas i **7 sekunder**,
+  sedan börjar nästa runda och alla marker är borta.
+- **Du betalar bara för dina egna marker.** Insatsen dras när du lägger markerna (bara
+  mellanskillnaden om du ändrar dig) och vinsten betalas ut direkt när numret är draget.
+  Lämnar du bordet i en runda som inte snurrat får du tillbaka markerna; sitter du ensam kvar
+  stängs bordet och allt betalas tillbaka.
+- **Bjud in med en länk.** Värden öppnar bordet och delar länken `#/kasino/roulette/bord/<id>`
+  (knappen **Bjud in**). Den som öppnar länken ser bordet men kan inte lägga marker förrän hen
+  tryckt **Gå med**. Upp till **8 spelare** per bord, och alla ser varandra och varandras marker.
+- Insatser och vinster går genom samma bokföring som resten av spelhallen och hamnar i loggen
+  som **Roulette – bord**.
+
+Alla bordsanrop kräver ett eget konto (namn + PIN): `GET /api/roulette/tables`,
+`POST /api/roulette/table`, `GET /api/roulette/table?id=`, `POST /api/roulette/join`,
+`POST /api/roulette/bet` och `POST /api/roulette/leave`.
 
 ### 👤 Konton – alla måste ha ett
 - **Alla måste skapa ett konto** med namn + fyrsiffrig PIN innan de kommer in i appen.
@@ -524,22 +555,23 @@ ut både utbetalning och vinst.
 
 ### Roulette – odds och tur
 
-Hjulet har 37 fickor. Enkelnumren och den gröna nollan betalar extra bra, utsidorna har
-europeiska odds:
+Hjulet har 37 fickor och betalar **de riktiga europeiska oddsen** – utbetalningen är alltid
+insatsen plus vinsten:
 
-| Satsning | Utbetalning | Chans | Återbetalning |
-| --- | --- | --- | --- |
-| Grön nolla (0) | 100× insatsen | 1 av 37 | 270,3 % |
-| Ett enkelnummer | 45× insatsen | 1 av 37 | 121,6 % |
-| Dussin (1:a, 2:a, 3:e) | 3× insatsen | 12 av 37 | 97,3 % |
-| Kolumn (2:1) | 3× insatsen | 12 av 37 | 97,3 % |
-| Röd/svart, jämn/udda, låg/hög | 2× insatsen | 18 av 37 | 97,3 % |
+| Satsning | Odds | Utbetalning | Chans | Återbetalning |
+| --- | --- | --- | --- | --- |
+| Grön nolla (0) | 35:1 | 36× insatsen | 1 av 37 | 97,3 % |
+| Ett enkelnummer | 35:1 | 36× insatsen | 1 av 37 | 97,3 % |
+| Dussin (1:a, 2:a, 3:e) | 2:1 | 3× insatsen | 12 av 37 | 97,3 % |
+| Kolumn | 2:1 | 3× insatsen | 12 av 37 | 97,3 % |
+| Jämn/udda, låg/hög | 1:1 | 2× insatsen | 18 av 37 | 97,3 % |
 
-Satsar man smalt tjänar man mer: ett enkelnummer ger **45×** och grön nolla **100×**, alltså
-klart över de matematiska 36× – men chansen är också bara 1 av 37. Utsidorna betalar
-36/37 = **97,3 %**, och där vinner nollan åt huset. Tur-inställningen
-`rouletteLuck` i adminpanelen multipliceras in i vinsten på samma sätt som i de andra spelen,
-och en vinst ger alltid tillbaka mer än markern kostade – även när turen står på lägsta nivå.
+Alltså: 25 kr på udda ger **50 kr** tillbaka när udda vinner, och 25 kr på ett enkelnummer ger
+**900 kr**. Varje vad ger 36/37 = **97,3 %** i snitt, och på utsidorna vinner nollan åt huset.
+Rött och svart finns inte som vad (då kunde man lägga hälften på varje och få pengarna tillbaka
+gratis). Tur-inställningen `rouletteLuck` i adminpanelen multipliceras in i vinsten på
+enkelnummer och grön nolla – men bara i delen som blir kvar när insatsen är återbetald, så
+utsidorna betalar alltid sin fasta multipel.
 
 ### Roulettens kontrollrum
 

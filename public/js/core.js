@@ -854,6 +854,24 @@ export const api = {
   /* ---------- Inpostern om mynt ----------
      Rollerna delas ut på servern så att varje enhet bara ser sin egen roll.
      Går servern inte att nå finns inget lokalt spel att falla tillbaka på. */
+  /** Roulette mot varandra: bord, marker och snurr går alltid via servern. */
+  async rouletteBord(path, body) {
+    try {
+      const data = body
+        ? await request('/api/roulette/' + path, { method: 'POST', body })
+        : await request('/api/roulette/' + path);
+      if (data && typeof data.balance === 'number' && state.player) state.player.balance = data.balance;
+      return data;
+    } catch (err) {
+      if (err.offline) {
+        const offline = new Error('Bordsläget kräver uppkoppling – prova igen när nätet är tillbaka');
+        offline.offline = true;
+        throw offline;
+      }
+      throw err;
+    }
+  },
+
   async inposter(path, body) {
     try {
       const data = body

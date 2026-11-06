@@ -317,6 +317,8 @@ versionen. Bordet har därför *ingen* turjustering (gummibandet rör inte korts
 | Skraplotter ×1,40 | 125,4 % | −25,4 % | 98,8 % – 156,4 % |
 | Videopoker ×1,00 | 94,3 % | 5,7 % | 0,7–282 % över tur-nivåerna |
 | Blackjack ×1,00 (snäll dealer) | 115,1 % | −15,1 % | 98,8 % – 133,9 % |
+| Roulette (ensam) | 97,3 % | 2,7 % | turen höjer enkelnummer och nolla, utsidorna ligger fast |
+| Roulette – bord (flera spelare) | 97,3 % | 2,7 % | ingen tur vid bordet – samma fasta odds för alla |
 | Rysk roulette (valfritt antal klick) | 92,5 % – 95,8 % | 4,2 % – 7,5 % | följer gummibandet |
 | Rysk roulette mot varandra (bord) | 100 % | 0 % | ingen – kassan delas ut i sin helhet |
 | Finns i sjön (bord) | 100 % | 0 % | ingen – kassan delas ut i sin helhet |

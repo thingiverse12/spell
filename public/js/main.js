@@ -53,6 +53,7 @@ const CASINO_NAV = [
   { path: '/kasino/scratch', label: 'Skraplotter' },
   { path: '/kasino/videopoker', label: 'Videopoker' },
   { path: '/kasino/roulette', label: 'Roulette' },
+  { path: '/kasino/roulette/bord', label: 'Roulette – bord' },
   { path: '/kasino/revolver', label: 'Rysk roulette' },
   { path: '/kasino/revolver/bord', label: 'Rysk roulette – bord' },
   { path: '/kasino/finns', label: 'Finns i sjön' },

@@ -2,11 +2,11 @@
    Roulette – europeiskt hjul med 37 fickor (0–36).
 
    Spelaren lägger marker på bordet (ett nummer eller en utsida), trycker
-   på SNURRA och får betalt: 45× på ett enkelnummer, hela 100× på den
-   gröna nollan, 3× på dussin/kolumn och 2× på jämn/udda och låg/hög.
-   Rött och svart går inte att satsa på – se REMOVED_BETS. Enkelnumren och nollan betalar alltså bättre än de matematiska
-   oddsen – ju smalare satsning, desto mer att vinna. Precis som i de andra
-   spelen multipliceras vinsten med turen (rouletteLuck).
+   på SNURRA och får betalt med de riktiga europeiska oddsen: 36× på ett
+   enkelnummer (35:1) och på den gröna nollan, 3× på dussin/kolumn (2:1) och
+   2× på jämn/udda och låg/hög (1:1). Rött och svart går inte att satsa på –
+   se REMOVED_BETS. Alla vad ger 36/37 = 97,3 % tillbaka i snitt. Precis som i
+   de andra spelen multipliceras vinsten med turen (rouletteLuck).
    ===================================================================== */
 
 import {
@@ -15,6 +15,7 @@ import {
 import {
   currentLuck, clampLuckSetting, machineLuckPill, luckLevelName, settingLuck, watchLuck
 } from './luck.js';
+import { renderRouletteBord, stopRouletteBord } from './roulettebord.js';
 
 /* Hjulets ordning, medurs från nollan. */
 const WHEEL = [
@@ -24,10 +25,11 @@ const WHEEL = [
 
 const RED = new Set([1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36]);
 
-/* Utbetalning per satsad krona, inklusive insatsen (45× = insatsen + 44×).
-   Enkelnumren och den gröna nollan ligger medvetet över de matematiska
-   oddsen (36×) så att den som satsar smalt tjänar mer när det slår in. */
-const PAYOUTS = { straight: 45, zero: 100, dozen: 3, column: 3, even: 2 };
+/* Utbetalning per satsad krona, inklusive insatsen: 36× = insatsen + 35×
+   (35:1), 3× = insatsen + 2× (2:1) och 2× = insatsen + 1× (1:1). Det är de
+   riktiga europeiska oddsen på ett hjul med 37 fickor, så varje vad ger
+   36/37 = 97,3 % tillbaka i snitt – varken mer eller mindre. */
+const PAYOUTS = { straight: 36, zero: 36, dozen: 3, column: 3, even: 2 };
 
 /* Högst fyra olika vad per snurr. Då går det inte att lägga ut markörer över
    hela bordet (eller på alla tre dussin) och vinna varje gång. */
@@ -284,9 +286,10 @@ function renderRoulette(root) {
             <p class="tiny muted" style="margin-top:10px">
               Klicka på ett nummer eller en utsida för att lägga en marker. Högerklick tar bort
               markern igen. Högst <strong>${MAX_BETS} olika vad</strong> per snurr.
-              <strong>Enkelnummer ger 45×</strong> och <strong>grön 0 ger 100×</strong> –
-              dussin och kolumn 3×, jämn/udda och låg/hög 2×. Bara enkelnummer och nollan
-              får turen; utsidorna betalar alltid sin fasta multipel.
+              <strong>Enkelnummer och grön 0 ger 36×</strong> (35:1) – dussin och kolumn
+              3× (2:1), jämn/udda och låg/hög 2× (1:1). 2× betyder att du får tillbaka
+              insatsen <em>plus</em> lika mycket igen: 25 kr på udda ger 50 kr.
+              Bara enkelnummer och nollan får turen; utsidorna betalar alltid sin fasta multipel.
               <strong>Rött och svart finns inte som vad</strong> – de gick att lägga hälften på
               varje och få pengarna tillbaka gratis.
             </p>
@@ -375,7 +378,7 @@ function renderTable(root) {
 
   table.innerHTML = `
     <div class="ru-grid">
-      <div class="ru-zero">${cell('n:0', '0<em class="ru-zero__mult">×100</em>', 'ru-num ru-green ru-zero__btn')}</div>
+      <div class="ru-zero">${cell('n:0', '0<em class="ru-zero__mult">×36</em>', 'ru-num ru-green ru-zero__btn')}</div>
       <div class="ru-numbers">${numbers.join('')}</div>
       <div class="ru-columns">${COLUMNS.map((c) => cell(c.key, '2:1', 'ru-col', `aria-label="${c.label}"`)).join('')}</div>
     </div>
@@ -627,22 +630,21 @@ function showInfo() {
     sub: 'Ett europeiskt hjul med 37 fickor: 0 (grön), 18 röda och 18 svarta.',
     wide: true,
     body: `<div class="table-scroll"><table class="data-table">
-        <thead><tr><th>Satsning</th><th>Utbetalning</th><th>Chans</th></tr></thead>
+        <thead><tr><th>Satsning</th><th>Odds</th><th>Utbetalning</th><th>Chans</th></tr></thead>
         <tbody>
-          <tr><td><strong>Grön nolla (0)</strong></td><td><strong>100× insatsen</strong></td><td>1 av 37</td></tr>
-          <tr><td><strong>Ett enkelnummer</strong></td><td><strong>45× insatsen</strong></td><td>1 av 37</td></tr>
-          <tr><td>Dussin (1:a, 2:a, 3:e)</td><td>3× insatsen</td><td>12 av 37</td></tr>
-          <tr><td>Kolumn (2:1)</td><td>3× insatsen</td><td>12 av 37</td></tr>
-          <tr><td>Jämn / udda</td><td>2× insatsen</td><td>18 av 37</td></tr>
-          <tr><td>Låg (1–18) / hög (19–36)</td><td>2× insatsen</td><td>18 av 37</td></tr>
+          <tr><td><strong>Grön nolla (0)</strong></td><td>35:1</td><td><strong>36× insatsen</strong></td><td>1 av 37</td></tr>
+          <tr><td><strong>Ett enkelnummer</strong></td><td>35:1</td><td><strong>36× insatsen</strong></td><td>1 av 37</td></tr>
+          <tr><td>Dussin (1:a, 2:a, 3:e)</td><td>2:1</td><td>3× insatsen</td><td>12 av 37</td></tr>
+          <tr><td>Kolumn</td><td>2:1</td><td>3× insatsen</td><td>12 av 37</td></tr>
+          <tr><td>Jämn / udda</td><td>1:1</td><td>2× insatsen</td><td>18 av 37</td></tr>
+          <tr><td>Låg (1–18) / hög (19–36)</td><td>1:1</td><td>2× insatsen</td><td>18 av 37</td></tr>
         </tbody>
       </table></div>
       <p class="small" style="margin-top:14px">
-        <strong>Enkelnumren och nollan betalar mer än de matematiska oddsen</strong> – det är här man
-        tjänar stort. Ett nummer ger i snitt <strong>${rtpLabel(PAYOUTS.straight)}</strong> tillbaka och
-        grön nolla hela <strong>${rtpLabel(PAYOUTS.zero)}</strong>.
-        Utsidorna (jämn/udda, låg/hög, dussin och kolumner) ligger kvar på
-        <strong>${rtpLabel(36)}</strong>, och där vinner nollan åt huset.
+        <strong>Utbetalningen är alltid insatsen plus vinsten.</strong> Satsar du 25 kr på udda
+        (1:1) får du <strong>50 kr</strong> tillbaka när udda vinner, och 25 kr på ett enkelnummer
+        (35:1) ger <strong>900 kr</strong>. Det är de riktiga europeiska oddsen, så alla vad ger
+        <strong>${rtpLabel(PAYOUTS.even)}</strong> tillbaka i snitt och nollan vinner åt huset.
       </p>
       <p class="tiny muted" style="margin-top:10px">
         Gällande tur: <strong>${'×' + Number(luck).toFixed(2).replace('.', ',')}</strong>
@@ -824,6 +826,13 @@ function openControl() {
 watchControlCode();
 
 registerView('roulette', (root) => {
+  /* Samma adress rymmer båda lägena: #/kasino/roulette är ensamläget och
+     #/kasino/roulette/bord är borden där flera spelar på samma hjul. */
+  if ((state.route.parts || [])[2] === 'bord') {
+    renderRouletteBord(root, state.route);
+    return;
+  }
+  stopRouletteBord();
   if (!game.chip) game.chip = Math.max(1, Number(state.settings.minBet) || 10);
   renderRoulette(root);
 });

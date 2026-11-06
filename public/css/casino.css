@@ -2597,3 +2597,108 @@
   .pk-listing { flex-wrap: wrap; }
   .pk-listing__side { margin-left: 0; }
 }
+
+/* ------------------------------ Roulette mot varandra ------------------------------ */
+
+.rub { margin: 14px auto 40px; max-width: 1080px; color: #f2e8d0; }
+.rub .rvb { max-width: none; }
+
+.rub__layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+  align-items: start;
+  margin-top: 16px;
+}
+
+.rub__main { min-width: 0; }
+
+.rub__number {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 14px;
+  margin-bottom: 14px;
+  border-radius: 18px;
+  background: linear-gradient(170deg, rgba(255, 255, 255, .06), rgba(0, 0, 0, .25));
+  border: 1px solid rgba(255, 255, 255, .1);
+}
+.rub__number span {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  width: 84px;
+  height: 84px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--pocket, rgba(255, 255, 255, .08));
+  box-shadow: inset 0 0 22px rgba(0, 0, 0, .5), 0 10px 30px -18px #000;
+}
+.rub__number small { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255, 255, 255, .55); }
+.rub__number.is-empty span { color: rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .05); border: 1px dashed rgba(255, 255, 255, .2); }
+
+.rub__side {
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .03);
+  border: 1px solid rgba(255, 255, 255, .08);
+}
+.rub__players { display: grid; gap: 8px; }
+
+.rub__player {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, .25);
+  border: 1px solid rgba(255, 255, 255, .07);
+}
+.rub__player.is-you { border-color: rgba(231, 196, 106, .45); background: rgba(231, 196, 106, .08); }
+.rub__player.is-ready { box-shadow: inset 3px 0 0 #6ff0b8; }
+.rub__avatar {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .08);
+  font-size: 16px;
+}
+.rub__who { display: flex; flex-direction: column; min-width: 0; }
+.rub__who b { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rub__who small { font-size: 11px; color: rgba(255, 255, 255, .5); }
+.rub__amount { display: grid; justify-items: end; gap: 1px; text-align: right; }
+.rub__amount b { font-size: 13px; }
+.rub__amount b.is-plus, .rub__amount small.is-plus { color: #6ff0b8; }
+.rub__amount b.is-minus, .rub__amount small.is-minus { color: #ff8a9b; }
+.rub__amount small { font-size: 10.5px; color: rgba(255, 255, 255, .45); }
+
+.rub__sum { font-size: 13px; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rub__sum strong { color: #f6e7b0; }
+
+.rub .roulette-table { max-width: 100%; }
+.rub--board { margin-top: 14px; }
+
+@media (max-width: 860px) {
+  .rub__layout { grid-template-columns: minmax(0, 1fr); }
+  .rub__number span { width: 66px; height: 66px; font-size: 34px; }
+}
+
+@media (max-width: 720px) {
+  .rub .rvb { padding: 14px 12px 18px; }
+  .rub__player { grid-template-columns: 30px minmax(0, 1fr); }
+  .rub__amount { grid-column: 2; justify-items: start; }
+}
+
+.rub__join {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 4px;
+  text-align: center;
+}
