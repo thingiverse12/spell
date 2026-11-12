@@ -251,10 +251,12 @@ function decide(matches: Match[], a: Analysis, recent: any[], external: any): Om
   else if (confidence < 0.6) decision = "HOLD_FOR_REVIEW";
   else decision = "WARN";
 
+  // Categories with an educational/warning policy must not be over-blocked.
+  if (WARN_CATEGORIES.has(category) && decision === "BLOCK" && severity < 5 && !external?.flagged) decision = "WARN";
   // Explicit sexual content involving minors is never permitted.
   if (category === "sexual_minors") decision = "ESCALATE";
   // Uncertain predictions must never become a permanent ban.
-  if (confidence < 0.55 && decision === "BLOCK") decision = "HOLD_FOR_REVIEW";
+  if (confidence < 0.55 && decision === "BLOCK" && severity < 5) decision = "HOLD_FOR_REVIEW";
   if (external?.flagged && decision === "ALLOW") decision = "HOLD_FOR_REVIEW";
 
   const human_review = decision !== "ALLOW" && (severity >= 5 || confidence < 0.75 || decision === "ESCALATE" || !!signals.adversarial);

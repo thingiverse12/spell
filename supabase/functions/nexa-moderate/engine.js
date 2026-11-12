@@ -318,8 +318,9 @@ function decide(matches, a, recent, external) {
   else if (effSeverity >= 4 || WARN_CATEGORIES.has(category)) decision = "WARN";
   else if (confidence < 0.6) decision = "HOLD_FOR_REVIEW";
   else decision = "WARN";
+  if (WARN_CATEGORIES.has(category) && decision === "BLOCK" && severity < 5 && !external?.flagged) decision = "WARN";
   if (category === "sexual_minors") decision = "ESCALATE";
-  if (confidence < 0.55 && decision === "BLOCK") decision = "HOLD_FOR_REVIEW";
+  if (confidence < 0.55 && decision === "BLOCK" && severity < 5) decision = "HOLD_FOR_REVIEW";
   if (external?.flagged && decision === "ALLOW") decision = "HOLD_FOR_REVIEW";
   const human_review = decision !== "ALLOW" && (severity >= 5 || confidence < 0.75 || decision === "ESCALATE" || !!signals.adversarial);
   const actionMap = {
