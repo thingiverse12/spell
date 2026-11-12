@@ -291,7 +291,8 @@ function decide(matches, a, recent, external) {
   const category = external?.flagged ? external.category || top?.policy.category || "external_ai" : top.policy.category;
   let severity = top?.policy.severity || 3;
   if (external?.flagged) severity = Math.max(severity, 4);
-  const multiMatchBoost = matches.length > 1 ? Math.min(0.75, (matches.length - 1) * 0.4) : 0;
+  const topCategory = top?.policy.category || "none";
+  const multiMatchBoost = matches.length > 1 && !WARN_CATEGORIES.has(topCategory) ? Math.min(0.75, (matches.length - 1) * 0.4) : 0;
   const effSeverity = severity + Math.min(1.5, a.obfuscationScore) + multiMatchBoost;
   let confidence = 0.55;
   if (top?.exact) confidence += 0.28;
