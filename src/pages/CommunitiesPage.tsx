@@ -32,12 +32,13 @@ export function CommunitiesPage() {
 
   const loadCommunities = async () => {
     setLoading(true); setError('');
-    try { const [c, f] = await Promise.all([api.getCommunities(), api.myTopics()]); setCommunities(c); setFollowed(f); }
+    try { const [c, f] = await Promise.all([api.getCommunities(profile?.age_group), api.myTopics()]); setCommunities(c); setFollowed(f); }
     catch (e: any) { setError(e.message); } finally { setLoading(false); }
   };
-  useEffect(() => { loadCommunities(); }, [profile?.id]);
+  useEffect(() => { loadCommunities(); }, [profile?.id, profile?.age_group]);
 
   const loadPosts = async (communityId?: string) => {
+    if (!communityId) { setPosts([]); return; }
     try {
       const p = await api.getPosts(communityId); setPosts(p);
       const ids = [...new Set(p.map((x) => x.author_id).concat())];

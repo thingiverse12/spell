@@ -3,6 +3,8 @@
 En svensk social plattform för 13–17 år, byggd med **säkerhet som en faktisk funktion** och inte en visuell prototyp.
 All användartext är svenska från start; `src/lib/i18n.ts` ger en i18n-redo struktur för fler språk.
 
+**Live på Vercel:** `https://nexa-gules-three.vercel.app`
+
 ## Vad som finns
 
 | Område | Implementering |
@@ -17,7 +19,7 @@ All användartext är svenska från start; `src/lib/i18n.ts` ger en i18n-redo st
 | Communities | Skapa/gå med/följ ämnen, inlägg, kommentarer, reaktioner, regler, moderering och rapporter |
 | Moderatorpanel | RBAC, liveöversikt, rapporter, granskningskö, misstänkta konton, användarhistorik, incidenter, AI-statistik, överklaganden, policyhantering, revisionslogg, MFA |
 | Testmiljö | 36 kuraterade svenska/engelska testfall; kör dem mot den **riktiga deployade motorn**, mät träffsäkerhet, falska positiva/negativa, svenska/engelska samt moderatoroverride |
-| Databas | 31 `nexa_*`-tabeller, 69 RLS-policies, 19 triggers, åldersseparering och modereringskrav före insert, privat media-bucket, kortlivade signed URLs, audit och raderings-RPC:er |
+| Databas | 31 `nexa_*`-tabeller (+ `nexa_engine_source`), 71 RLS-policies, 21 triggers, strikt åldersseparering och modererings-/begränsningskontroll före insert, privat media-bucket, kortlivade signed URLs, audit och raderings-RPC:er |
 
 ## Arkitektur
 
@@ -51,10 +53,10 @@ npm run typecheck && npm run build
 
 ## Demokonton (endast i tydligt märkt demoläge)
 
-| E-post | Lösenord | Grupp |
+| E-post | Lösenord | Grupp / Roll |
 | --- | --- | --- |
 | `demo_alva@nexa.demo` | `Demo1234!` | 13–14 |
-| `demo_elis@nexa.demo` | `Demo1234!` | 15–17 |
+| `demo_elis@nexa.demo` | `Demo1234!` | 15–17 (`safety_lead`-moderator) |
 
 `demo_noah@nexa.demo`, `demo_mira@nexa.demo`, `demo_leo@nexa.demo`, `demo_saga@nexa.demo` finns också med samma lösenord. Alla demodata har `is_demo = true` och `demo_`-prefix.
 

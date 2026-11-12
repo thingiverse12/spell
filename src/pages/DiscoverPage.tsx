@@ -1,16 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, UserPlus, MessageCircle, Flag, Ban, Heart, Sparkles, Users, RefreshCw, MapPinOff, X } from 'lucide-react';
-import { Button, Card, Avatar, Badge, Chip, PageHeader, Spinner, EmptyState, ErrorState, Modal, Select, Textarea, Stat } from '../components/ui';
+import { Search, UserPlus, MessageCircle, Flag, Ban, Heart, Sparkles, Users, RefreshCw, MapPinOff, X, Check } from 'lucide-react';
+import { Button, Card, Avatar, Badge, Chip, PageHeader, Spinner, EmptyState, ErrorState, Modal, Select, Textarea, Stat, Section } from '../components/ui';
 import { useApp } from '../state/AppContext';
 import * as api from '../lib/api';
 import type { Profile, Connection, Interest } from '../lib/types';
 import { isOnline } from '../lib/utils';
 
 export function DiscoverPage({ navigate }: { navigate: (r: string, data?: any) => void }) {
-  const { profile, config, showToast } = useApp();
+  const { profile, config, showToast, refreshNotifications } = useApp();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [interests, setInterests] = useState<Interest[]>([]);
+  const [mutualMap, setMutualMap] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState('alla');
@@ -25,30 +26,52 @@ export function DiscoverPage({ navigate }: { navigate: (r: string, data?: any) =
   const load = async () => {
     setLoading(true); setError('');
     try {
-      const [p, c, i] = await Promise.all([api.getDiscoverProfiles(), api.getConnections(), api.getInterests()]);
-      setProfiles(p); setConnections(c); setInterests(i);
+      const [p, c, i, m] = await Promise.all([
+        api.getDiscoverProfiles(profile?.age_group),
+        api.getConnections(),
+        api.getInterests(),
+        api.getMutualCommunityMap(),
+      ]);
+      setProfiles(p); setConnections(c); setInterests(i); setMutualMap(m);
     } catch (e: any) { setError(e.message); } finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, [profile?.id]);
+  useEffect(() => { load(); }, [profile?.id, profile?.age_group]);
 
   const interestLabel = (slug: string) => interests.find((i) => i.slug === slug)?.label_sv || slug;
   const shared = (p: Profile) => (p.interests || []).filter((x) => (profile?.interests || []).includes(x));
   const connFor = (id: string) => connections.find((c) => (c.requester_id === id || c.addressee_id === id));
   const romanceAvailable = profile?.age_group === '15-17' && config.romance_enabled === true;
 
+  const incomingRequests = useMemo(
+    () => connections.filter((c) => c.status === 'pending' && c.addressee_id === profile?.id),
+    [connections, profile?.id],
+  );
+
+  // Safety & age restrictions are enforced server-side BEFORE compatibility scoring.
   const filtered = useMemo(() => profiles.filter((p) => {
+    if (p.age_group !== profile?.age_group) return false;
     if (query && !(`${p.username} ${p.bio} ${(p.interests || []).map(interestLabel).join(' ')}`.toLowerCase().includes(query.toLowerCase()))) return false;
+    const c = connFor(p.id);
+    if (filter === 'vanner' && c?.status === 'accepted') return false;
     if (filter === 'delade' && shared(p).length === 0) return false;
     if (filter === 'hobbies' && (p.interests || []).length < 3) return false;
-    if (filter === 'communities' && !(p as any)._hasCommunity) return true;
-    if (filter === 'romantik' && !romanceAvailable) return false;
+    if (filter === 'communities' && !(mutualMap[p.id]?.length)) return false;
+    if (filter === 'romantik' && (!romanceAvailable || p.friend_pref !== 'romance')) return false;
     return true;
-  }).sort((a, b) => shared(b).length - shared(a).length), [profiles, query, filter, interests, profile, romanceAvailable]);
+  }).sort((a, b) => (shared(b).length * 2 + (mutualMap[b.id]?.length || 0)) - (shared(a).length * 2 + (mutualMap[a.id]?.length || 0))), [profiles, query, filter, interests, profile, romanceAvailable, mutualMap, connections]);
 
   const sendRequest = async (p: Profile, kind: 'friend' | 'romance' = 'friend') => {
     setBusy(true);
-    try { await api.sendConnection(p.id, kind); await load(); showToast(`Förfrågan skickad till ${p.username}.`); }
+    try { await api.sendConnection(p.id, kind); await load(); showToast(`Förfrågan skickad till @${p.username}.`); }
     catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  const respondRequest = async (connId: string, status: 'accepted' | 'declined', uname?: string) => {
+    setBusy(true);
+    try {
+      await api.respondConnection(connId, status);
+      await Promise.all([load(), refreshNotifications()]);
+      showToast(status === 'accepted' ? `Du och ${uname ? '@' + uname : 'vännen'} är nu vänner!` : 'Förfrågan avböjdes.', status === 'accepted' ? 'success' : 'info');
+    } catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
   };
   const openChat = async (p: Profile) => {
     setBusy(true);
@@ -66,7 +89,7 @@ export function DiscoverPage({ navigate }: { navigate: (r: string, data?: any) =
     catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
   };
   const openDetail = async (p: Profile) => {
-    setDetail(p); setMutual([]);
+    setDetail(p); setMutual(mutualMap[p.id] || []);
     try { setMutual(await api.getMutualCommunities(p.id)); } catch { /* */ }
   };
 
@@ -77,12 +100,28 @@ export function DiscoverPage({ navigate }: { navigate: (r: string, data?: any) =
     <PageHeader title="Upptäck" subtitle={`Personer i din åldersgrupp · ${profile?.age_group || 'ej verifierad'}`}
       right={<Button variant="outline" icon={<RefreshCw size={15} />} onClick={load}>Uppdatera</Button>} />
 
+    {incomingRequests.length > 0 && <Section title={`Inkommande förfrågningar (${incomingRequests.length})`} description="Godkänn för att kunna chatta med varandra.">
+      <Card className="settings-card">
+        {incomingRequests.map((req) => {
+          const sender = profiles.find((p) => p.id === req.requester_id);
+          return <div key={req.id} className="list-row">
+            <Avatar name={sender?.username || '?'} url={sender?.avatar_url} id={req.requester_id} size={38} />
+            <span><strong>@{sender?.username || req.requester_id.slice(0, 8)}</strong><small>{req.kind === 'romance' ? 'Romantiskt intresse' : 'Vänförfrågan'} · {sender?.age_group || profile?.age_group}</small></span>
+            <div className="row-actions">
+              <Button size="sm" icon={<Check size={14} />} onClick={() => respondRequest(req.id, 'accepted', sender?.username)} disabled={busy}>Acceptera</Button>
+              <Button size="sm" variant="ghost" onClick={() => respondRequest(req.id, 'declined', sender?.username)} disabled={busy}>Avböj</Button>
+            </div>
+          </div>;
+        })}
+      </Card>
+    </Section>}
+
     <Card className="discover-hero">
-      <div className="discover-hero-text"><Sparkles size={20} /><div><strong>Hitta dina människor</strong><span>Matchningen tar alltid hänsyn till åldersgrupp och säkerhetsregler först – sedan delade intressen.</span></div></div>
+      <div className="discover-hero-text"><Sparkles size={20} /><div><strong>Hitta dina människor</strong><span>Matchningen tar alltid hänsyn till åldersgrupp och säkerhetsregler först – sedan delade intressen och gemensamma communities.</span></div></div>
       <div className="discover-stats"><Stat label="I din grupp" value={profiles.length} /><Stat label="Delade intressen" value={profiles.filter((p) => shared(p).length > 0).length} tone="#B45CFF" /><Stat label="Vänner" value={connections.filter((c) => c.status === 'accepted').length} tone="#3FCF8E" /></div>
     </Card>
 
-    <div className="search-bar"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Sök på namn eller intresse…" />{query && <button onClick={() => setQuery('')}><X size={15} /></button>}</div>
+    <div className="search-bar"><Search size={17} /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Sök på namn eller intresse…" />{query && <button onClick={() => setQuery('')} aria-label="Rensa sökning"><X size={15} /></button>}</div>
     <div className="chip-row scroll-x">
       <Chip active={filter === 'alla'} onClick={() => setFilter('alla')}>Alla</Chip>
       <Chip active={filter === 'vanner'} onClick={() => setFilter('vanner')}><UserPlus size={14} /> Hitta vänner</Chip>
@@ -94,19 +133,28 @@ export function DiscoverPage({ navigate }: { navigate: (r: string, data?: any) =
 
     {filtered.length === 0 ? <EmptyState icon={<Search size={26} />} title="Inga profiler hittades" description="Prova ett annat filter eller en annan sökning. Du ser bara personer i din egen åldersgrupp." action={<Button variant="outline" onClick={() => { setQuery(''); setFilter('alla'); }}>Rensa filter</Button>} /> :
       <div className="profile-grid">{filtered.map((p) => {
-        const c = connFor(p.id); const sh = shared(p);
+        const c = connFor(p.id);
+        const sh = shared(p);
+        const mc = mutualMap[p.id]?.length || 0;
+        const incoming = c?.status === 'pending' && c.addressee_id === profile?.id;
         return <Card key={p.id} className="profile-card">
           <div className="profile-card-top"><Avatar name={p.username} url={p.avatar_url} id={p.id} size={62} online={isOnline(p)} />
             {p.is_demo && <Badge tone="amber" className="demo-tag">DEMO</Badge>}
           </div>
           <div className="profile-card-name"><strong>@{p.username}</strong><span>{p.age} år</span></div>
-          <div className="profile-card-badges">{isOnline(p) && <Badge tone="green">Online</Badge>}<Badge tone="violet">{p.age_group}</Badge></div>
+          <div className="profile-card-badges">
+            {isOnline(p) && <Badge tone="green">Online</Badge>}
+            <Badge tone="violet">{p.age_group}</Badge>
+            {mc > 0 && <Badge tone="blue">{mc} gemensam{mc > 1 ? 'ma' : ''}</Badge>}
+          </div>
           <p className="profile-card-bio">{p.bio || 'Ingen presentation ännu.'}</p>
           <div className="profile-interests">{sh.slice(0, 3).map((s) => <span key={s} className="mini-chip active">✨ {interestLabel(s)}</span>)}{(p.interests || []).filter((s) => !sh.includes(s)).slice(0, 2).map((s) => <span key={s} className="mini-chip">{interestLabel(s)}</span>)}</div>
           <div className="profile-card-actions">
             {c?.status === 'accepted' ? <Button size="sm" icon={<MessageCircle size={15} />} onClick={() => openChat(p)} disabled={busy}>Chatta</Button>
+              : incoming ? <Button size="sm" icon={<Check size={15} />} onClick={() => respondRequest(c.id, 'accepted', p.username)} disabled={busy}>Acceptera</Button>
               : c?.status === 'pending' ? <Button size="sm" variant="soft" disabled>Förfrågan skickad</Button>
-                : <Button size="sm" icon={<UserPlus size={15} />} onClick={() => sendRequest(p)} disabled={busy}>Skicka förfrågan</Button>}
+              : filter === 'romantik' && romanceAvailable ? <Button size="sm" icon={<Heart size={15} />} onClick={() => sendRequest(p, 'romance')} disabled={busy}>Visa intresse</Button>
+              : <Button size="sm" icon={<UserPlus size={15} />} onClick={() => sendRequest(p)} disabled={busy}>Skicka förfrågan</Button>}
             <Button size="sm" variant="outline" onClick={() => openDetail(p)}>Visa</Button>
           </div>
         </Card>;

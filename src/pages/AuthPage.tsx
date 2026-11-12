@@ -7,8 +7,8 @@ import * as api from '../lib/api';
 import type { Interest } from '../lib/types';
 
 const DEMO_ACCOUNTS = [
-  { label: 'Demokonto · 13–14 år', email: 'demo_alva@nexa.demo', password: 'Demo1234!' },
-  { label: 'Demokonto · 15–17 år', email: 'demo_elis@nexa.demo', password: 'Demo1234!' },
+  { label: 'Demokonto · 13–14 år (@demo_alva)', email: 'demo_alva@nexa.demo', password: 'Demo1234!' },
+  { label: 'Demokonto · 15–17 år + Moderator (@demo_elis)', email: 'demo_elis@nexa.demo', password: 'Demo1234!' },
 ];
 
 export function AuthPage() {

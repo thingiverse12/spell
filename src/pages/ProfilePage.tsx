@@ -83,6 +83,7 @@ export function ProfilePage({ navigate }: { navigate: (r: string, data?: any) =>
           {[
             { icon: ShieldCheck, title: 'Säkerhetscenter', desc: 'Blockeringar, rapporter, överklaganden och integritet', route: 'sakerhet' },
             { icon: Settings2, title: 'Inställningar', desc: 'Integritet, notiser, språk och externa tjänster', route: 'installningar' },
+            { icon: LockKeyhole, title: 'Moderatorpanel (RBAC)', desc: 'Översikt, granskningskö, AI-statistik och testmiljö', route: 'admin' },
             { icon: Users, title: 'Upptäck', desc: 'Hitta nya vänner', route: 'upptack' },
             { icon: MessageCircle, title: 'Chatt', desc: 'Dina konversationer', route: 'chatt' },
           ].map((s) => <button key={s.route} className="shortcut" onClick={() => navigate(s.route)}><span className="shortcut-icon"><s.icon size={18} /></span><span><strong>{s.title}</strong><small>{s.desc}</small></span><ChevronRight size={16} /></button>)}

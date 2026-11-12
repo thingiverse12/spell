@@ -61,6 +61,7 @@ export function SettingsPage({ navigate }: { navigate: (r: string) => void }) {
     try { await api.savePrefs({ [key]: value }); } catch (e: any) { showToast(e.message, 'error'); }
   };
   const saveProvider = async (p: Provider) => {
+    if (!moderator) { showToast('Endast moderatorer/administratörer kan spara leverantörskonfiguration (RBAC).', 'info'); return; }
     const v = providerForms[p.key];
     if (v.status === 'active' && (!v.name || !v.endpoint)) { showToast('Namn och endpoint krävs för att aktivera en leverantör.', 'error'); return; }
     setBusy(true);
@@ -68,6 +69,7 @@ export function SettingsPage({ navigate }: { navigate: (r: string) => void }) {
     catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
   };
   const saveFlag = async (key: string, value: boolean) => {
+    if (!moderator) { showToast('Endast moderatorer/administratörer kan ändra systemflaggor (RBAC).', 'info'); return; }
     setFlags((f) => ({ ...f, [key]: value }));
     try { await api.setConfig(key, value); await refreshConfig(); showToast('Flaggan uppdaterades.', 'info'); }
     catch (e: any) { showToast(e.message, 'error'); setFlags((f) => ({ ...f, [key]: !value })); }
@@ -112,6 +114,7 @@ export function SettingsPage({ navigate }: { navigate: (r: string) => void }) {
     </Section>
 
     <Section title="Externa tjänster & API-nycklar" description="Alla beroenden listas öppet. Inga hemligheter sparas i webbläsaren eller i den här databastabellen.">
+      {!moderator && <div className="ob-note"><LockKeyhole size={16} /><div><strong>Skrivskyddad vy (RBAC)</strong> — Endast användare i <code>nexa_moderators</code> kan ändra leverantörer och systemflaggor. <button className="link-btn" onClick={() => navigate('admin')}>Öppna Moderatorpanelen</button></div></div>}
       <div className="provider-note"><KeyRound size={18} /><div><strong>Så här kopplar du en leverantör</strong><p>Ange leverantörens namn, endpoint och status nedan. API-nyckeln läggs som en Supabase Edge Function-secret med exakt det angivna namnet (t.ex. <code>NEXA_MODERATION_API_KEY</code>). Aktivera först när nyckeln finns. För OpenAI moderation används <code>https://api.openai.com/v1/moderations</code> och modellen <code>omni-moderation-latest</code>.</p></div></div>
       <div className="provider-grid">{PROVIDERS.map((p) => {
         const v = providerForms[p.key] || {};

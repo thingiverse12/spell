@@ -2,24 +2,35 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   LayoutDashboard, Flag, Users, ClipboardList, ShieldAlert, BarChart3, Scale,
   ScrollText, FlaskConical, SlidersHorizontal, Plus, Play, RefreshCw, Check,
-  X, Trash2, AlertTriangle, Eye, Ban, Clock, UserSearch, FileText, Download,
-  ShieldCheck, KeyRound, Activity, ChevronRight, Pencil,
+  Trash2, Eye, UserSearch, Download, ShieldCheck, KeyRound, Activity, Pencil, Sparkles,
 } from 'lucide-react';
 import { Button, Card, Badge, PageHeader, Spinner, EmptyState, ErrorState, Modal, Input, Textarea, Select, Tabs, Stat, Toggle, Section } from '../components/ui';
 import { useApp } from '../state/AppContext';
 import * as api from '../lib/api';
-import type { Policy, TestCase } from '../lib/types';
+import type { ModerationResult, Policy, TestCase } from '../lib/types';
 import { DECISION_LABELS, CATEGORY_LABELS } from '../lib/i18n';
 import { timeAgo, downloadJson } from '../lib/utils';
 
 type Tab = 'overview' | 'reports' | 'queue' | 'users' | 'incidents' | 'stats' | 'appeals' | 'policies' | 'tests' | 'audit';
 
+const SANDBOX_PRESETS = [
+  { label: 'Harmlös svenska', text: 'Hej! Vill du spela fotboll eller Minecraft i helgen?', ctx: '' },
+  { label: 'Mellanrum + påhopp', text: 'd u m   i d i o t', ctx: '' },
+  { label: 'Leetspeak', text: 'du är en 1d10t', ctx: '' },
+  { label: 'Homoglyfer (kyrilliska)', text: 'n е g g е r', ctx: '' },
+  { label: 'Flytt till extern plattform', text: 'Lägg till mig på snapchat istället', ctx: '' },
+  { label: 'Grooming / hemlighållande', text: 'Träffas i hemlighet och säg inte till dina föräldrar', ctx: 'Hur gammal är du?\nSkicka en bild på dig' },
+  { label: 'Hot om våld', text: 'Jag kommer och slår ihjäl dig imorgon', ctx: '' },
+];
+
 export function AdminPage() {
-  const { moderator, showToast, config } = useApp();
+  const { moderator, demoMode, refreshProfile, showToast, config } = useApp();
   const [tab, setTab] = useState<Tab>('overview');
+  const [queueTab, setQueueTab] = useState<'decisions' | 'media' | 'held'>('decisions');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [decisions, setDecisions] = useState<any[]>([]);
+  const [overrides, setOverrides] = useState<any[]>([]);
   const [reports, setReports] = useState<any[]>([]);
   const [queue, setQueue] = useState<{ decisions: any[]; media: any[]; held: any[] }>({ decisions: [], media: [], held: [] });
   const [suspicious, setSuspicious] = useState<any[]>([]);
@@ -38,19 +49,29 @@ export function AdminPage() {
   const [evalBusy, setEvalBusy] = useState(false);
   const [mfaLevel, setMfaLevel] = useState<string>('–');
 
+  // Live AI Sandbox state
+  const [sandboxText, setSandboxText] = useState('d u m   i d i o t');
+  const [sandboxCtx, setSandboxCtx] = useState('');
+  const [sandboxBusy, setSandboxBusy] = useState(false);
+  const [sandboxRes, setSandboxRes] = useState<ModerationResult | null>(null);
+
   const load = async () => {
+    if (!moderator) { setLoading(false); return; }
     setLoading(true); setError('');
     try {
-      const [d, r, q, s, i, a, p, c, e, l] = await Promise.all([
-        api.getAllDecisions(), api.getReports(), api.getReviewQueue(), api.getSuspiciousUsers(),
-        api.getIncidents(), api.getAppealsAdmin(), api.getPolicies(), api.getTestCases(),
-        api.getEvaluations(), api.getAuditLogs(),
+      const [d, o, r, q, s, i, a, p, c, e, l] = await Promise.all([
+        api.getAllDecisions(), api.getModeratorOverrides(), api.getReports(), api.getReviewQueue(),
+        api.getSuspiciousUsers(), api.getIncidents(), api.getAppealsAdmin(), api.getPolicies(),
+        api.getTestCases(), api.getEvaluations(), api.getAuditLogs(),
       ]);
-      setDecisions(d); setReports(r); setQueue(q); setSuspicious(s); setIncidents(i);
-      setAppeals(a); setPolicies(p); setCases(c); setEvaluations(e); setAudit(l);
+      setDecisions(d); setOverrides(o); setReports(r); setQueue(q); setSuspicious(s);
+      setIncidents(i); setAppeals(a); setPolicies(p); setCases(c); setEvaluations(e); setAudit(l);
     } catch (e: any) { setError(e.message); } finally { setLoading(false); }
   };
-  useEffect(() => { load(); api.mfa.level().then(({ data }: any) => setMfaLevel(data?.currentLevel || '–')).catch(() => {}); }, [moderator]);
+  useEffect(() => {
+    load();
+    if (moderator) api.mfa.level().then(({ data }: any) => setMfaLevel(data?.currentLevel || '–')).catch(() => {});
+  }, [moderator]);
 
   const stats = useMemo(() => {
     const total = decisions.length;
@@ -58,20 +79,58 @@ export function AdminPage() {
     const held = decisions.filter((d) => d.decision === 'HOLD_FOR_REVIEW').length;
     const escalated = decisions.filter((d) => d.decision === 'ESCALATE').length;
     const categories: Record<string, number> = {};
-    decisions.forEach((d) => { if (d.decision !== 'ALLOW') categories[d.category] = (categories[d.category] || 0) + 1; });
+    const evasion: Record<string, number> = {};
+    decisions.forEach((d) => {
+      if (d.decision !== 'ALLOW') categories[d.category] = (categories[d.category] || 0) + 1;
+      for (const sig of d.signals?.obfuscation || []) evasion[sig] = (evasion[sig] || 0) + 1;
+    });
+    evaluations.forEach((ev) => {
+      if (ev.obfuscation_type && ev.obfuscation_type !== 'plain') {
+        evasion[ev.obfuscation_type] = (evasion[ev.obfuscation_type] || 0) + 1;
+      }
+    });
     const sv = evaluations.filter((e) => e.language === 'sv');
     const en = evaluations.filter((e) => e.language === 'en');
     const acc = (rows: any[]) => rows.length ? Math.round(rows.filter((r) => r.passed).length / rows.length * 100) : null;
-    return { total, flagged, held, escalated, categories, svAccuracy: acc(sv), enAccuracy: acc(en),
-      accuracy: acc(evaluations), fp: evaluations.filter((e) => e.false_positive).length, fn: evaluations.filter((e) => e.false_negative).length };
-  }, [decisions, evaluations]);
+    return {
+      total, flagged, held, escalated, categories, evasion,
+      overridesCount: overrides.length,
+      svAccuracy: acc(sv), enAccuracy: acc(en),
+      accuracy: acc(evaluations),
+      fp: evaluations.filter((e) => e.false_positive).length,
+      fn: evaluations.filter((e) => e.false_negative).length,
+    };
+  }, [decisions, evaluations, overrides]);
 
   const openModal = (kind: string, data: any = {}, initial: Record<string, any> = {}) => { setModal(kind); setModalData(data); setForm(initial); };
 
+  const claimModerator = async () => {
+    setBusy(true);
+    try {
+      const role = await api.bootstrapModerator();
+      await refreshProfile();
+      showToast(`Moderatorroll aktiverad (${role}). Åtgärden har revisionsloggats.`);
+    } catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
+  };
+
+  const runSandbox = async () => {
+    if (!sandboxText.trim()) return;
+    setSandboxBusy(true);
+    try {
+      const ctx = sandboxCtx.split('\n').map((s) => s.trim()).filter(Boolean);
+      const r = await api.moderateText(sandboxText, 'test', ctx);
+      setSandboxRes(r);
+    } catch (e: any) { showToast(e.message, 'error'); } finally { setSandboxBusy(false); }
+  };
+
   const runEval = async () => {
     setEvalBusy(true);
-    try { const r = await api.runEvaluation(cases); setEvalRun(r); setEvaluations(await api.getEvaluations()); showToast(`Utvärdering klar: ${r.rows.length} fall kördes mot den riktiga motorn.`); }
-    catch (e: any) { showToast(e.message, 'error'); } finally { setEvalBusy(false); }
+    try {
+      const r = await api.runEvaluation(cases);
+      setEvalRun(r);
+      setEvaluations(await api.getEvaluations());
+      showToast(`Utvärdering klar: ${r.rows.length} fall kördes mot den riktiga motorn.`);
+    } catch (e: any) { showToast(e.message, 'error'); } finally { setEvalBusy(false); }
   };
   const savePolicy = async () => {
     if (!form.key || !form.pattern) { showToast('Nyckel och mönster krävs.', 'error'); return; }
@@ -88,8 +147,14 @@ export function AdminPage() {
   const saveCase = async () => {
     if (!form.label || !form.text) { showToast('Etikett och text krävs.', 'error'); return; }
     setBusy(true);
-    try { await api.addTestCase({ label: form.label, language: form.language, text: form.text, expected_decision: form.expected_decision, expected_category: form.expected_category, harmful: form.harmful === true, obfuscation_type: form.obfuscation_type, active: true }); setCases(await api.getTestCases()); setModal(null); showToast('Testfallet lades till.'); }
-    catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
+    try {
+      await api.addTestCase({
+        label: form.label, language: form.language, text: form.text,
+        expected_decision: form.expected_decision, expected_category: form.expected_category,
+        harmful: form.harmful === true, obfuscation_type: form.obfuscation_type, active: true,
+      });
+      setCases(await api.getTestCases()); setModal(null); showToast('Testfallet lades till.');
+    } catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
   };
   const moderatorAction = async (kind: string) => {
     setBusy(true);
@@ -104,11 +169,39 @@ export function AdminPage() {
       showToast('Åtgärden sparades och revisionsloggades.'); setModal(null); await load();
     } catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
   };
+  const openEvidence = async (report: any) => {
+    setBusy(true);
+    try {
+      const ev = await api.getReportEvidence(report);
+      openModal('evidence', ev);
+      setAudit(await api.getAuditLogs());
+    } catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
+  };
+  const handleHeldContent = async (item: any, status: 'visible' | 'removed') => {
+    setBusy(true);
+    try {
+      await api.setContentStatus(item._contentKind || 'message', item.id, status);
+      showToast(status === 'visible' ? 'Innehållet godkändes.' : 'Innehållet togs bort.');
+      await load();
+    } catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
+  };
   const viewHistory = async (userId: string) => {
-    try { setHistory(await api.getUserHistory(userId)); setModal('history'); } catch (e: any) { showToast(e.message, 'error'); }
+    try { setHistory(await api.getUserHistory(userId)); setModal('history'); setAudit(await api.getAuditLogs()); }
+    catch (e: any) { showToast(e.message, 'error'); }
   };
 
-  if (!moderator) return <><PageHeader title="Moderatorpanel" /><Card className="gate-card"><ShieldAlert size={32} /><h2>Behörighet saknas</h2><p>Endast moderatorer med roll i databasen kan öppna den här panelen. Alla känsliga åtgärder kräver dessutom MFA.</p></Card></>;
+  if (!moderator) return <>
+    <PageHeader title="Moderatorpanel" subtitle="Rollbaserad åtkomstkontroll (RBAC) kontrolleras på servern via PostgreSQL RLS." />
+    <Card className="gate-card">
+      <ShieldAlert size={34} />
+      <h2>Moderatorbehörighet krävs</h2>
+      <p>Endast konton i tabellen <code>nexa_moderators</code> (roller: <code>moderator</code>, <code>senior_moderator</code>, <code>safety_lead</code>, <code>admin</code>) har läs- och skrivåtkomst till rapporter, granskningskö, AI-statistik, policys och revisionsloggar.</p>
+      {demoMode && <>
+        <div className="ob-note"><Sparkles size={16} /><div><strong>Demoläge aktivt</strong> — Du kan logga in som <code>demo_elis@nexa.demo</code> (Safety Lead) eller tilldela ditt nuvarande konto moderatorroll för utvärdering. Rolländringen loggas i <code>nexa_audit_logs</code>.</div></div>
+        <Button icon={<ShieldCheck size={16} />} loading={busy} onClick={claimModerator}>Aktivera moderatorroll (DEMO / Bootstrap)</Button>
+      </>}
+    </Card>
+  </>;
   if (loading) return <><PageHeader title="Moderatorpanel" /><Spinner /></>;
   if (error) return <><PageHeader title="Moderatorpanel" /><ErrorState message={error} onRetry={load} /></>;
 
@@ -147,18 +240,18 @@ export function AdminPage() {
           <Card className="chart-card">{Object.entries(stats.categories).sort((a, b) => b[1] - a[1]).map(([k, v]) => <div key={k} className="bar-row"><span>{CATEGORY_LABELS[k] || k}</span><div className="bar"><i style={{ width: `${Math.min(100, (v / Math.max(1, stats.flagged)) * 100)}%` }} /></div><strong>{v}</strong></div>)}{Object.keys(stats.categories).length === 0 && <p className="muted">Inga flaggade beslut ännu.</p>}</Card>
         </Section>
       </div>
-      <div className="provider-note"><Activity size={18} /><div><strong>Motorstatus</strong><p>Version {config.engine_version || '1.0.3'} · inbyggd motor aktiv. Extern språkmodell: {config.moderation_provider?.status === 'active' ? 'ansluten' : 'ej konfigurerad'}. OCR/bild: {config.vision_ocr_provider?.status === 'active' ? 'ansluten' : 'saknas → manuell granskning'}. Transkribering: {config.transcription_provider?.status === 'active' ? 'ansluten' : 'saknas → manuell granskning'}.</p></div></div>
+      <div className="provider-note"><Activity size={18} /><div><strong>Motorstatus</strong><p>Version {config.engine_version || '1.0.3'} · inbyggd kontextuell motor aktiv på Supabase Edge. Extern språkmodell: {config.moderation_provider?.status === 'active' ? 'ansluten' : 'ej konfigurerad'}. OCR/bild: {config.vision_ocr_provider?.status === 'active' ? 'ansluten' : 'saknas → manuell granskning'}. Transkribering: {config.transcription_provider?.status === 'active' ? 'ansluten' : 'saknas → manuell granskning'}.</p></div></div>
     </>}
 
-    {tab === 'reports' && <Section title="Rapporter" description="Användarrapporter med begränsad åtkomst till bevis.">
-      {reports.length === 0 ? <EmptyState icon={<Flag size={24} />} title="Inga rapporter" /> : <Card className="table-card">{reports.map((r) => <div key={r.id} className="table-row"><div><strong>{r.reason}</strong><small>{r.target_type} · {r.target_id?.slice(0, 8)} · {timeAgo(r.created_at)}</small><p>{r.details || '–'}</p></div><Badge tone={r.status === 'resolved' ? 'green' : r.status === 'dismissed' ? 'grey' : 'amber'}>{r.status}</Badge><div className="row-actions"><Button size="sm" variant="outline" icon={<Eye size={13} />} onClick={() => openModal('evidence', r)}>Bevis</Button><Button size="sm" variant="ghost" icon={<Check size={13} />} onClick={() => openModal('report', r, { status: 'resolved' })}>Hantera</Button></div></div>)}</Card>}
+    {tab === 'reports' && <Section title="Rapporter" description="Användarrapporter med begränsad och revisionsloggad åtkomst till bevis.">
+      {reports.length === 0 ? <EmptyState icon={<Flag size={24} />} title="Inga rapporter" /> : <Card className="table-card">{reports.map((r) => <div key={r.id} className="table-row"><div><strong>{r.reason}</strong><small>{r.target_type} · {r.target_id?.slice(0, 8)} · {timeAgo(r.created_at)}</small><p>{r.details || '–'}</p></div><Badge tone={r.status === 'resolved' ? 'green' : r.status === 'dismissed' ? 'grey' : 'amber'}>{r.status}</Badge><div className="row-actions"><Button size="sm" variant="outline" icon={<Eye size={13} />} onClick={() => openEvidence(r)} disabled={busy}>Bevis</Button><Button size="sm" variant="ghost" icon={<Check size={13} />} onClick={() => openModal('report', r, { status: 'resolved' })}>Hantera</Button></div></div>)}</Card>}
     </Section>}
 
     {tab === 'queue' && <Section title="Granskningskö" description="Osäkra AI-beslut, media utan leverantör och hållet innehåll – alltid mänsklig bedömning.">
-      <Tabs tabs={[{ id: 'decisions', label: 'AI-beslut', count: queue.decisions.length }, { id: 'media', label: 'Media', count: queue.media.length }, { id: 'held', label: 'Hållet innehåll', count: queue.held.length }]} active={(modalData as any)?._qtab || 'decisions'} onChange={(id) => setModalData((d: any) => ({ ...(d || {}), _qtab: id }))} />
-      {(((modalData as any)?._qtab || 'decisions') === 'decisions') && (queue.decisions.length === 0 ? <EmptyState icon={<Check size={24} />} title="Kön är tom" /> : <Card className="table-card">{queue.decisions.map((d) => <div key={d.id} className="table-row"><div><div className="decision-row-head"><Badge tone={d.decision === 'ESCALATE' ? 'red' : 'amber'}>{DECISION_LABELS[d.decision] || d.decision}</Badge><strong>{CATEGORY_LABELS[d.category] || d.category}</strong><span>{Math.round(d.confidence * 100)}%</span></div><p>{d.explanation}</p><small>Hash: {String(d.content_hash).slice(0, 16)}… · {d.provider} · {timeAgo(d.created_at)}</small></div><div className="row-actions"><Button size="sm" variant="outline" onClick={() => openModal('override', d, { corrected: 'ALLOW', note: '' })}>Korrigera AI</Button><Button size="sm" variant="ghost" onClick={() => d.user_id && viewHistory(d.user_id)}>Historik</Button></div></div>)}</Card>)}
-      {(((modalData as any)?._qtab || 'decisions') === 'media') && (queue.media.length === 0 ? <EmptyState icon={<Check size={24} />} title="Inga media att granska" /> : <Card className="table-card">{queue.media.map((m) => <div key={m.id} className="table-row"><div><strong>{m.kind} · {m.mime}</strong><small>{m.bucket_path} · {timeAgo(m.created_at)}</small><p>Status: {m.status} – kräver mänsklig granskning eftersom OCR/transkribering saknas.</p></div><div className="row-actions"><Button size="sm" variant="outline" onClick={() => openModal('media', m, { approve: true })}>Granska</Button></div></div>)}</Card>)}
-      {(((modalData as any)?._qtab || 'decisions') === 'held') && (queue.held.length === 0 ? <EmptyState icon={<Check size={24} />} title="Inget hållet innehåll" /> : <Card className="table-card">{queue.held.map((h: any) => <div key={h.id} className="table-row"><div><strong>{h.body || 'Innehåll utan text'}</strong><small>{timeAgo(h.created_at)}</small></div><Badge tone="amber">Hållt</Badge></div>)}</Card>)}
+      <Tabs tabs={[{ id: 'decisions', label: 'AI-beslut', count: queue.decisions.length }, { id: 'media', label: 'Media', count: queue.media.length }, { id: 'held', label: 'Hållet innehåll', count: queue.held.length }]} active={queueTab} onChange={(id) => setQueueTab(id as any)} />
+      {queueTab === 'decisions' && (queue.decisions.length === 0 ? <EmptyState icon={<Check size={24} />} title="Kön är tom" /> : <Card className="table-card">{queue.decisions.map((d) => <div key={d.id} className="table-row"><div><div className="decision-row-head"><Badge tone={d.decision === 'ESCALATE' ? 'red' : 'amber'}>{DECISION_LABELS[d.decision] || d.decision}</Badge><strong>{CATEGORY_LABELS[d.category] || d.category}</strong><span>{Math.round(d.confidence * 100)}%</span></div><p>{d.explanation}</p><small>Hash: {String(d.content_hash).slice(0, 16)}… · {d.provider} · {timeAgo(d.created_at)}</small></div><div className="row-actions"><Button size="sm" variant="outline" onClick={() => openModal('override', d, { corrected: 'ALLOW', note: '' })}>Korrigera AI</Button><Button size="sm" variant="ghost" onClick={() => d.user_id && viewHistory(d.user_id)}>Historik</Button></div></div>)}</Card>)}
+      {queueTab === 'media' && (queue.media.length === 0 ? <EmptyState icon={<Check size={24} />} title="Inga media att granska" /> : <Card className="table-card">{queue.media.map((m) => <div key={m.id} className="table-row"><div><strong>{m.kind} · {m.mime}</strong><small>{m.bucket_path} · {timeAgo(m.created_at)}</small><p>Status: {m.status} – kräver mänsklig granskning när OCR/transkribering saknas.</p></div><div className="row-actions"><Button size="sm" variant="outline" onClick={() => openModal('media', m, { approve: true })}>Granska</Button></div></div>)}</Card>)}
+      {queueTab === 'held' && (queue.held.length === 0 ? <EmptyState icon={<Check size={24} />} title="Inget hållet innehåll" /> : <Card className="table-card">{queue.held.map((h: any) => <div key={h.id} className="table-row"><div><strong>{h.body || 'Innehåll utan text'}</strong><small>{h._contentKind || 'innehåll'} · {timeAgo(h.created_at)}</small></div><Badge tone="amber">Hållt</Badge><div className="row-actions"><Button size="sm" variant="outline" icon={<Check size={13} />} onClick={() => handleHeldContent(h, 'visible')} disabled={busy}>Godkänn</Button><Button size="sm" variant="danger" icon={<Trash2 size={13} />} onClick={() => handleHeldContent(h, 'removed')} disabled={busy}>Ta bort</Button></div></div>)}</Card>)}
     </Section>}
 
     {tab === 'users' && <Section title="Misstänkta konton" description="Konton med upprepade flaggade beslut. Inga privata konversationer används för automatisk träning.">
@@ -169,10 +262,25 @@ export function AdminPage() {
       {incidents.length === 0 ? <EmptyState icon={<ShieldCheck size={24} />} title="Inga incidenter" /> : <Card className="table-card">{incidents.map((i) => <div key={i.id} className="table-row"><div><strong>{CATEGORY_LABELS[i.category] || i.category}</strong><small>Allvarlighetsgrad {i.severity} · {timeAgo(i.created_at)}</small><p>{i.summary}</p></div><Badge tone={i.status === 'resolved' ? 'green' : i.status === 'escalated' ? 'red' : 'amber'}>{i.status}</Badge><Button size="sm" variant="outline" onClick={() => openModal('incident', i, { resolve: false })}>Hantera</Button></div>)}</Card>}
     </Section>}
 
-    {tab === 'stats' && <Section title="AI-statistik & kvalitet" description="Träffsäkerhet, falska positiva/negativa och svenska/engelska prestanda.">
-      <div className="safety-stats"><Card><Stat label="Totala beslut" value={stats.total} /></Card><Card><Stat label="Flaggade" value={stats.flagged} tone="#B45CFF" /></Card><Card><Stat label="Träffsäkerhet (tester)" value={stats.accuracy === null ? '–' : `${stats.accuracy}%`} tone="#3FCF8E" /></Card><Card><Stat label="Svenska" value={stats.svAccuracy === null ? '–' : `${stats.svAccuracy}%`} /></Card><Card><Stat label="English" value={stats.enAccuracy === null ? '–' : `${stats.enAccuracy}%`} /></Card><Card><Stat label="Falska pos / neg" value={`${stats.fp} / ${stats.fn}`} tone="#F5A524" /></Card></div>
-      <div className="two-col"><Card className="chart-card"><h3>Beslut</h3>{['ALLOW', 'WARN', 'HOLD_FOR_REVIEW', 'BLOCK', 'ESCALATE'].map((d) => { const n = decisions.filter((x) => x.decision === d).length; return <div key={d} className="bar-row"><span>{DECISION_LABELS[d]}</span><div className="bar"><i style={{ width: `${Math.min(100, n / Math.max(1, stats.total) * 100)}%` }} /></div><strong>{n}</strong></div>; })}</Card>
-        <Card className="chart-card"><h3>Kategorier</h3>{Object.entries(stats.categories).map(([k, v]) => <div key={k} className="bar-row"><span>{CATEGORY_LABELS[k] || k}</span><div className="bar"><i style={{ width: `${Math.min(100, (v as number) / Math.max(1, stats.flagged) * 100)}%` }} /></div><strong>{v as number}</strong></div>)}{!Object.keys(stats.categories).length && <p className="muted">Inga data ännu.</p>}</Card></div>
+    {tab === 'stats' && <Section title="AI-statistik & kvalitet" description="Träffsäkerhet, falska positiva/negativa, moderator-overrides, kringgåendemönster och svenska/engelska prestanda.">
+      <div className="safety-stats">
+        <Card><Stat label="Totala beslut" value={stats.total} /></Card>
+        <Card><Stat label="Flaggade" value={stats.flagged} tone="#B45CFF" /></Card>
+        <Card><Stat label="Träffsäkerhet (tester)" value={stats.accuracy === null ? '–' : `${stats.accuracy}%`} tone="#3FCF8E" /></Card>
+        <Card><Stat label="Svenska / Engelska" value={`${stats.svAccuracy ?? '–'}% / ${stats.enAccuracy ?? '–'}%`} /></Card>
+        <Card><Stat label="Falska pos / neg" value={`${stats.fp} / ${stats.fn}`} tone="#F5A524" /></Card>
+        <Card><Stat label="Moderator-korrigeringar" value={stats.overridesCount} tone="#7AA2F7" /></Card>
+      </div>
+      <div className="two-col">
+        <Card className="chart-card"><h3>Beslut</h3>{['ALLOW', 'WARN', 'HOLD_FOR_REVIEW', 'BLOCK', 'ESCALATE'].map((d) => { const n = decisions.filter((x) => x.decision === d).length; return <div key={d} className="bar-row"><span>{DECISION_LABELS[d]}</span><div className="bar"><i style={{ width: `${Math.min(100, n / Math.max(1, stats.total) * 100)}%` }} /></div><strong>{n}</strong></div>; })}</Card>
+        <Card className="chart-card"><h3>Kategorier</h3>{Object.entries(stats.categories).map(([k, v]) => <div key={k} className="bar-row"><span>{CATEGORY_LABELS[k] || k}</span><div className="bar"><i style={{ width: `${Math.min(100, (v as number) / Math.max(1, stats.flagged) * 100)}%` }} /></div><strong>{v as number}</strong></div>)}{!Object.keys(stats.categories).length && <p className="muted">Inga flaggade kategorier ännu.</p>}</Card>
+      </div>
+      <Section title="Identifierade kringgåendemönster (obfuscation & evasion)" description="Mellanrum, leetspeak, Unicode-homoglyfer, stavelseuppdelning, skiljetecken och kontextsignaler.">
+        <Card className="chart-card">
+          {Object.entries(stats.evasion).sort((a, b) => b[1] - a[1]).map(([k, v]) => <div key={k} className="bar-row"><span>{k}</span><div className="bar"><i style={{ width: `${Math.min(100, v * 12)}%` }} /></div><strong>{v}</strong></div>)}
+          {!Object.keys(stats.evasion).length && <p className="muted">Kör utvärderingssviten eller live-testet för att samla mönsterstatistik.</p>}
+        </Card>
+      </Section>
     </Section>}
 
     {tab === 'appeals' && <Section title="Överklaganden" description="Ingen permanent avstängning får bygga enbart på osäker AI.">
@@ -183,15 +291,37 @@ export function AdminPage() {
       <Card className="table-card">{policies.map((p) => <div key={p.id} className="table-row"><div><strong>{p.key}</strong><small>{CATEGORY_LABELS[p.category] || p.category} · allvarlighet {p.severity} · v{p.version} · {p.signal_type}</small><p className="code-line">{p.pattern}</p></div><Badge tone={p.enabled ? 'green' : 'grey'}>{p.enabled ? 'Aktiv' : 'Av'}</Badge><div className="row-actions"><Button size="sm" variant="outline" icon={<Pencil size={13} />} onClick={() => openModal('policy', p, { key: p.key, category: p.category, severity: p.severity, pattern: p.pattern, description: p.description, enabled: p.enabled })}>Redigera</Button></div></div>)}</Card>
     </Section>}
 
-    {tab === 'tests' && <Section title="Test- och förbättringsmiljö" description="Kuratoriskt dataset på svenska och engelska: normala, felstavade, slang, stavelser, specialtecken, Unicode, mellanrum, kontext och adversariella fall. Ingen automatisk träning på privata samtal."
-      right={<><Button variant="outline" icon={<Download size={15} />} onClick={() => downloadJson({ cases, evaluations }, 'nexa-eval-export.json')}>Exportera</Button><Button icon={<Plus size={15} />} onClick={() => openModal('case', null, { language: 'sv', expected_decision: 'BLOCK', expected_category: 'bullying', harmful: true, obfuscation_type: 'plain' })}>Nytt fall</Button><Button icon={<Play size={15} />} loading={evalBusy} onClick={runEval}>Kör utvärdering</Button></>}>
-      <div className="safety-stats"><Card><Stat label="Testfall" value={cases.length} /></Card><Card><Stat label="Körda bedömningar" value={evaluations.length} /></Card><Card><Stat label="Träffsäkerhet" value={stats.accuracy === null ? '–' : `${stats.accuracy}%`} tone="#3FCF8E" /></Card><Card><Stat label="Falska positiva" value={stats.fp} tone="#F5A524" /></Card><Card><Stat label="Falska negativa" value={stats.fn} tone="#FF6B6B" /></Card><Card><Stat label="Svenska / Engelska" value={`${stats.svAccuracy ?? '–'} / ${stats.enAccuracy ?? '–'}`} /></Card></div>
-      {evalRun && <Card className="eval-result"><h3>Senaste körning {evalRun.runId.slice(0, 8)}</h3><p>{evalRun.rows.filter((r) => r.passed).length} av {evalRun.rows.length} korrekta · {evalRun.rows.filter((r) => r.false_positive).length} falska positiva · {evalRun.rows.filter((r) => r.false_negative).length} falska negativa</p></Card>}
-      <Card className="table-card">{cases.map((c) => <div key={c.id} className="table-row"><div><strong>{c.label}</strong><small>{c.language} · {c.obfuscation_type} · {c.harmful ? 'skadligt' : 'harmlöst'} · förväntat {c.expected_decision}</small><p className="code-line">{c.text}</p></div><Badge tone={c.harmful ? 'red' : 'green'}>{c.harmful ? 'Skadligt' : 'Harmlöst'}</Badge><Button size="sm" variant="ghost" icon={<Trash2 size={13} />} onClick={async () => { try { await api.deleteTestCase(c.id); setCases(await api.getTestCases()); } catch (e: any) { showToast(e.message, 'error'); } }} /><div className="row-actions"><Button size="sm" variant="outline" icon={<Play size={13} />} onClick={async () => { try { const r = await api.moderateText(c.text, 'test'); showToast(`${c.label}: ${r.decision} (${CATEGORY_LABELS[r.category] || r.category}, ${Math.round(r.confidence * 100)}%)`, 'info'); } catch (e: any) { showToast(e.message, 'error'); } }}>Testa</Button></div></div>)}</Card>
-      <div className="ob-note"><FlaskConical size={15} /> Endast auktoriserad, kuraterad träningsdata. Moderatorers korrigeringar och undantag sparas i <code>nexa_moderator_overrides</code> och utvärderingar i <code>nexa_moderation_evaluations</code>.</div>
-    </Section>}
+    {tab === 'tests' && <>
+      <Section title="Live AI-säkerhetstest (realtidsanalys)" description="Testa valfri text och konversationskontext direkt mot Supabase Edge-motorn och granska hela beslutsstrukturen.">
+        <Card className="settings-card">
+          <div className="chip-row">{SANDBOX_PRESETS.map((p) => <button key={p.label} className="chip" onClick={() => { setSandboxText(p.text); setSandboxCtx(p.ctx); }}>{p.label}</button>)}</div>
+          <Textarea label="Meddelande / inlägg att analysera" rows={2} value={sandboxText} onChange={(e) => setSandboxText(e.target.value)} />
+          <Textarea label="Tidigare meddelanden i konversationen (valfritt, en rad per meddelande för kontextanalys)" rows={2} value={sandboxCtx} onChange={(e) => setSandboxCtx(e.target.value)} placeholder="T.ex. Hur gammal är du?" />
+          <Button icon={<Play size={15} />} loading={sandboxBusy} onClick={runSandbox}>Analysera med live-motorn</Button>
+          {sandboxRes && <div className="eval-result">
+            <div className="decision-row-head">
+              <Badge tone={sandboxRes.decision === 'ALLOW' ? 'green' : sandboxRes.decision === 'WARN' ? 'amber' : 'red'}>{DECISION_LABELS[sandboxRes.decision] || sandboxRes.decision} ({sandboxRes.decision})</Badge>
+              <strong>{CATEGORY_LABELS[sandboxRes.category] || sandboxRes.category}</strong>
+              <span>Konfidens: {Math.round(sandboxRes.confidence * 100)}%</span>
+              <span>Regel: <code>{sandboxRes.policy_rule}</code></span>
+              <span>{sandboxRes.latency_ms} ms</span>
+            </div>
+            <p>{sandboxRes.explanation}</p>
+            <small>Rekommenderad åtgärd: <strong>{sandboxRes.recommended_action}</strong> · Mänsklig granskning: <strong>{sandboxRes.human_review ? 'Ja' : 'Nej'}</strong> · Kringgåendesignaler: <strong>{(sandboxRes.signals?.obfuscation || []).join(', ') || 'inga'}</strong></small>
+          </div>}
+        </Card>
+      </Section>
 
-    {tab === 'audit' && <Section title="Revisionslogg" description="Alla känsliga moderatoråtgärder loggas med aktör, mål och tid.">
+      <Section title="Kuraterad test- och förbättringsmiljö" description="Svenska, engelska och svengelska: normala, felstavade, slang, stavelser, specialtecken, Unicode-homoglyfer, mellanrum, kontext och adversariella fall. Ingen automatisk träning på privata samtal."
+        right={<><Button variant="outline" icon={<Download size={15} />} onClick={() => downloadJson({ cases, evaluations }, 'nexa-eval-export.json')}>Exportera</Button><Button icon={<Plus size={15} />} onClick={() => openModal('case', null, { language: 'sv', expected_decision: 'BLOCK', expected_category: 'bullying', harmful: true, obfuscation_type: 'plain' })}>Nytt fall</Button><Button icon={<Play size={15} />} loading={evalBusy} onClick={runEval}>Kör hela sviten ({cases.length})</Button></>}>
+        <div className="safety-stats"><Card><Stat label="Testfall" value={cases.length} /></Card><Card><Stat label="Körda bedömningar" value={evaluations.length} /></Card><Card><Stat label="Träffsäkerhet" value={stats.accuracy === null ? '–' : `${stats.accuracy}%`} tone="#3FCF8E" /></Card><Card><Stat label="Falska positiva" value={stats.fp} tone="#F5A524" /></Card><Card><Stat label="Falska negativa" value={stats.fn} tone="#FF6B6B" /></Card><Card><Stat label="Svenska / Engelska" value={`${stats.svAccuracy ?? '–'}% / ${stats.enAccuracy ?? '–'}%`} /></Card></div>
+        {evalRun && <Card className="eval-result"><h3>Senaste körning {evalRun.runId.slice(0, 8)}</h3><p>{evalRun.rows.filter((r) => r.passed).length} av {evalRun.rows.length} korrekta ({Math.round(evalRun.rows.filter((r) => r.passed).length / Math.max(1, evalRun.rows.length) * 100)}%) · {evalRun.rows.filter((r) => r.false_positive).length} falska positiva · {evalRun.rows.filter((r) => r.false_negative).length} falska negativa</p></Card>}
+        <Card className="table-card">{cases.map((c) => <div key={c.id} className="table-row"><div><strong>{c.label}</strong><small>{c.language} · {c.obfuscation_type} · {c.harmful ? 'skadligt' : 'harmlöst'} · förväntat {c.expected_decision}</small><p className="code-line">{c.text}</p></div><Badge tone={c.harmful ? 'red' : 'green'}>{c.harmful ? 'Skadligt' : 'Harmlöst'}</Badge><Button size="sm" variant="ghost" icon={<Trash2 size={13} />} onClick={async () => { try { await api.deleteTestCase(c.id); setCases(await api.getTestCases()); } catch (e: any) { showToast(e.message, 'error'); } }} /><div className="row-actions"><Button size="sm" variant="outline" icon={<Play size={13} />} onClick={async () => { try { const r = await api.moderateText(c.text, 'test'); showToast(`${c.label}: ${r.decision} (${CATEGORY_LABELS[r.category] || r.category}, ${Math.round(r.confidence * 100)}%)`, 'info'); } catch (e: any) { showToast(e.message, 'error'); } }}>Testa</Button></div></div>)}</Card>
+        <div className="ob-note"><FlaskConical size={15} /> Endast auktoriserad, kuraterad träningsdata. Moderatorers korrigeringar och undantag sparas i <code>nexa_moderator_overrides</code> och utvärderingar i <code>nexa_moderation_evaluations</code>.</div>
+      </Section>
+    </>}
+
+    {tab === 'audit' && <Section title="Revisionslogg" description="Alla känsliga moderatoråtgärder (inklusive bevisgranskning och historikåtkomst) loggas med aktör, mål och tid.">
       {audit.length === 0 ? <EmptyState icon={<ScrollText size={24} />} title="Inga loggade åtgärder ännu" /> : <Card className="table-card">{audit.map((a) => <div key={a.id} className="table-row"><div><strong>{a.action}</strong><small>{a.target_type} · {a.target_id?.slice(0, 8) || '–'} · {timeAgo(a.created_at)}</small><p className="code-line">{JSON.stringify(a.metadata || {}).slice(0, 180)}</p></div></div>)}</Card>}
     </Section>}
 
@@ -222,7 +352,7 @@ export function AdminPage() {
       <Button full icon={<Check size={15} />} loading={busy} onClick={() => moderatorAction('override')}>Spara korrigering</Button>
     </Modal>
     <Modal open={modal === 'warn' || modal === 'restrict'} onClose={() => setModal(null)} title={modal === 'warn' ? 'Varna användare' : 'Tillfällig begränsning'}>
-      <p className="muted">@ {modalData?.username || modalData?.slice?.(0, 8)}</p>
+      <p className="muted">@{modalData?.username || modalData?.id?.slice?.(0, 8)}</p>
       {modal === 'restrict' && <Input label="Antal timmar" type="number" min={1} value={form.hours || 24} onChange={(e) => setForm({ ...form, hours: e.target.value })} />}
       <Textarea label="Orsak" rows={3} value={form.reason || ''} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
       <Button full loading={busy} onClick={() => moderatorAction(modal === 'warn' ? 'warn' : 'restrict')}>Spara åtgärd</Button>
@@ -245,9 +375,20 @@ export function AdminPage() {
       <Toggle label="Markera som löst" checked={form.resolve === true} onChange={(v) => setForm({ ...form, resolve: v })} />
       <Button full loading={busy} onClick={() => moderatorAction('incident')}>Spara</Button>
     </Modal>
-    <Modal open={modal === 'evidence'} onClose={() => setModal(null)} title="Bevis (begränsad åtkomst)">
+    <Modal open={modal === 'evidence'} onClose={() => setModal(null)} title="Bevis (begränsad & loggad åtkomst)" wide>
       <div className="evidence-box"><pre>{JSON.stringify(modalData || {}, null, 2)}</pre></div>
-      <p className="muted">Åtkomsten till detta fönster är en känslig åtgärd och revisionsloggas.</p>
+      {modalData?.report && ['message', 'post', 'comment'].includes(modalData.report.target_type) && (
+        <Button variant="danger" icon={<Trash2 size={14} />} loading={busy} onClick={async () => {
+          setBusy(true);
+          try {
+            await api.setContentStatus(modalData.report.target_type, modalData.report.target_id, 'removed');
+            await api.resolveReport(modalData.report.id, 'resolved');
+            showToast('Rapporterat innehåll togs bort och rapporten markerades som åtgärdad.');
+            setModal(null); await load();
+          } catch (e: any) { showToast(e.message, 'error'); } finally { setBusy(false); }
+        }}>Ta bort rapporterat innehåll</Button>
+      )}
+      <p className="muted">Åtkomsten till detta fönster har registrerats som <code>EVIDENCE_REVIEW</code> i revisionsloggen.</p>
     </Modal>
     <Modal open={modal === 'history'} onClose={() => setModal(null)} title="Användarhistorik" wide>
       {history && <div className="history-grid"><div><h4>Modereringsbeslut ({history.decisions?.length || 0})</h4>{history.decisions?.slice(0, 8).map((d: any) => <div key={d.id} className="history-row"><Badge tone={d.decision === 'ALLOW' ? 'green' : 'red'}>{d.decision}</Badge><span>{CATEGORY_LABELS[d.category] || d.category}</span><small>{timeAgo(d.created_at)}</small></div>)}</div>

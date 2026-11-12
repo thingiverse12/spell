@@ -38,6 +38,7 @@ export function Layout({ route, navigate, children }: { route: string; navigate:
         <span className="nav-label nav-label-gap">TRYGGHET</span>
         {extra.map((n: any) => <button key={n.id} className={`nav-item ${route === n.id ? 'active' : ''}`} onClick={() => go(n.id)}>
           <n.icon size={19} /><span>{n.label}</span>
+          {n.id === 'admin' && <Badge tone={moderator ? 'green' : 'grey'}>{moderator ? 'Aktiv' : 'RBAC'}</Badge>}
         </button>)}
       </nav>
       <div className="sidebar-foot">

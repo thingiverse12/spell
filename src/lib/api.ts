@@ -62,6 +62,18 @@ export async function myProfile(): Promise<Profile | null> {
 }
 export async function saveProfile(patch: Partial<Profile>): Promise<void> {
   const id = await me();
+  if (typeof patch.username === 'string' && patch.username.trim()) {
+    const r = await moderateText(patch.username.trim(), 'profile');
+    if (r.decision === 'BLOCK' || r.decision === 'ESCALATE') {
+      throw new Error(r.explanation || 'Användarnamnet tillåts inte av säkerhetsmotorn.');
+    }
+  }
+  if (typeof patch.bio === 'string' && patch.bio.trim()) {
+    const r = await moderateText(patch.bio.trim(), 'bio');
+    if (r.decision === 'BLOCK' || r.decision === 'ESCALATE') {
+      throw new Error(r.explanation || 'Profiltexten blockerades av säkerhetsmotorn.');
+    }
+  }
   const allowed = ['username', 'bio', 'avatar_url', 'interests', 'discoverable', 'show_online',
     'allow_requests', 'friend_pref', 'locale', 'onboarding_complete', 'last_seen_at'] as const;
   const clean: Record<string, unknown> = {};
@@ -103,10 +115,24 @@ export async function myDecisions(): Promise<any[]> {
 }
 
 // ---------------------------------------------------------------- discovery
-export async function getDiscoverProfiles(): Promise<Profile[]> {
+export async function getDiscoverProfiles(ageGroup?: string | null): Promise<Profile[]> {
   const id = await me();
-  const rows = await q<Profile[]>(supabase.from('nexa_profiles').select('*').eq('discoverable', true).neq('id', id).order('last_seen_at', { ascending: false }).limit(80));
+  let query = supabase.from('nexa_profiles').select('*').eq('discoverable', true).neq('id', id);
+  if (ageGroup) query = query.eq('age_group', ageGroup);
+  const rows = await q<Profile[]>(query.order('last_seen_at', { ascending: false }).limit(80));
   return rows ?? [];
+}
+export async function getMutualCommunityMap(): Promise<Record<string, string[]>> {
+  const id = await me();
+  const rows = await q<any[]>(supabase.from('nexa_community_members').select('community_id,user_id')) ?? [];
+  const mine = new Set(rows.filter((r) => r.user_id === id).map((r) => r.community_id));
+  const out: Record<string, string[]> = {};
+  for (const r of rows) {
+    if (r.user_id !== id && mine.has(r.community_id)) {
+      (out[r.user_id] ||= []).push(r.community_id);
+    }
+  }
+  return out;
 }
 export async function getProfilesByIds(ids: string[]): Promise<Profile[]> {
   if (!ids.length) return [];
@@ -207,10 +233,12 @@ export async function requestVideoCall(conversationId: string, approverId: strin
 }
 
 // ---------------------------------------------------------------- communities
-export async function getCommunities(): Promise<Community[]> {
+export async function getCommunities(ageGroup?: string | null): Promise<Community[]> {
   const id = await me();
+  let commQuery = supabase.from('nexa_communities').select('*');
+  if (ageGroup) commQuery = commQuery.eq('age_group', ageGroup);
   const [rows, myMemberships, counts] = await Promise.all([
-    q<Community[]>(supabase.from('nexa_communities').select('*').order('name')),
+    q<Community[]>(commQuery.order('name')),
     q<any[]>(supabase.from('nexa_community_members').select('community_id,role').eq('user_id', id)),
     getCommunityMemberCounts(),
   ]);
@@ -223,10 +251,16 @@ export async function getCommunity(id: string): Promise<Community | null> {
 }
 export async function createCommunity(input: { name: string; description: string; topic: string; rules: string; accent: string }): Promise<Community> {
   const id = await me();
-  const slug = `${input.name.toLowerCase().replace(/[^a-z0-9åäö]/g, '-').replace(/-+/g, '-').slice(0, 24)}-${uid().slice(0, 6)}`;
   const profile = await myProfile();
   if (!profile?.age_group) throw new Error('Åldersverifiering krävs.');
-  return q<Community>(supabase.from('nexa_communities').insert({ ...input, slug, age_group: profile.age_group, created_by: id }).select().single());
+  const check = await moderateText(`${input.name}\n${input.description}\n${input.rules}`, 'community');
+  if (check.decision === 'BLOCK' || check.decision === 'ESCALATE') {
+    throw new Error(check.explanation || 'Communitytexten blockerades av säkerhetsmotorn.');
+  }
+  const slug = `${input.name.toLowerCase().replace(/[^a-z0-9åäö]/g, '-').replace(/-+/g, '-').slice(0, 24)}-${uid().slice(0, 6)}`;
+  const created = await q<Community>(supabase.from('nexa_communities').insert({ ...input, slug, age_group: profile.age_group, created_by: id }).select().single());
+  await q(supabase.from('nexa_community_members').insert({ community_id: created.id, user_id: id, role: 'owner' }));
+  return { ...created, joined: true, member_count: 1 };
 }
 export async function joinCommunity(communityId: string): Promise<void> {
   const id = await me();
@@ -390,7 +424,38 @@ export async function getReviewQueue(): Promise<{ decisions: any[]; media: any[]
     q<any[]>(supabase.from('nexa_messages').select('*').eq('status', 'held').limit(40)),
     q<any[]>(supabase.from('nexa_posts').select('*').eq('status', 'held').limit(40)),
   ]);
-  return { decisions: decisions ?? [], media: media ?? [], held: [...(heldMessages ?? []), ...(heldPosts ?? [])] };
+  return {
+    decisions: decisions ?? [],
+    media: media ?? [],
+    held: [
+      ...(heldMessages ?? []).map((m) => ({ ...m, _contentKind: 'message' })),
+      ...(heldPosts ?? []).map((p) => ({ ...p, _contentKind: 'post' })),
+    ],
+  };
+}
+export async function logSensitiveAction(action: string, targetType: string, targetId: string, metadata: Record<string, unknown> = {}): Promise<void> {
+  const id = await me();
+  await q(supabase.from('nexa_audit_logs').insert({ actor_id: id, action, target_type: targetType, target_id: targetId, metadata }));
+}
+export async function getReportEvidence(report: any): Promise<any> {
+  await logSensitiveAction('EVIDENCE_REVIEW', report.target_type, report.target_id, { report_id: report.id, reason: report.reason });
+  const t = report.target_type;
+  let target: any = null;
+  try {
+    if (t === 'message') target = await q(supabase.from('nexa_messages').select('*').eq('id', report.target_id).maybeSingle());
+    else if (t === 'post') target = await q(supabase.from('nexa_posts').select('*').eq('id', report.target_id).maybeSingle());
+    else if (t === 'comment') target = await q(supabase.from('nexa_comments').select('*').eq('id', report.target_id).maybeSingle());
+    else if (t === 'user') target = await q(supabase.from('nexa_profiles').select('id,username,age_group,bio,status,is_demo,created_at').eq('id', report.target_id).maybeSingle());
+  } catch { /* keep report metadata */ }
+  return { report, target };
+}
+export async function getModeratorOverrides(): Promise<any[]> {
+  return q<any[]>(supabase.from('nexa_moderator_overrides').select('*').order('created_at', { ascending: false }).limit(100)) ?? [];
+}
+export async function setContentStatus(kind: 'message' | 'post' | 'comment', id: string, status: 'visible' | 'removed'): Promise<void> {
+  const table = kind === 'message' ? 'nexa_messages' : kind === 'post' ? 'nexa_posts' : 'nexa_comments';
+  await q(supabase.from(table).update({ status }).eq('id', id));
+  await logSensitiveAction(status === 'visible' ? 'CONTENT_APPROVED' : 'CONTENT_REMOVED', kind, id);
 }
 export async function getSuspiciousUsers(): Promise<any[]> {
   const decisions = await q<any[]>(supabase.from('nexa_moderation_decisions').select('user_id,category,decision,created_at').neq('decision', 'ALLOW').order('created_at', { ascending: false }).limit(200));
@@ -401,6 +466,7 @@ export async function getSuspiciousUsers(): Promise<any[]> {
   return (profiles ?? []).map((p) => ({ ...p, incidents: counts[p.id] }));
 }
 export async function getUserHistory(userId: string): Promise<any> {
+  await logSensitiveAction('USER_HISTORY_REVIEW', 'user', userId);
   const [decisions, restrictions, messages, reports] = await Promise.all([
     q<any[]>(supabase.from('nexa_moderation_decisions').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(50)),
     q<any[]>(supabase.from('nexa_account_restrictions').select('*').eq('user_id', userId).order('created_at', { ascending: false })),
