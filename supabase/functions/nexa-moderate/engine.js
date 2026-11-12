@@ -151,6 +151,7 @@ function deobfuscate(input) {
   if (/([a-zåäö])\1{2,}/i.test(s)) flags.add("repeat");
   if (/[A-Z]{2,}/.test(input) && input !== input.toLowerCase() && input !== input.toUpperCase()) flags.add("unusual_caps");
   if (/[a-zåäö][\-\.][a-zåäö]/i.test(s)) flags.add("syllables");
+  if (/(?:[a-zåäö][^\p{L}\p{N}\s]){2,}[a-zåäö]/u.test(s)) flags.add("letters_split");
   if (/[^\p{L}\p{N}\s]/u.test(s)) flags.add("symbols");
   return { text: s, flags: [...flags] };
 }
@@ -165,11 +166,12 @@ function buildAnalysis(input, context) {
   const combined = ctx.join("") + squashed;
   const combinedSpaced = (context.slice(-4).join(" ") + " " + spaced).toLowerCase();
   const weights = {
-    spacing: 1,
-    punctuation: 0.75,
+    spacing: 1.5,
+    punctuation: 0.5,
     homoglyph: 1,
     unicode: 1,
     syllables: 0.25,
+    letters_split: 1,
     leet: 0.5,
     repeat: 0.5,
     symbols: 0.25,
@@ -310,8 +312,8 @@ function decide(matches, a, recent, external) {
   if (recent.filter((r) => r.decision !== "ALLOW").length >= 3) signals.adversarial = "repeated_evasion_attempt";
   let decision = "WARN";
   if (ESCALATE_CATEGORIES.has(category)) decision = "ESCALATE";
-  else if (BLOCK_CATEGORIES.has(category) && confidence >= 0.62) decision = "BLOCK";
-  else if (category === "bullying" && effSeverity >= 4) decision = "BLOCK";
+  else if (BLOCK_CATEGORIES.has(category) && (confidence >= 0.62 || severity >= 5)) decision = "BLOCK";
+  else if (category === "bullying" && effSeverity >= 4.5) decision = "BLOCK";
   else if (effSeverity >= 4.5 && confidence >= 0.7) decision = "BLOCK";
   else if (effSeverity >= 4 || WARN_CATEGORIES.has(category)) decision = "WARN";
   else if (confidence < 0.6) decision = "HOLD_FOR_REVIEW";
