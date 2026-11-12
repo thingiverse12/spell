@@ -1,14 +1,41 @@
 -- Clearly marked DEMO data. Every demo account has is_demo = true and a
 -- demo_ username; production must remove this seed.
-insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
+-- GoTrue requires non-null empty strings on token/change columns and an email
+-- row in auth.identities; leaving them NULL causes "Database error querying schema".
+insert into auth.users (
+  instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+  confirmation_token, recovery_token, email_change_token_new, email_change,
+  email_change_token_current, phone_change, phone_change_token, reauthentication_token,
+  email_change_confirm_status, is_super_admin,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+)
 values
- ('00000000-0000-0000-0000-000000000000','11111111-1111-4111-8111-111111111111','authenticated','authenticated','demo_alva@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}','{}', now(), now()),
- ('00000000-0000-0000-0000-000000000000','22222222-2222-4222-8222-222222222222','authenticated','authenticated','demo_noah@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}','{}', now(), now()),
- ('00000000-0000-0000-0000-000000000000','33333333-3333-4333-8333-333333333333','authenticated','authenticated','demo_mira@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}','{}', now(), now()),
- ('00000000-0000-0000-0000-000000000000','44444444-4444-4444-8444-444444444444','authenticated','authenticated','demo_elis@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}','{}', now(), now()),
- ('00000000-0000-0000-0000-000000000000','55555555-5555-4555-8555-555555555555','authenticated','authenticated','demo_leo@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}','{}', now(), now()),
- ('00000000-0000-0000-0000-000000000000','66666666-6666-4666-8666-666666666666','authenticated','authenticated','demo_saga@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}','{}', now(), now())
-on conflict (id) do nothing;
+ ('00000000-0000-0000-0000-000000000000','11111111-1111-4111-8111-111111111111','authenticated','authenticated','demo_alva@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '','','','','','','','', 0, false, '{"provider":"email","providers":["email"]}','{}', now(), now()),
+ ('00000000-0000-0000-0000-000000000000','22222222-2222-4222-8222-222222222222','authenticated','authenticated','demo_noah@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '','','','','','','','', 0, false, '{"provider":"email","providers":["email"]}','{}', now(), now()),
+ ('00000000-0000-0000-0000-000000000000','33333333-3333-4333-8333-333333333333','authenticated','authenticated','demo_mira@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '','','','','','','','', 0, false, '{"provider":"email","providers":["email"]}','{}', now(), now()),
+ ('00000000-0000-0000-0000-000000000000','44444444-4444-4444-8444-444444444444','authenticated','authenticated','demo_elis@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '','','','','','','','', 0, false, '{"provider":"email","providers":["email"]}','{}', now(), now()),
+ ('00000000-0000-0000-0000-000000000000','55555555-5555-4555-8555-555555555555','authenticated','authenticated','demo_leo@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '','','','','','','','', 0, false, '{"provider":"email","providers":["email"]}','{}', now(), now()),
+ ('00000000-0000-0000-0000-000000000000','66666666-6666-4666-8666-666666666666','authenticated','authenticated','demo_saga@nexa.demo', extensions.crypt('Demo1234!', extensions.gen_salt('bf')), now(), '','','','','','','','', 0, false, '{"provider":"email","providers":["email"]}','{}', now(), now())
+on conflict (id) do update set
+  confirmation_token = coalesce(auth.users.confirmation_token, ''),
+  recovery_token = coalesce(auth.users.recovery_token, ''),
+  email_change_token_new = coalesce(auth.users.email_change_token_new, ''),
+  email_change = coalesce(auth.users.email_change, ''),
+  email_change_token_current = coalesce(auth.users.email_change_token_current, ''),
+  phone_change = coalesce(auth.users.phone_change, ''),
+  phone_change_token = coalesce(auth.users.phone_change_token, ''),
+  reauthentication_token = coalesce(auth.users.reauthentication_token, '');
+
+insert into auth.identities (
+  id, user_id, provider_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+)
+select
+  u.id, u.id, u.id::text,
+  jsonb_build_object('sub', u.id::text, 'email', u.email, 'email_verified', true, 'phone_verified', false),
+  'email', now(), now(), now()
+from auth.users u
+where u.email like 'demo_%@nexa.demo'
+  and not exists (select 1 from auth.identities i where i.user_id = u.id and i.provider = 'email');
 
 insert into public.nexa_notification_preferences (user_id)
 select id from auth.users where email like 'demo_%@nexa.demo' on conflict (user_id) do nothing;
